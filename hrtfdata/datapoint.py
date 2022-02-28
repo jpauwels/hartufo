@@ -1,75 +1,28 @@
+from .query import DataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, ThreeDThreeADataQuery
 from .util import wrap_open_closed_interval, spherical2cartesian, spherical2interaural
 from abc import abstractmethod
 from pathlib import Path
 import numpy as np
 import sofa
-from scipy import io
 from scipy.fft import rfft, fftfreq
+from PIL import Image
 
 
 class DataPoint:
 
-    def __init__(self, verbose=False, dtype=np.float32):
+    def __init__(self, query, dataset_id, verbose=False, dtype=np.float32):
+        self.query = query
+        self.dataset_id = dataset_id
         self.verbose = verbose
         self.dtype = dtype
-        self.allowed_keys = ['subject', 'side', 'dataset']
-
-
-    def validate_specifications(self, feature_spec, label_spec):
-        unknown_features = sorted(set(feature_spec.keys()).difference(self.allowed_keys))
-        if unknown_features:
-            raise ValueError(f'Unknown feature specifier{"s" if len(unknown_features) > 1 else ""} "{", ".join(unknown_features)}"')
-        unknown_labels = sorted(set(label_spec.keys()).difference(self.allowed_keys))
-        if unknown_labels:
-            raise ValueError(f'Unknown label specifier{"s" if len(unknown_labels) > 1 else ""} "{", ".join(unknown_labels)}"')
-
-
-    def specification_based_ids(self, specifications):
-        if 'images' in specifications.keys() and 'measurements' in specifications.keys():
-            # image_side = specifications['images'].pop('side')
-            # measurements_side = specifications['measurements'].pop('side')
-            # kw_args = {'image_side': image_side, **specifications['images'], 'measurements_side': measurements_side, **specifications['measurements']}
-            subject_ids = self.image_measurements_ids(**{**specifications['images'], **specifications['measurements']})
-        elif 'images' in specifications.keys():
-            subject_ids = self.image_ids(**specifications['images'])
-        elif 'measurements' in specifications.keys():
-            subject_ids = self.measurements_ids(**specifications['measurements'])
-        else:
-            side = specifications['hrirs'].get('side', 'both')
-            return self.hrir_ids(side=side)
-        return sorted(set(self.hrir_ids()).intersection(subject_ids))
 
 
 class SofaDataPoint(DataPoint):
-
-    def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
-        super().__init__(verbose, dtype)
-        self.sofa_directory_path = Path(sofa_directory_path)
-        self.allowed_keys += ['hrirs']
-
 
     @abstractmethod
     def _sofa_path(self, subject_id):
         pass
     
-
-    @abstractmethod
-    def _subject_ids(self):
-        pass
-
-
-    def hrir_ids(self, side):
-        ids = self._subject_ids()
-        if side.startswith('both'):
-            if side == 'both-left':
-                sides = ('left', 'flipped-right')
-            elif side == 'both-right':
-                sides = ('flipped-left', 'right')
-            else:
-                sides = ('left', 'right')
-            return [x for x in [(i, s) for i in ids for s in sides]]
-        return [x for x in [(i, side) for i in ids]]
-
 
     def hrir_samplerate(self, subject_id):
         try:
@@ -151,7 +104,7 @@ class SofaDataPoint(DataPoint):
 
 
     def hrir_positions(self, subject_id, row_angles=None, column_angles=None, coordinate_system='spherical'):
-        selected_azimuths, selected_elevations, row_indices, column_indices = hrir_angle_indices(subject_id, row_angles, column_angles)
+        selected_azimuths, selected_elevations, row_indices, column_indices = self.hrir_angle_indices(subject_id, row_angles, column_angles)
         selected_position_mask = position_mask[row_indices][:, column_indices]
 
         if coordinate_system == 'spherical':
@@ -213,118 +166,147 @@ class SofaDataPoint(DataPoint):
         return hrir
 
 
-class AriDataPoint(SofaDataPoint):
+class MatFileAnthropometryDataPoint(DataPoint):
 
-    def __init__(self, sofa_directory_path, anthropomorphy_matfile_path,
-                       verbose=False, dtype=np.float32):
-        super().__init__(sofa_directory_path, verbose, dtype)
-        if anthropomorphy_matfile_path is not None:
-            self.anth = io.loadmat(anthropomorphy_matfile_path, squeeze_me=True)
-            self.allowed_keys += ['measurements']
-        # self.pinna_images_path = Path(pinna_images_path)
-        self.dataset = 'ari'
+    def anthropomorphic_data(self, subject_id, side=None, select=None):
+        select_all = ('head-torso', 'pinna-size', 'pinna-angle', 'weight', 'age', 'sex')
+        if select is None:
+            select = select_all
+        elif isinstance(select, str):
+            select = (select,)
+        # if 'pinna-size' not in select and 'pinna-angle' not in select:
+        #     if side is not None:
+        #         print(f'Side "{side}" is irrelevant for this measurements selection "{", ".join(select)}"')
+        # el
+        if side not in ['left', 'right', 'both']: # and ('pinna-size' in select or 'pinna-angle' in select)
+            raise ValueError(f'Unknown side selector "{side}"')
+
+        unknown_select = sorted(set(select) - set(select_all))
+        if unknown_select:
+            raise ValueError(f'Unknown selection "{unknown_select}". Choose one or more from "{select_all}"')
+
+        subject_idx = np.squeeze(np.argwhere(np.squeeze(self.anth['id']) == subject_id))
+        if subject_idx.size == 0:
+            raise ValueError(f'Subject id "{subject_id}" has no anthropomorphic measurements')
+
+        select_data = []
+
+        if 'head-torso' in select:
+            select_data.append(self.anth['X'][subject_idx])
+        if side == 'left' or side.startswith('both'):
+            if 'pinna-size' in select:
+                select_data.append(self.anth['D'][subject_idx, :8])
+            if 'pinna-angle' in select:
+                select_data.append(self.anth['theta'][subject_idx, :2])
+        if side == 'right' or side.startswith('both'):
+            if 'pinna-size' in select:
+                select_data.append(self.anth['D'][subject_idx, 8:])
+            if 'pinna-angle' in select:
+                select_data.append(self.anth['theta'][subject_idx, 2:])
+        if 'weight' in select:
+            select_data.append(self.anth['WeightKilograms'][subject_idx])
+        if 'age' in select:
+            select_data.append(self.anth['age'][subject_idx])
+        if 'sex' in select:
+            select_data.append(0 if self.anth['sex'][subject_idx] == 'M' else 1 if self.anth['sex'][subject_idx] == 'F' else np.nan)
+
+        selected_data = np.hstack(select_data).astype(self.dtype)
+        if np.all(np.isnan(selected_data), axis=-1):
+            raise ValueError(f'Subject id "{subject_id}" has no data available for selection "{", ".join(select)}"')
+        return selected_data
 
 
-    def _subject_ids(self, exclude=(10,22,826)):
-        ids = sorted([int(x.stem.split('_nh')[1]) for x in self.sofa_directory_path.glob('hrtf [bc]_nh*.sofa')])
-        try:
-            for i in exclude:
-                ids.remove(i)
-        except ValueError:
-            pass
-        return ids
+class ImageDataPoint(DataPoint):
+
+    @abstractmethod
+    def _image_path(self, subject_id, side=None, rear=False):
+        pass
+
+
+    def image(self, subject_id, side=None, rear=False):
+        img = Image.open(self.pinna_image_path(subject_id, side, rear))
+        if side.startwith('flipped-'):
+            return img.transpose(Image.FLIP_LEFT_RIGHT)
+        return img
+
+
+class AriDataPoint(SofaDataPoint, MatFileAnthropometryDataPoint):
+
+    def __init__(
+        self,
+        sofa_directory_path=None,
+        anthropomorphy_matfile_path=None,
+        verbose=False,
+        dtype=np.float32
+    ):
+        query = AriDataQuery(sofa_directory_path, anthropomorphy_matfile_path)
+        super().__init__(query, 'ari', verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(next(self.sofa_directory_path.glob('hrtf [bc]_nh{}.sofa'.format(subject_id))))
+        return str(next(self.query.sofa_directory_path.glob('hrtf [bc]_nh{}.sofa'.format(subject_id))))
 
 
 class ListenDataPoint(SofaDataPoint):
 
     def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
-        super().__init__(sofa_directory_path, verbose, dtype)
-        self.dataset = 'listen'
-
-
-    def _subject_ids(self):
-        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob('IRC_????_C_44100.sofa')])
+        query = ListenDataQuery(sofa_directory_path)
+        super().__init__(query, 'listen', verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.sofa_directory_path / 'IRC_{:04d}_C_44100.sofa'.format(subject_id))
+        return str(self.query.sofa_directory_path / 'IRC_{:04d}_C_44100.sofa'.format(subject_id))
 
 
 class BiLiDataPoint(SofaDataPoint):
 
     def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
-        super().__init__(sofa_directory_path, verbose, dtype)
-        self.dataset = 'bili'
-
-
-    def _subject_ids(self):
-        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob('IRC_????_C_HRIR_96000.sofa')])
+        query = BiLiDataQuery(sofa_directory_path)
+        super().__init__(query, 'bili', verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.sofa_directory_path / 'IRC_{:04d}_C_HRIR_96000.sofa'.format(subject_id))
+        return str(self.query.sofa_directory_path / 'IRC_{:04d}_C_HRIR_96000.sofa'.format(subject_id))
 
 
 class ItaDataPoint(SofaDataPoint):
 
     def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
-        super().__init__(sofa_directory_path, verbose, dtype)
-        self.dataset = 'ita'
-
-
-    def _subject_ids(self, exclude=(2,14)):
-        ids = sorted([int(x.stem.split('MRT')[1]) for x in self.sofa_directory_path.glob('MRT??.sofa')])
-        try:
-            for i in exclude:
-                ids.remove(i)
-        except ValueError:
-            pass
-        return ids
+        query = ItaDataQuery(sofa_directory_path)
+        super().__init__(query, 'ita', verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.sofa_directory_path / 'MRT{:02d}.sofa'.format(subject_id))
+        return str(self.query.sofa_directory_path / 'MRT{:02d}.sofa'.format(subject_id))
 
 
 class HutubsDataPoint(SofaDataPoint):
 
     def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
-        super().__init__(sofa_directory_path, verbose, dtype)
-        self.dataset = 'hutubs'
-
-
-    def _subject_ids(self):
-        return sorted([int(x.stem.split('_')[0].split('pp')[1]) for x in self.sofa_directory_path.glob('pp??_HRIRs_measured.sofa')])
+        query = HutubsDataQuery(sofa_directory_path)
+        super().__init__(query, 'hutubs', verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.sofa_directory_path / 'pp{:d}_HRIRs_measured.sofa'.format(subject_id))
+        return str(self.query.sofa_directory_path / 'pp{:d}_HRIRs_measured.sofa'.format(subject_id))
 
 
 class RiecDataPoint(SofaDataPoint):
 
     def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
-        super().__init__(sofa_directory_path, verbose, dtype)
-        self.dataset = 'riec'
-
-
-    def _subject_ids(self):
-        return sorted([int(Path(x).stem.split('_')[3]) for x in self.sofa_directory_path.glob('RIEC_hrir_subject_???.sofa')])
+        query = RiecDataQuery(sofa_directory_path)
+        super().__init__(query, 'riec', verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.sofa_directory_path / f'RIEC_hrir_subject_{subject_id:03d}.sofa')
+        return str(self.query.sofa_directory_path / f'RIEC_hrir_subject_{subject_id:03d}.sofa')
 
 
 class ChedarDataPoint(SofaDataPoint):
 
     def __init__(self, sofa_directory_path, radius=1, verbose=False, dtype=np.float32):
-        super().__init__(sofa_directory_path, verbose, dtype)
-        self.dataset = 'chedar'
+        query = ChedarDataQuery(sofa_directory_path)
+        super().__init__(query, 'chedar', verbose, dtype)
         if np.isclose(radius, 0.2):
             self.radius = '02m'
         elif np.isclose(radius, 0.5):
@@ -337,19 +319,15 @@ class ChedarDataPoint(SofaDataPoint):
             raise ValueError('The radius needs to be one of 0.2, 0.5, 1 or 2')
 
 
-    def _subject_ids(self):
-        return sorted([int(Path(x).stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'chedar_????_UV{self.radius}.sofa')])
-
-
     def _sofa_path(self, subject_id):
-        return str(self.sofa_directory_path / f'chedar_{subject_id:04d}_UV{self.radius}.sofa')
+        return str(self.query.sofa_directory_path / f'chedar_{subject_id:04d}_UV{self.radius}.sofa')
 
 
 class WidespreadDataPoint(SofaDataPoint):
 
     def __init__(self, sofa_directory_path, radius=1, verbose=False, dtype=np.float32):
-        super().__init__(sofa_directory_path, verbose, dtype)
-        self.dataset = 'widespread'
+        query = WidespreadDataQuery(sofa_directory_path)
+        super().__init__(query, 'widespread', verbose, dtype)
         if np.isclose(radius, 0.2):
             self.radius = '02m'
         elif np.isclose(radius, 0.5):
@@ -362,29 +340,15 @@ class WidespreadDataPoint(SofaDataPoint):
             raise ValueError('The radius needs to be one of 0.2, 0.5, 1 or 2')
 
 
-    def _subject_ids(self):
-        return sorted([int(Path(x).stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'UV{self.radius}_?????.sofa')])
-
-
     def _sofa_path(self, subject_id):
-        return str(self.sofa_directory_path / f'UV{self.radius}_{subject_id:05d}.sofa')
+        return str(self.query.sofa_directory_path / f'UV{self.radius}_{subject_id:05d}.sofa')
 
 
-class Sadie2DataPoint(SofaDataPoint):
+class Sadie2DataPoint(SofaDataPoint, ImageDataPoint):
 
-    def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
-        super().__init__(sofa_directory_path, verbose, dtype)
-        self.dataset = 'sadie2'
-
-
-    def _subject_ids(self, exclude=(1,2,3,4,5,6,7,8,9)):
-        ids = sorted([int(Path(x).stem[1:]) for x in self.sofa_directory_path.glob('[DH]*')])
-        try:
-            for i in exclude:
-                ids.remove(i)
-        except ValueError:
-            pass
-        return ids
+    def __init__(self, sofa_directory_path=None, image_directory_path=None, verbose=False, dtype=np.float32):
+        query = Sadie2DataQuery(sofa_directory_path, image_directory_path)
+        super().__init__(query, 'sadie2', verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -392,25 +356,15 @@ class Sadie2DataPoint(SofaDataPoint):
             sadie2_id = f'D{subject_id}'
         else:
             sadie2_id = f'H{subject_id}'
-        return str(self.sofa_directory_path / f'{sadie2_id}/{sadie2_id}_HRIR_SOFA/{sadie2_id}_96K_24bit_512tap_FIR_SOFA.sofa')
+        return str(self.query.sofa_directory_path / f'{sadie2_id}/{sadie2_id}_HRIR_SOFA/{sadie2_id}_96K_24bit_512tap_FIR_SOFA.sofa')
 
 
 class ThreeDThreeADataPoint(SofaDataPoint):
 
     def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
-        super().__init__(sofa_directory_path, verbose, dtype)
-        self.dataset = '3d3a'
-
-
-    def _subject_ids(self, exclude=()):
-        ids = sorted([int(Path(x).stem.split('_')[0].lstrip('Subject')) for x in self.sofa_directory_path.glob('Subject*_HRIRs.sofa')])
-        try:
-            for i in exclude:
-                ids.remove(i)
-        except ValueError:
-            pass
-        return ids
+        query = ThreeDThreeADataQuery(sofa_directory_path)
+        super().__init__(query, '3d3a', verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.sofa_directory_path / f'Subject{subject_id}_HRIRs.sofa')
+        return str(self.query.sofa_directory_path / f'Subject{subject_id}_HRIRs.sofa')

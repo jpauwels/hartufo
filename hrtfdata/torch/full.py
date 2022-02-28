@@ -6,7 +6,7 @@ from PIL.Image import Image, LANCZOS
 from torch.utils.data import Dataset as TorchDataset
 from torchvision.transforms import ToTensor
 # from torchvision.datasets.utils import check_integrity, download_and_extract_archive
-from ..core import DataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint
+from ..datapoint import DataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint
 
 
 
@@ -17,8 +17,8 @@ class HRTFDataset(TorchDataset):
         datapoint: DataPoint,
         feature_spec: Optional[Dict] = None,
         label_spec: Optional[Dict] = None,
-        subject_ids=None,
-        subject_requirements = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
         image_transform: Optional[Callable] = ToTensor(),
         measurement_transform: Optional[Callable] = None,
         hrir_transform: Optional[Callable] = None,
@@ -28,6 +28,7 @@ class HRTFDataset(TorchDataset):
         self._image_transform = image_transform
         self._measurement_transform = measurement_transform
         self._hrir_transform = hrir_transform
+        self._query = datapoint.query
 
         # if download:
         #     self.download()
@@ -41,15 +42,20 @@ class HRTFDataset(TorchDataset):
         if label_spec is None:
             label_spec = {'subject': {}}
         
-        datapoint.validate_specifications(feature_spec, label_spec)
 
-        if subject_ids is None:
-            if subject_requirements is None:
-                ear_ids = datapoint.specification_based_ids({**feature_spec, **label_spec})
-            else:
-                ear_ids = datapoint.specification_based_ids({**feature_spec, **label_spec, **subject_requirements})
-        else:
-            raise NotImplementedError()
+        self._specification = {**feature_spec, **label_spec}
+        if subject_requirements is not None:
+            self._specification = {**self._specification, **subject_requirements}
+        ear_ids = self._query.specification_based_ids(self._specification, include_subjects=subject_ids)
+
+        if len(ear_ids) == 0:
+            self.subject_ids = []
+            self.hrir_samplerate = None
+            self.hrtf_frequencies = None
+            self._features = []
+            self._targets = []
+            self._selected_angles = {}
+            return
 
         self.subject_ids, _ = zip(*ear_ids)
 
@@ -131,8 +137,16 @@ class HRTFDataset(TorchDataset):
                 raise ValueError('Not all data points have the same shape')
 
 
+    @property
     def target_shape(self):
-        return np.hstack(tuple(self._targets[0].values()))
+        return np.hstack(tuple(self._targets[0].values())).shape
+
+
+    @property
+    def available_subject_ids(self):
+        ear_ids = self._query.specification_based_ids(self._specification)
+        subject_ids, _ = zip(*ear_ids)
+        return sorted(set(subject_ids))
 
 
 class ARI(HRTFDataset):
@@ -143,8 +157,8 @@ class ARI(HRTFDataset):
         root: str,
         feature_spec: Optional[Dict] = None,
         label_spec: Optional[Dict] = None,
-        subject_ids=None,
-        subject_requirements = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
         image_transform: Optional[Callable] = ToTensor(),
         measurement_transform: Optional[Callable] = None,
         hrir_transform: Optional[Callable] = None,
@@ -165,8 +179,8 @@ class Listen(HRTFDataset):
         root: str,
         feature_spec: Optional[Dict] = None,
         label_spec: Optional[Dict] = None,
-        subject_ids=None,
-        subject_requirements = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
         # download: bool = True,
     ) -> None:
@@ -182,8 +196,8 @@ class BiLi(HRTFDataset):
         root: str,
         feature_spec: Optional[Dict] = None,
         label_spec: Optional[Dict] = None,
-        subject_ids=None,
-        subject_requirements = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
         # download: bool = True,
     ) -> None:
@@ -199,8 +213,8 @@ class ITA(HRTFDataset):
         root: str,
         feature_spec: Optional[Dict] = None,
         label_spec: Optional[Dict] = None,
-        subject_ids=None,
-        subject_requirements = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
         # download: bool = True,
     ) -> None:
@@ -216,8 +230,8 @@ class HUTUBS(HRTFDataset):
         root: str,
         feature_spec: Optional[Dict] = None,
         label_spec: Optional[Dict] = None,
-        subject_ids=None,
-        subject_requirements = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
         # download: bool = True,
     ) -> None:
@@ -233,8 +247,8 @@ class RIEC(HRTFDataset):
         root: str,
         feature_spec: Optional[Dict] = None,
         label_spec: Optional[Dict] = None,
-        subject_ids=None,
-        subject_requirements = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
         # download: bool = True,
     ) -> None:
@@ -250,8 +264,8 @@ class CHEDAR(HRTFDataset):
         root: str,
         feature_spec: Optional[Dict] = None,
         label_spec: Optional[Dict] = None,
-        subject_ids=None,
-        subject_requirements = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
         # download: bool = True,
     ) -> None:
@@ -267,8 +281,8 @@ class Widespread(HRTFDataset):
         root: str,
         feature_spec: Optional[Dict] = None,
         label_spec: Optional[Dict] = None,
-        subject_ids=None,
-        subject_requirements = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
         # download: bool = True,
     ) -> None:
@@ -284,8 +298,8 @@ class SADIE2(HRTFDataset):
         root: str,
         feature_spec: Optional[Dict] = None,
         label_spec: Optional[Dict] = None,
-        subject_ids=None,
-        subject_requirements = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
         # download: bool = True,
     ) -> None:
@@ -301,8 +315,8 @@ class ThreeDThreeA(HRTFDataset):
         root: str,
         feature_spec: Optional[Dict] = None,
         label_spec: Optional[Dict] = None,
-        subject_ids=None,
-        subject_requirements = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
         # download: bool = True,
     ) -> None:
