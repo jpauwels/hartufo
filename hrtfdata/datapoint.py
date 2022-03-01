@@ -1,9 +1,9 @@
 from .query import DataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, ThreeDThreeADataQuery
-from .util import wrap_open_closed_interval, spherical2cartesian, spherical2interaural
+from .util import wrap_open_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical
 from abc import abstractmethod
 from pathlib import Path
 import numpy as np
-import sofa
+import netCDF4 as ncdf
 from scipy.fft import rfft, fftfreq
 from PIL import Image
 
@@ -26,21 +26,23 @@ class SofaDataPoint(DataPoint):
 
     def hrir_samplerate(self, subject_id):
         try:
-            hrir_file = sofa.Database.open(self._sofa_path(subject_id))
-            samplerate = hrir_file.Data.SamplingRate.get_values({'M': 0}).item()
+            hrir_file = ncdf.Dataset(self._sofa_path(subject_id))
+            samplerate = hrir_file.variables['Data.SamplingRate'][:].item()
         except:
             raise ValueError(f'Error reading file "{self._sofa_path(subject_id)}"')
-        hrir_file.close()
+        finally:
+            hrir_file.close()
         return samplerate
 
 
     def hrir_length(self, subject_id):
-        hrir_file = sofa.Database.open(self._sofa_path(subject_id))
         try:
-            length = hrir_file.Dimensions.N
+            hrir_file = ncdf.Dataset(self._sofa_path(subject_id))
+            length = hrir_file.dimensions['N'].size
         except:
             raise ValueError(f'Error reading file "{self._sofa_path(subject_id)}"')
-        hrir_file.close()
+        finally:
+            hrir_file.close()
         return length
 
 
@@ -77,12 +79,15 @@ class SofaDataPoint(DataPoint):
 
 
     def _map_sofa_position_order_to_matrix(self, subject_id):
-        hrir_file = sofa.Database.open(self._sofa_path(subject_id))
         try:
-            positions = hrir_file.Source.Position.get_global_values(system='spherical')
+            hrir_file = ncdf.Dataset(self._sofa_path(subject_id))
+            positions = np.ma.getdata(hrir_file.variables['SourcePosition'][:])
+            if hrir_file.variables['SourcePosition'].Type == 'cartesian':
+                positions = np.stack(cartesian2spherical(*positions.T), axis=1)
         except:
             raise ValueError(f'Error reading file "{self._sofa_path(subject_id)}"')
-        hrir_file.close()
+        finally:
+            hrir_file.close()
         quantified_positions = np.round(positions, 2)
         quantified_positions[:, 0] = wrap_open_closed_interval(quantified_positions[:, 0], -180, 180)
         unique_azimuths = np.unique(quantified_positions[:, 0])
@@ -124,12 +129,13 @@ class SofaDataPoint(DataPoint):
 
 
     def hrir(self, subject_id, side, domain='time', row_indices=None, column_indices=None):
-        hrir_file = sofa.Database.open(self._sofa_path(subject_id))
         try:
-            hrirs = hrir_file.Data.IR.get_values({'R': 0 if side.endswith('left') else 1})
+            hrir_file = ncdf.Dataset(self._sofa_path(subject_id))
+            hrirs = np.ma.getdata(hrir_file.variables['Data.IR'][:, 0 if side.endswith('left') else 1, :])
         except:
             raise ValueError(f'Error reading file "{self._sofa_path(subject_id)}"')
-        hrir_file.close()
+        finally:
+            hrir_file.close()
         unique_azimuths, unique_elevations, unique_radii, position_map = self._map_sofa_position_order_to_matrix(subject_id)
         hrir_matrix = np.empty((len(unique_azimuths), len(unique_elevations), len(unique_radii), hrirs.shape[1]))
         hrir_matrix[position_map] = hrirs

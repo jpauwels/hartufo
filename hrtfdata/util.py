@@ -29,3 +29,13 @@ def spherical2cartesian(azimuth, elevation, radius, angles_in_degrees=True):
     y = np.sin(azimuth)
     z = np.sin(elevation)
     return x, y, z
+
+
+def cartesian2spherical(x, y, z, angle_unit='degrees'):
+    azimuth = np.arctan2(y, x)
+    elevation = np.arctan2(z, np.sqrt(x**2 + y**2))
+    radius = np.sqrt(x**2 + y**2 + z**2)
+    if angle_unit == 'degrees':
+        return np.rad2deg(azimuth), np.rad2deg(elevation), radius
+    else:
+        return azimuth, elevation, radius
