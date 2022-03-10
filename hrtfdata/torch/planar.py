@@ -17,6 +17,17 @@ class PlaneTransform(ABC):
         self.positive_angles = positive_angles
 
 
+    @property
+    def positive_angles(self):
+        return self._positive_angles
+
+
+    @positive_angles.setter
+    @abstractmethod
+    def positive_angles(self):
+        pass
+
+
     @abstractmethod
     def __call__(self, single_plane):
         try:
@@ -59,11 +70,16 @@ class PlaneTransform(ABC):
 class SphericalPlaneTransform(PlaneTransform):
     def __init__(self, plane, plane_offset, positive_angles):
         super().__init__(plane, plane_offset, positive_angles)
-        if positive_angles:
+
+
+    @PlaneTransform.positive_angles.setter
+    def positive_angles(self, value):
+        self._positive_angles = value
+        if value:
             self.min_angle = 0
             self.max_angle = 360
             self.closed_open_angles = True
-        elif plane == 'horizontal':
+        elif self.plane == 'horizontal':
             self.min_angle = -180
             self.max_angle = 180
             self.closed_open_angles = False
@@ -182,14 +198,26 @@ class HRTFPlaneDataset(HRTFDataset):
         if plane not in ('horizontal', 'median', 'frontal'):
             raise ValueError('Unknown plane "{}", needs to be "horizontal", "median" or "frontal".')
         self._domain = domain
+        self._planar_transform = planar_transform
 
         feature_spec = {'hrirs': {'row_angles': row_angles, 'column_angles': column_angles, 'side': side, 'domain': domain}}
         label_spec = {'side': {}}
         super().__init__(datapoint, feature_spec, label_spec, subject_ids, hrir_transform=planar_transform)
-        self.plane_angles = planar_transform.calc_plane_angles(self._selected_angles)
-        self.min_angle = planar_transform.min_angle
-        self.max_angle = planar_transform.max_angle
-        self.closed_open_angles = planar_transform.closed_open_angles
+        self.positive_angles = planar_transform.positive_angles
+
+
+    @property
+    def positive_angles(self):
+        return self._planar_transform.positive_angles
+
+
+    @positive_angles.setter
+    def positive_angles(self, value):
+        self._planar_transform.positive_angles = value
+        self.plane_angles = self._planar_transform.calc_plane_angles(self._selected_angles)
+        self.min_angle = self._planar_transform.min_angle
+        self.max_angle = self._planar_transform.max_angle
+        self.closed_open_angles = self._planar_transform.closed_open_angles
 
 
     def plot_plane(self, idx, ax=None, cmap='viridis', continuous=False, vmin=None, vmax=None, title=None, colorbar=True, log_freq=False):
