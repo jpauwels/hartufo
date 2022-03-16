@@ -25,22 +25,24 @@ class SofaDataPoint(DataPoint):
     
 
     def hrir_samplerate(self, subject_id):
+        sofa_path = self._sofa_path(subject_id)
+        hrir_file = ncdf.Dataset(sofa_path)
         try:
-            hrir_file = ncdf.Dataset(self._sofa_path(subject_id))
             samplerate = hrir_file.variables['Data.SamplingRate'][:].item()
         except:
-            raise ValueError(f'Error reading file "{self._sofa_path(subject_id)}"')
+            raise ValueError(f'Error reading file "{sofa_path}"')
         finally:
             hrir_file.close()
         return samplerate
 
 
     def hrir_length(self, subject_id):
+        sofa_path = self._sofa_path(subject_id)
+        hrir_file = ncdf.Dataset(sofa_path)
         try:
-            hrir_file = ncdf.Dataset(self._sofa_path(subject_id))
             length = hrir_file.dimensions['N'].size
         except:
-            raise ValueError(f'Error reading file "{self._sofa_path(subject_id)}"')
+            raise ValueError(f'Error reading file "{sofa_path}"')
         finally:
             hrir_file.close()
         return length
@@ -79,13 +81,14 @@ class SofaDataPoint(DataPoint):
 
 
     def _map_sofa_position_order_to_matrix(self, subject_id):
+        sofa_path = self._sofa_path(subject_id)
+        hrir_file = ncdf.Dataset(sofa_path)
         try:
-            hrir_file = ncdf.Dataset(self._sofa_path(subject_id))
             positions = np.ma.getdata(hrir_file.variables['SourcePosition'][:])
             if hrir_file.variables['SourcePosition'].Type == 'cartesian':
                 positions = np.stack(cartesian2spherical(*positions.T), axis=1)
         except:
-            raise ValueError(f'Error reading file "{self._sofa_path(subject_id)}"')
+            raise ValueError(f'Error reading file "{sofa_path}"')
         finally:
             hrir_file.close()
         quantified_positions = np.round(positions, 2)
@@ -129,11 +132,12 @@ class SofaDataPoint(DataPoint):
 
 
     def hrir(self, subject_id, side, domain='time', row_indices=None, column_indices=None):
+        sofa_path = self._sofa_path(subject_id)
+        hrir_file = ncdf.Dataset(sofa_path)
         try:
-            hrir_file = ncdf.Dataset(self._sofa_path(subject_id))
             hrirs = np.ma.getdata(hrir_file.variables['Data.IR'][:, 0 if side.endswith('left') else 1, :])
         except:
-            raise ValueError(f'Error reading file "{self._sofa_path(subject_id)}"')
+            raise ValueError(f'Error reading file "{sofa_path}"')
         finally:
             hrir_file.close()
         unique_azimuths, unique_elevations, unique_radii, position_map = self._map_sofa_position_order_to_matrix(subject_id)
