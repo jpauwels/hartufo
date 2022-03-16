@@ -265,3 +265,34 @@ class ThreeDThreeADataQuery(DataQuery):
 
     def _all_hrir_ids(self, exclude=()):
         return sorted([int(x.stem.split('_')[0].lstrip('Subject')) for x in self.sofa_directory_path.glob('Subject*_HRIRs.sofa')])
+
+
+class SonicomDataQuery(DataQuery):
+
+    def __init__(self, sofa_directory_path, samplerate=48000, hrtf_variant='compensated'):
+        super().__init__(sofa_directory_path)
+        if samplerate not in (44100, 48000, 96000):
+            raise ValueError(f'Sample rate {samplerate} is unavailable. Choose one of 44100, 48000 or 96000.')
+        if hrtf_variant == 'compensated':
+            self._hrtf_variant_str = 'FreeFieldComp'
+        elif hrtf_variant == 'compensated-minphase':
+            self._hrtf_variant_str = 'FreeFieldCompMinPhase'
+        elif hrtf_variant == 'compensated-noitd':
+            self._hrtf_variant_str = 'FreeFieldComp_NoITD'
+        elif hrtf_variant == 'compensated-minphase-noitd':
+            self._hrtf_variant_str = 'FreeFieldCompMinPhase_NoITD'
+        elif hrtf_variant == 'raw':
+            self._hrtf_variant_str = 'Raw'
+        elif hrtf_variant == 'raw-noitd':
+            self._hrtf_variant_str = 'Raw_NoITD'
+        elif hrtf_variant == 'windowed':
+            self._hrtf_variant_str = 'Windowed'
+        elif hrtf_variant == 'windowed-noitd':
+            self._hrtf_variant_str = 'Windowed_NoITD'
+        else:
+            raise ValueError(f'{hrtf_variant}')
+        self._samplerate_str = f'{round(samplerate/1000)}kHz'
+
+
+    def _all_hrir_ids(self, exclude=()):
+        return sorted([int(x.stem.split('_')[0].lstrip('P')) for x in self.sofa_directory_path.glob(f'P????/HRTF/{self._samplerate_str}/P????_{self._hrtf_variant_str}_{self._samplerate_str}.sofa')])

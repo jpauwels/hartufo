@@ -6,7 +6,7 @@ from PIL.Image import Image, LANCZOS
 from torch.utils.data import Dataset as TorchDataset
 from torchvision.transforms import ToTensor
 # from torchvision.datasets.utils import check_integrity, download_and_extract_archive
-from ..datapoint import DataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint
+from ..datapoint import DataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint, SonicomDataPoint
 
 
 
@@ -314,11 +314,28 @@ class ThreeDThreeA(HRTFDataset):
         self,
         root: str,
         feature_spec: Optional[Dict] = None,
-        label_spec: Optional[Dict] = None,
+        target_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
         # download: bool = True,
     ) -> None:
         datapoint = ThreeDThreeADataPoint(sofa_directory_path=Path(root)/'sofa')
+        super().__init__(datapoint, feature_spec, target_spec, subject_ids, subject_requirements, None, None, hrir_transform)
+
+
+class SONICOM(HRTFDataset):
+    """SONICOM HRTF Dataset
+    """
+    def __init__(
+        self,
+        root: str,
+        feature_spec: Optional[Dict] = None,
+        label_spec: Optional[Dict] = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
+        hrir_transform: Optional[Callable] = None,
+        # download: bool = True,
+    ) -> None:
+        datapoint = SonicomDataPoint(sofa_directory_path=Path(root))
         super().__init__(datapoint, feature_spec, label_spec, subject_ids, subject_requirements, None, None, hrir_transform)

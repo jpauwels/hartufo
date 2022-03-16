@@ -1,4 +1,4 @@
-from .query import DataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, ThreeDThreeADataQuery
+from .query import DataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, ThreeDThreeADataQuery, SonicomDataQuery
 from .util import wrap_open_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical
 from abc import abstractmethod
 from pathlib import Path
@@ -374,3 +374,14 @@ class ThreeDThreeADataPoint(SofaDataPoint):
 
     def _sofa_path(self, subject_id):
         return str(self.query.sofa_directory_path / f'Subject{subject_id}_HRIRs.sofa')
+
+
+class SonicomDataPoint(SofaDataPoint):
+
+    def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
+        query = SonicomDataQuery(sofa_directory_path)
+        super().__init__(query, 'sonicom', verbose, dtype)
+
+
+    def _sofa_path(self, subject_id):
+        return str(self.query.sofa_directory_path / f'P{subject_id:04d}/HRTF/{self.query._samplerate_str}/P{subject_id:04d}_{self.query._hrtf_variant_str}_{self.query._samplerate_str}.sofa')

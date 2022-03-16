@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 import numpy as np
 from .full import HRTFDataset
-from ..datapoint import DataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint
+from ..datapoint import DataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint, SonicomDataPoint
 from ..util import wrap_closed_open_interval, wrap_open_closed_interval
 from ..display import plot_hrir_plane, plot_hrtf_plane, plot_plane_angles
 
@@ -451,4 +451,20 @@ class ThreeDThreeAPlane(SphericalPlaneDataset):
         subject_ids: Optional[Iterable[int]] = None,
     ):
         datapoint = ThreeDThreeADataPoint(sofa_directory_path=Path(root)/'sofa')
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
+
+
+class SONICOMPlane(SphericalPlaneDataset):
+    def __init__(
+        self,
+        root: str,
+        plane: str,
+        domain: str = 'magnitude_db',
+        side: str = 'both-left',
+        plane_angles: Optional[Iterable[float]] = None,
+        plane_offset: float = 0.,
+        positive_angles: bool = False,
+        subject_ids: Optional[Iterable[int]] = None,
+    ):
+        datapoint = SonicomDataPoint(sofa_directory_path=Path(root))
         super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
