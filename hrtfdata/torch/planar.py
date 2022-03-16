@@ -201,8 +201,9 @@ class HRTFPlaneDataset(HRTFDataset):
         self._planar_transform = planar_transform
 
         feature_spec = {'hrirs': {'row_angles': row_angles, 'column_angles': column_angles, 'side': side, 'domain': domain}}
-        label_spec = {'side': {}}
-        super().__init__(datapoint, feature_spec, label_spec, subject_ids, hrir_transform=planar_transform)
+        target_spec = {'side': {}}
+        group_spec = {'subject': {}}
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, hrir_transform=planar_transform)
         self.positive_angles = planar_transform.positive_angles
 
 
