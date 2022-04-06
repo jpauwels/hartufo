@@ -101,7 +101,7 @@ class SofaDataPoint(DataPoint):
             position_map[:, idx] = np.argmax(azimuth == unique_azimuths), np.argmax(elevation == unique_elevations), np.argmax(radius == unique_radii)
         return unique_azimuths, unique_elevations, unique_radii, tuple(position_map)
 
-
+    # called by torch.full
     def hrir_angle_indices(self, subject_id, row_angles=None, column_angles=None):
         unique_row_angles, unique_column_angles, unique_radii, position_map = self._map_sofa_position_order_to_matrix(subject_id)
         position_mask = np.full((len(unique_row_angles), len(unique_column_angles), len(unique_radii)), True)
@@ -112,20 +112,25 @@ class SofaDataPoint(DataPoint):
 
 
     def hrir_positions(self, subject_id, row_angles=None, column_angles=None, coordinate_system='spherical'):
-        selected_azimuths, selected_elevations, row_indices, column_indices = self.hrir_angle_indices(subject_id, row_angles, column_angles)
+        unique_row_angles, unique_column_angles, unique_radii, position_map = self._map_sofa_position_order_to_matrix(subject_id)
+        position_mask = np.full((len(unique_row_angles), len(unique_column_angles), len(unique_radii)), True)
+        position_mask[position_map] = False
+        row_indices, column_indices = SofaDataPoint._hrir_select_angles(row_angles, column_angles, unique_row_angles, unique_column_angles, position_mask)
         selected_position_mask = position_mask[row_indices][:, column_indices]
+        selected_azimuths = unique_row_angles[row_indices]
+        selected_elevations = unique_column_angles[column_indices]
 
         if coordinate_system == 'spherical':
-            coordinates = selected_azimuths, selected_elevations, all_radii
+            coordinates = selected_azimuths, selected_elevations, unique_radii
         elif coordinate_system == 'interaural':
-            coordinates = spherical2interaural(selected_azimuths, selected_elevations, all_radii)
+            coordinates = spherical2interaural(selected_azimuths, selected_elevations, unique_radii)
         elif coordinate_system == 'cartesian':
-            coordinates = spherical2cartesian(selected_azimuths, selected_elevations, all_radii)
+            coordinates = spherical2cartesian(selected_azimuths, selected_elevations, unique_radii)
         else:
             raise ValueError(f'Unknown coordinate system "{coordinate_system}"')
         position_grid = np.stack(np.meshgrid(*coordinates, indexing='ij'), axis=-1)
         if selected_position_mask.any(): # sparse grid
-            tiled_position_mask = np.tile(selected_position_mask[:, :, :, np.newaxis], (1,1,1,3))
+            tiled_position_mask = np.tile(selected_position_mask[:, :, :, np.newaxis], (1, 1, 1, 3))
             return np.ma.masked_where(tiled_position_mask, position_grid)
         # dense grid
         return position_grid
@@ -154,23 +159,24 @@ class SofaDataPoint(DataPoint):
         selected_position_mask = position_mask[row_indices][:, column_indices]
         selected_hrir_matrix = np.ma.masked_where(selected_position_mask, hrir_matrix[row_indices][:, column_indices], copy=False)
         if domain == 'time':
-            hrir = selected_hrir_matrix.astype(self.dtype)
+            hrir = selected_hrir_matrix
         else:
             selected_hrtf_matrix = np.ma.masked_where(selected_position_mask[:, :, :, :hrirs.shape[1]//2+1], rfft(selected_hrir_matrix), copy=False)
             if domain == 'complex':
-                hrir = selected_hrtf_matrix.astype(self.dtype)
+                hrir = selected_hrtf_matrix
             elif domain.startswith('magnitude'):
                 magnitudes = np.abs(selected_hrtf_matrix)
                 if domain.endswith('_db'):
                     # limit dB range to what is representable in data type
                     min_magnitude = np.max(magnitudes) * np.finfo(self.dtype).resolution
-                    hrir = 20*np.log10(np.clip(magnitudes, min_magnitude, None)).astype(self.dtype)
+                    hrir = 20*np.log10(np.clip(magnitudes, min_magnitude, None))
                 else:
                     hrir = magnitudes
             elif domain == 'phase':
-                hrir = np.angle(selected_hrtf_matrix).astype(self.dtype)
+                hrir = np.angle(selected_hrtf_matrix)
             else:
                 hrir = ValueError(f'Unknown domain "{domain}" for HRIR')
+        hrir = np.squeeze(hrir.astype(self.dtype))
         if side.startswith('flipped'):
             return np.flipud(hrir)
         return hrir
