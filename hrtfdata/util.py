@@ -1,11 +1,11 @@
 import numpy as np
 
 def wrap_closed_open_interval(values, lower, upper):
-    return (values - lower) % (upper - lower) + lower
+    return (np.asarray(values) - lower) % (upper - lower) + lower
 
 
 def wrap_open_closed_interval(values, lower, upper):
-    return -((lower - values) % (upper - lower)) - lower
+    return -((lower - np.asarray(values)) % (upper - lower)) - lower
 
 
 def spherical2interaural(azimuth, elevation, radius, angles_in_degrees=True):

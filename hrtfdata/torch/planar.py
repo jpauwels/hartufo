@@ -82,7 +82,7 @@ class SphericalPlaneTransform(PlaneTransform):
         elif self.plane == 'horizontal':
             self.min_angle = -180
             self.max_angle = 180
-            self.closed_open_angles = False
+            self.closed_open_angles = True
         else:
             self.min_angle = -90
             self.max_angle = 270
@@ -92,23 +92,40 @@ class SphericalPlaneTransform(PlaneTransform):
     def calc_plane_angles(self, selected_angles):
         if not selected_angles:
             return np.array([])
-        self.azimuth_angles = np.array(list(selected_angles.keys()))
-        self.elevation_angles = list(selected_angles.values())[0]
+        azimuth_angles = np.array(list(selected_angles.keys()))
+        elevation_angles = list(selected_angles.values())[0]
 
         if self.plane == 'horizontal':
-            input_angles = self.azimuth_angles
-        elif len(self.azimuth_angles) > 1:
-            other_elevation_angles = 180-list(selected_angles.values())[1]
-            input_angles = [self.elevation_angles, other_elevation_angles]
-            self._elevation_overlap90 = np.isclose(self.elevation_angles, 90).any() and np.isclose(other_elevation_angles, 90).any()
-            self._elevation_overlap270 = np.isclose(self.elevation_angles, -90).any() and np.isclose(other_elevation_angles, 270).any()
-        elif (self.plane == 'median' and np.isclose(self.azimuth_angles, [0]).any()
-        or self.plane == 'frontal' and np.isclose(self.azimuth_angles, [90]).any()):
-            # only first half plane is present
-            input_angles = self.elevation_angles
+            input_angles = azimuth_angles
+            self._split_idx = self._first_nonneg_angle_idx(azimuth_angles)
         else:
-            # only second half plane is present
-            input_angles = 180-self.elevation_angles
+            self._split_idx = self._first_nonneg_angle_idx(np.ma.getdata(elevation_angles))
+            if len(azimuth_angles) > 1:
+                # both half spheres present
+                back_elevation_angles = 180-elevation_angles
+                front_elevation_angles = list(selected_angles.values())[1]
+                input_angles = [back_elevation_angles, front_elevation_angles]
+                self._elevation_overlap90 = np.isclose(front_elevation_angles, 90).any() and np.isclose(back_elevation_angles, 90).any()
+                self._elevation_overlap270 = np.isclose(front_elevation_angles, -90).any() and np.isclose(back_elevation_angles, 270).any()
+                self._front_sphere_present = True
+                self._back_sphere_present = True
+            else:
+                # floating point safe version of check below
+                # if azimuth_angles <= 90 and azimuth_angles > -90:
+                rtol = 1e-5
+                atol = 1e-8
+                upper_lim = azimuth_angles - 90
+                lower_lim = azimuth_angles + 90
+                if (upper_lim <= rtol*np.abs(upper_lim)+atol and lower_lim > rtol*np.abs(lower_lim)+atol).item():
+                    # only front half sphere is present
+                    self._front_sphere_present = True
+                    self._back_sphere_present = False
+                    input_angles = elevation_angles
+                else:
+                    # only back half sphere is present
+                    self._front_sphere_present = False
+                    self._back_sphere_present = True
+                    input_angles = 180-elevation_angles
         
         return super().calc_plane_angles(input_angles)
 
@@ -116,67 +133,36 @@ class SphericalPlaneTransform(PlaneTransform):
     def __call__(self, hrirs):
         if self.plane == 'horizontal':
             if self.positive_angles:
-                split_idx = self._first_nonneg_angle_idx(self.azimuth_angles)
-                left = hrirs[split_idx:]
-                right = hrirs[:split_idx]
+                right, left = np.split(hrirs, [self._split_idx])
                 single_plane = np.ma.concatenate((left, right))
             else:
                 single_plane = hrirs
-        elif self.plane == 'median':
-            split_idx = self._first_nonneg_angle_idx(self.elevation_angles)
-            if len(self.azimuth_angles) > 1:
-                # both half planes present
-                down_up_front = hrirs[0]
-                up_down_back = np.flip(hrirs[1], axis=0)
+        else:
+            if self._front_sphere_present and self._back_sphere_present:
+                # both half spheres present
+                back_up_down = np.flip(hrirs[0], axis=0)
+                front_down_up = hrirs[1]
                 if self._elevation_overlap90:
-                    down_up_front = down_up_front[:-1]
+                    front_down_up = front_down_up[:-1]
                 if self._elevation_overlap270:
-                    up_down_back = up_down_back[:-1]
+                    back_up_down = back_up_down[:-1]
                 if self.positive_angles:
-                    down_front, up_front = np.split(down_up_front, [split_idx])
-                    single_plane = np.ma.concatenate((up_front, up_down_back, down_front))
+                    front_down, front_up = np.split(front_down_up, [self._split_idx])
+                    single_plane = np.ma.concatenate((front_up, back_up_down, front_down))
                 else:
-                    single_plane = np.ma.concatenate((down_up_front, up_down_back))
-            elif np.isclose(self.azimuth_angles, 0).any():
-                # only front half plane present
-                down_up_front = hrirs
+                    single_plane = np.ma.concatenate((front_down_up, back_up_down))
+            elif self._front_sphere_present:
+                # only front half sphere present
+                front_down_up = hrirs
                 if self.positive_angles:
-                    down_front, up_front = np.split(down_up_front, [split_idx])
-                    single_plane = np.ma.concatenate((up_front, down_front))
+                    front_down, front_up = np.split(front_down_up, [self._split_idx])
+                    single_plane = np.ma.concatenate((front_up, front_down))
                 else:
-                    single_plane = down_up_front
+                    single_plane = front_down_up
             else:
-                # only back half plane present
-                up_down_back = np.flip(hrirs, axis=0)
-                single_plane = up_down_back
-        elif self.plane == 'frontal':
-            if len(self.azimuth_angles) > 1:
-                # both half planes present
-                left_down_up = hrirs[0]
-                right_up_down = np.flip(hrirs[1], axis=0)
-                if self._elevation_overlap90:
-                    left_down_up = left_down_up[:-1]
-                if self._elevation_overlap270:
-                    right_up_down = right_up_down[:-1]
-                if self.positive_angles:
-                    split_idx = self._first_nonneg_angle_idx(self.elevation_angles)
-                    left_down, left_up = np.split(left_down_up, [split_idx])
-                    single_plane = np.ma.concatenate((left_up, right_up_down, left_down))
-                else:
-                    single_plane = np.ma.concatenate((left_down_up, right_up_down))
-            elif np.isclose(self.azimuth_angles, 90).any():
-                # only left half plane present
-                left_down_up = hrirs
-                if self.positive_angles:
-                    split_idx = self._first_nonneg_angle_idx(self.elevation_angles)
-                    left_down, left_up = np.split(left_down_up, [split_idx])
-                    single_plane = np.ma.concatenate((left_up, left_down))
-                else:
-                    single_plane = left_down_up
-            else:
-                # only right half plane present
-                right_up_down = np.flip(hrirs, axis=0)
-                single_plane = right_up_down
+                # only back half sphere present
+                back_up_down = np.flip(hrirs, axis=0)
+                single_plane = back_up_down
 
         return super().__call__(single_plane)
 
@@ -195,8 +181,8 @@ class HRTFPlaneDataset(HRTFDataset):
     ):
         self._plane = plane
         self._plane_offset = plane_offset
-        if plane not in ('horizontal', 'median', 'frontal'):
-            raise ValueError('Unknown plane "{}", needs to be "horizontal", "median" or "frontal".')
+        if plane not in ('horizontal', 'median', 'frontal', 'vertical'):
+            raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal" or "vertical".')
         self._domain = domain
         self._planar_transform = planar_transform
 
@@ -259,7 +245,7 @@ class HRTFPlaneDataset(HRTFDataset):
             zero_location = 'E'
         ax = plot_plane_angles(self.plane_angles, self.min_angle, self.max_angle, self.closed_open_angles, 1, zero_location, ax) # TODO use actual radius
         if title is None:
-            title = 'Angles in the {} Plane'.format(self._plane.title())
+            title = 'Angles in the {} Plane{}'.format(self._plane.title(), ' With Offset {}°'.format(self._plane_offset) if self._plane_offset != 0 else '')
         ax.set_title(title)
         return ax
 
@@ -281,12 +267,15 @@ class SphericalPlaneDataset(HRTFPlaneDataset):
         elif plane == 'median':
             if plane_offset != 0:
                 raise ValueError('Only the median plane at azimuth 0 is available in a spherical coordinate dataset')
-            azimuth_angles = [0, 180]
+            azimuth_angles = [-180, 0]
             elevation_angles = plane_angles
         elif plane == 'frontal':
             if plane_offset != 0:
                 raise ValueError('Only the frontal plane at azimuth +/-90 is available in a spherical coordinate dataset')
             azimuth_angles = [-90, 90]
+            elevation_angles = plane_angles
+        elif plane == 'vertical':
+            azimuth_angles = wrap_closed_open_interval([plane_offset-180, plane_offset], -180, 180)
             elevation_angles = plane_angles
 
         plane_transform = SphericalPlaneTransform(plane, plane_offset, positive_angles)

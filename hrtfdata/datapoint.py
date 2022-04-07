@@ -1,5 +1,5 @@
 from .query import DataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, ThreeDThreeADataQuery, SonicomDataQuery
-from .util import wrap_open_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical
+from .util import wrap_closed_open_interval, spherical2cartesian, spherical2interaural, cartesian2spherical
 from abc import abstractmethod
 from pathlib import Path
 import numpy as np
@@ -92,7 +92,7 @@ class SofaDataPoint(DataPoint):
         finally:
             hrir_file.close()
         quantified_positions = np.round(positions, 2)
-        quantified_positions[:, 0] = wrap_open_closed_interval(quantified_positions[:, 0], -180, 180)
+        quantified_positions[:, 0] = wrap_closed_open_interval(quantified_positions[:, 0], -180, 180)
         unique_azimuths = np.unique(quantified_positions[:, 0])
         unique_elevations = np.unique(quantified_positions[:, 1])
         unique_radii = np.unique(quantified_positions[:, 2])
