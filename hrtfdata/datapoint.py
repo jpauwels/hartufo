@@ -99,22 +99,38 @@ class SofaDataPoint(DataPoint):
         position_map = np.empty((3, len(positions)), dtype=int)
         for idx, (azimuth, elevation, radius) in enumerate(quantified_positions):
             position_map[:, idx] = np.argmax(azimuth == unique_azimuths), np.argmax(elevation == unique_elevations), np.argmax(radius == unique_radii)
-        return unique_azimuths, unique_elevations, unique_radii, tuple(position_map)
+        position_map = tuple(position_map)
+        
+        position_mask = np.full((len(unique_azimuths), len(unique_elevations), len(unique_radii)), True)
+        position_mask[position_map] = False
+        if np.isclose(unique_elevations[-1], 90):
+            single_up_mask = np.sum(~position_mask[:, -1], axis=0) == 1 # boolean for each radius value
+            up_azimuth_idx = (~position_mask[:, -1]).argmax()
+            position_mask[:, -1] = np.where(single_up_mask, False, position_mask[:, -1])
+        else:
+            single_up_mask = False
+            up_azimuth_idx = 0
+        if np.isclose(unique_elevations[0], -90):
+            single_down_mask = np.sum(~position_mask[:, 0], axis=0) == 1
+            down_azimuth_idx = (~position_mask[:, 0]).argmax()
+            position_mask[:, 0] = np.where(single_down_mask, False, position_mask[:, 0])
+        else:
+            single_down_mask = False
+            down_azimuth_idx = 0
+        
+        return unique_azimuths, unique_elevations, unique_radii, position_mask, position_map, single_up_mask, up_azimuth_idx, single_down_mask, down_azimuth_idx
+
 
     # called by torch.full
     def hrir_angle_indices(self, subject_id, row_angles=None, column_angles=None):
-        unique_row_angles, unique_column_angles, unique_radii, position_map = self._map_sofa_position_order_to_matrix(subject_id)
-        position_mask = np.full((len(unique_row_angles), len(unique_column_angles), len(unique_radii)), True)
-        position_mask[position_map] = False
+        unique_row_angles, unique_column_angles, unique_radii, position_mask, *_ = self._map_sofa_position_order_to_matrix(subject_id)
         row_indices, column_indices = SofaDataPoint._hrir_select_angles(row_angles, column_angles, unique_row_angles, unique_column_angles, position_mask)
         selected_angles = {unique_row_angles[row_idx]: np.ma.array(unique_column_angles[column_indices], mask=position_mask[row_idx, column_indices]) for row_idx in row_indices}
         return selected_angles, row_indices, column_indices
 
 
     def hrir_positions(self, subject_id, row_angles=None, column_angles=None, coordinate_system='spherical'):
-        unique_row_angles, unique_column_angles, unique_radii, position_map = self._map_sofa_position_order_to_matrix(subject_id)
-        position_mask = np.full((len(unique_row_angles), len(unique_column_angles), len(unique_radii)), True)
-        position_mask[position_map] = False
+        unique_row_angles, unique_column_angles, unique_radii, position_mask, *_ = self._map_sofa_position_order_to_matrix(subject_id)
         row_indices, column_indices = SofaDataPoint._hrir_select_angles(row_angles, column_angles, unique_row_angles, unique_column_angles, position_mask)
         selected_position_mask = position_mask[row_indices][:, column_indices]
         selected_azimuths = unique_row_angles[row_indices]
@@ -145,11 +161,11 @@ class SofaDataPoint(DataPoint):
             raise ValueError(f'Error reading file "{sofa_path}"')
         finally:
             hrir_file.close()
-        unique_azimuths, unique_elevations, unique_radii, position_map = self._map_sofa_position_order_to_matrix(subject_id)
-        hrir_matrix = np.empty((len(unique_azimuths), len(unique_elevations), len(unique_radii), hrirs.shape[1]))
+        _, _, _, position_mask, position_map, single_up_mask, up_azimuth_idx, single_down_mask, down_azimuth_idx = self._map_sofa_position_order_to_matrix(subject_id)
+        hrir_matrix = np.empty(position_mask.shape + (hrirs.shape[1],))
         hrir_matrix[position_map] = hrirs
-        position_mask = np.full_like(hrir_matrix, True, dtype=bool)
-        position_mask[position_map] = False
+        hrir_matrix[:, -1] = np.where(single_up_mask, hrir_matrix[up_azimuth_idx, -1], hrir_matrix[:, -1])
+        hrir_matrix[:, 0] = np.where(single_down_mask, hrir_matrix[down_azimuth_idx, 0], hrir_matrix[:, 0])
 
         if row_indices is None:
             row_indices = slice(None)
@@ -157,11 +173,12 @@ class SofaDataPoint(DataPoint):
             column_indices = slice(None)
 
         selected_position_mask = position_mask[row_indices][:, column_indices]
-        selected_hrir_matrix = np.ma.masked_where(selected_position_mask, hrir_matrix[row_indices][:, column_indices], copy=False)
+        tiled_position_mask = np.tile(selected_position_mask[:, :, :, np.newaxis], (1, 1, 1, hrirs.shape[1]))
+        selected_hrir_matrix = hrir_matrix[row_indices][:, column_indices]
         if domain == 'time':
-            hrir = selected_hrir_matrix
+            hrir = np.ma.masked_where(tiled_position_mask, selected_hrir_matrix, copy=False)
         else:
-            selected_hrtf_matrix = np.ma.masked_where(selected_position_mask[:, :, :, :hrirs.shape[1]//2+1], rfft(selected_hrir_matrix), copy=False)
+            selected_hrtf_matrix = np.ma.masked_where(tiled_position_mask[:, :, :, :hrirs.shape[1]//2+1], rfft(selected_hrir_matrix), copy=False)
             if domain == 'complex':
                 hrir = selected_hrtf_matrix
             elif domain.startswith('magnitude'):
