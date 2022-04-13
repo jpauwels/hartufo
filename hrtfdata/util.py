@@ -25,9 +25,10 @@ def spherical2cartesian(azimuth, elevation, radius, angles_in_degrees=True):
     if angles_in_degrees:
         azimuth = np.deg2rad(azimuth)
         elevation = np.deg2rad(elevation)
-    x = np.cos(azimuth)
-    y = np.sin(azimuth)
-    z = np.sin(elevation)
+    hoz_proj = radius * np.cos(elevation)
+    x = hoz_proj * np.cos(azimuth)
+    y = hoz_proj * np.sin(azimuth)
+    z = radius * np.sin(elevation)
     return x, y, z
 
 
