@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 import numpy as np
 from .full import HRTFDataset
-from ..datapoint import DataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint, SonicomDataPoint
+from ..datapoint import DataPoint, CipicDataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint, SonicomDataPoint
 from ..util import wrap_closed_open_interval, wrap_open_closed_interval
 from ..display import plot_hrir_plane, plot_hrtf_plane, plot_plane_angles
 
@@ -23,9 +23,17 @@ class PlaneTransform(ABC):
 
 
     @positive_angles.setter
-    @abstractmethod
-    def positive_angles(self):
-        pass
+    def positive_angles(self, value):
+        self._positive_angles = value
+        if value:
+            self.min_angle = 0
+            self.max_angle = 360
+        elif self.plane in ('horizontal', 'interaural', 'frontal'):
+            self.min_angle = -180
+            self.max_angle = 180
+        else:
+            self.min_angle = -90
+            self.max_angle = 270
 
 
     @abstractmethod
@@ -45,12 +53,7 @@ class PlaneTransform(ABC):
     @abstractmethod
     def calc_plane_angles(self, input_angles):
         plane_angles = self(input_angles)
-
-        if self.closed_open_angles:
-            plane_angles = wrap_closed_open_interval(plane_angles, self.min_angle, self.max_angle)
-        else:
-            plane_angles = wrap_open_closed_interval(plane_angles, self.min_angle, self.max_angle)
-        return plane_angles
+        return wrap_closed_open_interval(plane_angles, self.min_angle, self.max_angle)
 
 
     def __repr__(self):
@@ -58,57 +61,193 @@ class PlaneTransform(ABC):
 
 
     @staticmethod
-    def _first_nonneg_angle_idx(angles):
-        return np.flatnonzero(np.diff(np.sign(angles)))[0] + 1
+    def _idx_first_nonneg(iterable):
+        return np.flatnonzero(np.diff(np.sign(iterable)))[0] + 1
 
 
     @staticmethod
-    def _first_pos_angle_idx(angles):
-        return np.flatnonzero(np.diff(np.sign(angles)))[-1] + 1
+    def _idx_first_pos(iterable):
+        return np.flatnonzero(np.diff(np.sign(iterable)))[-1] + 1
+
+
+    @staticmethod
+    def _idx_first_not_smaller_than(iterable, value=0):
+        return np.flatnonzero(iterable >= value)[0]
+
+
+    @staticmethod
+    def _idx_first_larger_than(iterable, value=0):
+        return np.flatnonzero(iterable > value)[0]
+
+
+class InterauralPlaneTransform(PlaneTransform):
+
+    _split_idx: int
+    _left_pole_overlap: bool
+    _right_pole_overlap: bool
+    _pos_sphere_present: bool
+    _neg_sphere_present: bool
+
+
+    def calc_plane_angles(self, selected_angles):
+        if not selected_angles:
+            return np.array([])
+        vertical_angles = np.array(list(selected_angles.keys()))
+        lateral_angles = list(selected_angles.values())[0].copy()
+
+        if self.plane == 'median':
+            input_angles = vertical_angles
+            if self.positive_angles:
+                self._split_idx = self._idx_first_nonneg(vertical_angles)
+            else:
+                self._split_idx = self._idx_first_not_smaller_than(vertical_angles, -90)
+        else:
+            self._split_idx = self._idx_first_nonneg(np.ma.getdata(lateral_angles))
+            if len(vertical_angles) > 1:
+                # both half planes present
+                back_yaw_angles = 180-lateral_angles
+                front_yaw_angles = list(selected_angles.values())[1].copy()
+                input_angles = [back_yaw_angles, front_yaw_angles]
+                self._left_pole_overlap = np.isclose(front_yaw_angles, 90).any() and np.isclose(back_yaw_angles, 90).any()
+                self._right_pole_overlap = np.isclose(front_yaw_angles, -90).any() and np.isclose(back_yaw_angles, 270).any()
+                self._pos_sphere_present = True
+                self._neg_sphere_present = True
+                if self.plane == 'frontal':
+                    # reverse angular direction
+                    input_angles = [-x for x in input_angles]
+            else:
+                # floating point safe version of check below
+                # if vertical_angles <= 90 and vertical_angles > -90:
+                rtol = 1e-5
+                atol = 1e-8
+                upper_lim = vertical_angles - 90
+                lower_lim = vertical_angles + 90
+                if (upper_lim <= rtol*np.abs(upper_lim)+atol and lower_lim > rtol*np.abs(lower_lim)+atol).item():
+                    # only front half plane is present
+                    self._pos_sphere_present = True
+                    self._neg_sphere_present = False
+                    input_angles = lateral_angles
+                else:
+                    # only back half plane is present
+                    self._pos_sphere_present = False
+                    self._neg_sphere_present = True
+                    input_angles = 180-lateral_angles
+                self._left_pole_overlap = False
+                self._right_pole_overlap = False
+                if self.plane == 'frontal':
+                    input_angles = -input_angles # reverse angular direction
+
+        return super().calc_plane_angles(input_angles)
+
+
+    def __call__(self, hrirs):
+        if self.plane == 'median':
+            if self.positive_angles:
+                down, up = np.split(hrirs, [self._split_idx])
+                single_plane = np.ma.concatenate((up, down))
+            else:
+                back_down, rest = np.split(hrirs, [self._split_idx])
+                single_plane = np.ma.concatenate((rest, back_down))
+        else:
+            if self._left_pole_overlap:
+                left_pole_mask = np.full_like(hrirs[1], False, dtype=bool)
+                left_pole_mask[-1] = True
+                hrirs[1] = np.ma.masked_where(left_pole_mask, hrirs[1], False)
+            if self._right_pole_overlap:
+                right_pole_mask = np.full_like(hrirs[0], False, dtype=bool)
+                right_pole_mask[0] = True
+                hrirs[0] = np.ma.masked_where(right_pole_mask, hrirs[0], False)
+            if self.plane == 'frontal':
+                if self._pos_sphere_present and self._neg_sphere_present:
+                    # both half planes present
+                    down_right_left = hrirs[0]
+                    up_left_right = np.flip(hrirs[1], axis=0)
+                    if self.positive_angles:
+                        left_up, right_up = np.split(up_left_right, [-self._split_idx-1])
+                        single_plane = np.ma.concatenate((right_up, down_right_left, left_up))
+                    else:
+                        right_down, left_down = np.split(down_right_left, [self._split_idx])
+                        single_plane = np.ma.concatenate((left_down, up_left_right, right_down))
+                elif self._pos_sphere_present:
+                    # only up half plane present
+                    up_left_right = np.flip(hrirs, axis=0)
+                    if self.positive_angles:
+                        left_up, right_up = np.split(up_left_right, [-self._split_idx-1])
+                        single_plane = np.ma.concatenate((right_up, left_up))
+                    else:
+                        single_plane = up_left_right
+                else:
+                    # only down half plane present
+                    down_right_left = hrirs
+                    if self.positive_angles:
+                        single_plane = down_right_left
+                    else:
+                        right_down, left_down = np.split(down_right_left, [self._split_idx])
+                        single_plane = np.ma.concatenate((left_down, right_down))
+            else:
+                if self._pos_sphere_present and self._neg_sphere_present:
+                    # both half planes present
+                    back_left_right = np.flip(hrirs[0], axis=0)
+                    front_right_left = hrirs[1]
+                    if self.positive_angles:
+                        front_right, front_left = np.split(front_right_left, [self._split_idx])
+                        single_plane = np.ma.concatenate((front_left, back_left_right, front_right))
+                    else:
+                        back_left, back_right = np.split(back_left_right, [-self._split_idx-1])
+                        single_plane = np.ma.concatenate((back_right, front_right_left, back_left))
+                elif self._pos_sphere_present:
+                    # only front half plane present
+                    front_right_left = hrirs
+                    if self.positive_angles:
+                        front_right, front_left = np.split(front_right_left, [self._split_idx])
+                        single_plane = np.ma.concatenate((front_left, front_right))
+                    else:
+                        single_plane = front_right_left
+                else:
+                    # only back half plane present
+                    back_left_right = np.flip(hrirs, axis=0)
+                    if self.positive_angles:
+                        single_plane = back_left_right
+                    else:
+                        back_left, back_right = np.split(back_left_right, [-self._split_idx-1])
+                        single_plane = np.ma.concatenate((back_right, back_left))
+
+
+        return super().__call__(single_plane)
 
 
 class SphericalPlaneTransform(PlaneTransform):
-    def __init__(self, plane, plane_offset, positive_angles):
-        super().__init__(plane, plane_offset, positive_angles)
 
-
-    @PlaneTransform.positive_angles.setter
-    def positive_angles(self, value):
-        self._positive_angles = value
-        if value:
-            self.min_angle = 0
-            self.max_angle = 360
-            self.closed_open_angles = True
-        elif self.plane == 'horizontal':
-            self.min_angle = -180
-            self.max_angle = 180
-            self.closed_open_angles = True
-        else:
-            self.min_angle = -90
-            self.max_angle = 270
-            self.closed_open_angles = True
+    _split_idx: int
+    _up_pole_overlap: bool
+    _down_pole_overlap: bool
+    _pos_sphere_present: bool
+    _neg_sphere_present: bool
 
     
     def calc_plane_angles(self, selected_angles):
         if not selected_angles:
             return np.array([])
         azimuth_angles = np.array(list(selected_angles.keys()))
-        elevation_angles = list(selected_angles.values())[0]
+        elevation_angles = list(selected_angles.values())[0].copy()
 
         if self.plane == 'horizontal':
             input_angles = azimuth_angles
-            self._split_idx = self._first_nonneg_angle_idx(azimuth_angles)
+            self._split_idx = self._idx_first_nonneg(azimuth_angles)
         else:
-            self._split_idx = self._first_nonneg_angle_idx(np.ma.getdata(elevation_angles))
+            self._split_idx = self._idx_first_nonneg(np.ma.getdata(elevation_angles))
             if len(azimuth_angles) > 1:
-                # both half spheres present
-                back_elevation_angles = 180-elevation_angles
-                front_elevation_angles = list(selected_angles.values())[1]
-                input_angles = [back_elevation_angles, front_elevation_angles]
-                self._elevation_overlap90 = np.isclose(front_elevation_angles, 90).any() and np.isclose(back_elevation_angles, 90).any()
-                self._elevation_overlap270 = np.isclose(front_elevation_angles, -90).any() and np.isclose(back_elevation_angles, 270).any()
-                self._front_sphere_present = True
-                self._back_sphere_present = True
+                # both half planes present
+                back_pitch_angles = 180-elevation_angles
+                front_pitch_angles = list(selected_angles.values())[1].copy()
+                input_angles = [back_pitch_angles, front_pitch_angles]
+                self._up_pole_overlap = np.isclose(front_pitch_angles, 90).any() and np.isclose(back_pitch_angles, 90).any()
+                self._down_pole_overlap = np.isclose(front_pitch_angles, -90).any() and np.isclose(back_pitch_angles, 270).any()
+                self._pos_sphere_present = True
+                self._neg_sphere_present = True
+                if self.plane == 'frontal':
+                    # shift origin from Y to Z axis
+                    input_angles = [x - 90 for x in input_angles]
             else:
                 # floating point safe version of check below
                 # if azimuth_angles <= 90 and azimuth_angles > -90:
@@ -117,15 +256,19 @@ class SphericalPlaneTransform(PlaneTransform):
                 upper_lim = azimuth_angles - 90
                 lower_lim = azimuth_angles + 90
                 if (upper_lim <= rtol*np.abs(upper_lim)+atol and lower_lim > rtol*np.abs(lower_lim)+atol).item():
-                    # only front half sphere is present
-                    self._front_sphere_present = True
-                    self._back_sphere_present = False
+                    # only front half plane is present
+                    self._pos_sphere_present = True
+                    self._neg_sphere_present = False
                     input_angles = elevation_angles
                 else:
-                    # only back half sphere is present
-                    self._front_sphere_present = False
-                    self._back_sphere_present = True
+                    # only back half plane is present
+                    self._pos_sphere_present = False
+                    self._neg_sphere_present = True
                     input_angles = 180-elevation_angles
+                self._up_pole_overlap = False
+                self._down_pole_overlap = False
+                if self.plane == 'frontal':
+                    input_angles -= 90 # shift origin from Y to Z axis
         
         return super().calc_plane_angles(input_angles)
 
@@ -138,31 +281,53 @@ class SphericalPlaneTransform(PlaneTransform):
             else:
                 single_plane = hrirs
         else:
-            if self._front_sphere_present and self._back_sphere_present:
-                # both half spheres present
-                back_up_down = np.flip(hrirs[0], axis=0)
-                front_down_up = hrirs[1]
-                if self._elevation_overlap90:
-                    front_down_up = front_down_up[:-1]
-                if self._elevation_overlap270:
-                    back_up_down = back_up_down[:-1]
-                if self.positive_angles:
-                    front_down, front_up = np.split(front_down_up, [self._split_idx])
-                    single_plane = np.ma.concatenate((front_up, back_up_down, front_down))
+            if self._up_pole_overlap:
+                up_pole_mask = np.full_like(hrirs[1], False, dtype=bool)
+                up_pole_mask[-1] = True
+                hrirs[1] = np.ma.masked_where(up_pole_mask, hrirs[1], False)
+            if self._down_pole_overlap:
+                down_pole_mask = np.full_like(hrirs[0], False, dtype=bool)
+                down_pole_mask[0] = True
+                hrirs[0] = np.ma.masked_where(down_pole_mask, hrirs[0], False)
+            if self.plane == 'frontal':
+                if self._pos_sphere_present and self._neg_sphere_present:
+                    # both right and left half planes present
+                    right_up_down = np.flip(hrirs[0], axis=0)
+                    left_down_up = hrirs[1]
+                    if self.positive_angles:
+                        single_plane = np.ma.concatenate((right_up_down, left_down_up))
+                    else:
+                        single_plane = np.ma.concatenate((left_down_up, right_up_down))
+                elif self._pos_sphere_present:
+                    # only left half plane present
+                    left_down_up = hrirs
+                    single_plane = left_down_up
                 else:
-                    single_plane = np.ma.concatenate((front_down_up, back_up_down))
-            elif self._front_sphere_present:
-                # only front half sphere present
-                front_down_up = hrirs
-                if self.positive_angles:
-                    front_down, front_up = np.split(front_down_up, [self._split_idx])
-                    single_plane = np.ma.concatenate((front_up, front_down))
-                else:
-                    single_plane = front_down_up
+                    # only right half plane present
+                    right_up_down = np.flip(hrirs, axis=0)
+                    single_plane = right_up_down
             else:
-                # only back half sphere present
-                back_up_down = np.flip(hrirs, axis=0)
-                single_plane = back_up_down
+                if self._pos_sphere_present and self._neg_sphere_present:
+                    # both back and front half planes present
+                    back_up_down = np.flip(hrirs[0], axis=0)
+                    front_down_up = hrirs[1]
+                    if not self.positive_angles:
+                        single_plane = np.ma.concatenate((front_down_up, back_up_down))
+                    else:
+                        front_down, front_up = np.split(front_down_up, [self._split_idx])
+                        single_plane = np.ma.concatenate((front_up, back_up_down, front_down))
+                elif self._pos_sphere_present:
+                    # only front half plane present
+                    front_down_up = hrirs
+                    if self.positive_angles:
+                        front_down, front_up = np.split(front_down_up, [self._split_idx])
+                        single_plane = np.ma.concatenate((front_up, front_down))
+                    else:
+                        single_plane = front_down_up
+                else:
+                    # only back half plane present
+                    back_up_down = np.flip(hrirs, axis=0)
+                    single_plane = back_up_down
 
         return super().__call__(single_plane)
 
@@ -181,8 +346,8 @@ class HRTFPlaneDataset(HRTFDataset):
     ):
         self._plane = plane
         self._plane_offset = plane_offset
-        if plane not in ('horizontal', 'median', 'frontal', 'vertical'):
-            raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal" or "vertical".')
+        if plane not in ('horizontal', 'median', 'frontal', 'vertical', 'interaural'):
+            raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal", "vertical" or "interaural".')
         self._domain = domain
         self._planar_transform = planar_transform
 
@@ -204,13 +369,12 @@ class HRTFPlaneDataset(HRTFDataset):
         self.plane_angles = self._planar_transform.calc_plane_angles(self._selected_angles)
         self.min_angle = self._planar_transform.min_angle
         self.max_angle = self._planar_transform.max_angle
-        self.closed_open_angles = self._planar_transform.closed_open_angles
 
 
     def plot_plane(self, idx, ax=None, cmap='viridis', continuous=False, vmin=None, vmax=None, title=None, colorbar=True, log_freq=False):
-        if self._plane == 'horizontal':
+        if self._plane in ('horizontal', 'interaural'):
             angles_label = 'yaw [°]'
-        elif self._plane == 'median':
+        elif self._plane in ('median', 'vertical'):
             angles_label = 'pitch [°]'
         else: # frontal plane
             angles_label = 'roll [°]'
@@ -230,7 +394,7 @@ class HRTFPlaneDataset(HRTFDataset):
 
         if title is None:
             title = "{} Plane{} of Subject {}'s {} Ear".format(self._plane.title(),
-                ' With Offset {}°'.format(self._plane_offset) if self._plane_offset != 0 else '',
+                ' With Offset {}°'.format(self._plane_offset) if self._plane_offset != 0 or self._plane in ('vertical', 'interaural') else '',
                 item['group'],
                 item['target'].replace('-', ' ').title(),
             )
@@ -239,15 +403,54 @@ class HRTFPlaneDataset(HRTFDataset):
 
 
     def plot_angles(self, ax=None, title=None):
-        if self._plane == 'horizontal':
+        if self._plane in ('horizontal', 'interaural', 'frontal'):
             zero_location = 'N'
-        else:
-            zero_location = 'E'
-        ax = plot_plane_angles(self.plane_angles, self.min_angle, self.max_angle, self.closed_open_angles, 1, zero_location, ax) # TODO use actual radius
+            direction = 'counterclockwise'
+        else: # median or vertical
+            zero_location = 'W'
+            direction = 'clockwise'
+        ax = plot_plane_angles(self.plane_angles, self.min_angle, self.max_angle, True, 1, zero_location, direction, ax) # TODO use actual radius
         if title is None:
-            title = 'Angles in the {} Plane{}'.format(self._plane.title(), ' With Offset {}°'.format(self._plane_offset) if self._plane_offset != 0 else '')
+            title = 'Angles in the {} Plane{}'.format(self._plane.title(),
+                ' With Offset {}°'.format(self._plane_offset) if self._plane_offset != 0 or self._plane in ('vertical', 'interaural') else ''
+            )
         ax.set_title(title)
         return ax
+
+
+class InterauralPlaneDataset(HRTFPlaneDataset):
+    def __init__(self,
+        datapoint: DataPoint,
+        plane: str,
+        domain: str = 'magnitude_db',
+        side: str = 'both-left',
+        plane_angles: Optional[Iterable[float]] = None,
+        plane_offset: float = 0.,
+        positive_angles: bool = False,
+        subject_ids: Optional[Iterable[int]] = None,
+    ):
+        if plane == 'horizontal':
+            if plane_offset != 0:
+                raise ValueError('Only the horizontal plane at vertical angle 0 is available in an interaural coordinate dataset')
+            lateral_angles = plane_angles
+            vertical_angles = [-180, 0]
+        elif plane == 'median':
+            lateral_angles = [plane_offset]
+            vertical_angles = plane_angles
+        elif plane == 'frontal':
+            if plane_offset != 0:
+                raise ValueError('Only the frontal plane at vertical angles +/-90 is available in an interaural coordinate dataset')
+            lateral_angles = plane_angles
+            vertical_angles = [-90, 90]
+        elif plane == 'interaural':
+            lateral_angles = plane_angles
+            vertical_angles = wrap_closed_open_interval([plane_offset-180, plane_offset], -180, 180)
+        else:
+            if plane not in ('horizontal', 'median', 'frontal', 'interaural'):
+                raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal" or "interaural".')
+
+        plane_transform = InterauralPlaneTransform(plane, plane_offset, positive_angles)
+        super().__init__(datapoint, plane, domain, side, plane_offset, vertical_angles, lateral_angles, plane_transform, subject_ids)
 
 
 class SphericalPlaneDataset(HRTFPlaneDataset):
@@ -277,9 +480,29 @@ class SphericalPlaneDataset(HRTFPlaneDataset):
         elif plane == 'vertical':
             azimuth_angles = wrap_closed_open_interval([plane_offset-180, plane_offset], -180, 180)
             elevation_angles = plane_angles
+        else:
+            if plane not in ('horizontal', 'median', 'frontal', 'vertical'):
+                raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal" or "vertical".')
 
         plane_transform = SphericalPlaneTransform(plane, plane_offset, positive_angles)
         super().__init__(datapoint, plane, domain, side, plane_offset, azimuth_angles, elevation_angles, plane_transform, subject_ids)
+
+
+
+class CIPICPlane(InterauralPlaneDataset):
+    def __init__(
+        self,
+        root: str,
+        plane: str,
+        domain: str = 'magnitude_db',
+        side: str = 'both-left',
+        plane_angles: Optional[Iterable[float]] = None,
+        plane_offset: float = 0.,
+        positive_angles: bool = False,
+        subject_ids: Optional[Iterable[int]] = None,
+    ):
+        datapoint = CipicDataPoint(sofa_directory_path=Path(root)/'sofa')
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
 
 
 class ARIPlane(SphericalPlaneDataset):

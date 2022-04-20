@@ -32,7 +32,7 @@ def plot_hrir_plane(hrir, angles, angles_label, sample_rate, ax=None, cmap='gray
     return ax
 
 
-def plot_plane_angles(angles, min_angle, max_angle, closed_open_angles, radius, zero_location, ax=None, direction='counterclockwise'):
+def plot_plane_angles(angles, min_angle, max_angle, closed_open_angles, radius, zero_location, direction, ax=None):
     if ax is None:
         _, ax = plt.subplots(subplot_kw={'projection': 'polar'})
     ax.plot(np.deg2rad(angles), np.full(len(angles), radius), 'ko')

@@ -130,6 +130,16 @@ class DataQuery:
         return self._id_helper(side, lambda s: _all_measurement_ids(s, select, partial), exclude, self._default_measurements_exclude)
 
 
+class CipicDataQuery(DataQuery):
+
+    def __init__(self, sofa_directory_path=None, image_directory_path=None, anthropomorphy_matfile_path=None):
+        super().__init__(sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, anthropomorphy_matfile_path=anthropomorphy_matfile_path)
+
+
+    def _all_hrir_ids(self, side):
+        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob('subject_*.sofa')])
+    
+
     @staticmethod
     def _image_suffix(side=None, rear=False):
         return '{}_{}.jpg'.format('_'+side.split('-')[-1] if side else '', 'rear' if rear else 'side')
