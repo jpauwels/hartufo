@@ -279,7 +279,7 @@ class ThreeDThreeADataQuery(DataQuery):
 
 class SonicomDataQuery(DataQuery):
 
-    def __init__(self, sofa_directory_path, samplerate=48000, hrtf_variant='compensated-noitd'):
+    def __init__(self, sofa_directory_path, samplerate=48000, hrtf_variant='compensated'):
         super().__init__(sofa_directory_path)
         if samplerate not in (44100, 48000, 96000):
             raise ValueError(f'Sample rate {samplerate} is unavailable. Choose one of 44100, 48000 or 96000.')
