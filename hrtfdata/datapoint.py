@@ -232,7 +232,7 @@ class SofaDataPoint(DataPoint):
             else:
                 hrir = ValueError(f'Unknown domain "{domain}" for HRIR')
         hrir = np.squeeze(hrir.astype(self.dtype))
-        if side.startswith('flipped'):
+        if side.startswith('mirrored'):
             if isinstance(self, SofaInterauralDataPoint):
                 # flip lateral angles (in columns)
                 return np.fliplr(hrir)
@@ -313,7 +313,7 @@ class ImageDataPoint(DataPoint):
 
     def image(self, subject_id, side=None, rear=False):
         img = Image.open(self.pinna_image_path(subject_id, side, rear))
-        if side.startwith('flipped-'):
+        if side.startwith('mirrored-'):
             return img.transpose(Image.FLIP_LEFT_RIGHT)
         return img
 

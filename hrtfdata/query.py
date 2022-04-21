@@ -97,9 +97,9 @@ class DataQuery:
             if side is not None:
                 both_ids = sorted(set(left_ids).intersection(right_ids))
                 if side == 'both-left':
-                    sides = ('left', 'flipped-right')
+                    sides = ('left', 'mirrored-right')
                 elif side == 'both-right':
-                    sides = ('flipped-left', 'right')
+                    sides = ('mirrored-left', 'right')
                 else:
                     sides = ('left', 'right')
                 ids = [(i, s) for i in both_ids for s in sides]
