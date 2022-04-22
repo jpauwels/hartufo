@@ -51,7 +51,9 @@ class HRTFDataset(TorchDataset):
         ear_ids = self._query.specification_based_ids(self._specification, include_subjects=subject_ids)
 
         if len(ear_ids) == 0:
-            self.subject_ids = []
+            if len(self._query.specification_based_ids(self._specification)) == 0:
+                raise ValueError('Empty dataset. Check if its configuration and paths are correct.')
+            self.subject_ids = tuple()
             self.hrir_samplerate = None
             self.hrtf_frequencies = None
             self._features = []
@@ -150,10 +152,8 @@ class HRTFDataset(TorchDataset):
     @property
     def available_subject_ids(self):
         ear_ids = self._query.specification_based_ids(self._specification)
-        if len(ear_ids) == 0:
-            return []
         subject_ids, _ = zip(*ear_ids)
-        return sorted(set(subject_ids))
+        return tuple(sorted(set(subject_ids)))
 
 
 class ARI(HRTFDataset):
