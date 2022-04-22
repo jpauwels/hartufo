@@ -199,7 +199,7 @@ class SofaDataPoint(DataPoint):
             raise ValueError(f'Error reading file "{sofa_path}"')
         finally:
             hrir_file.close()
-        _, _, _, position_mask, position_map, single_start_mask, start_pole_idx, single_end_mask, end_pole_idx = self._map_sofa_position_order_to_matrix(subject_id)
+        unique_row_angles, _, _, position_mask, position_map, single_start_mask, start_pole_idx, single_end_mask, end_pole_idx = self._map_sofa_position_order_to_matrix(subject_id)
         hrir_matrix = np.empty(position_mask.shape + (hrirs.shape[1],))
         hrir_matrix[position_map] = hrirs
         hrir_matrix[:, 0] = np.where(single_start_mask, hrir_matrix[start_pole_idx, 0], hrir_matrix[:, 0])
@@ -233,12 +233,16 @@ class SofaDataPoint(DataPoint):
                 hrir = ValueError(f'Unknown domain "{domain}" for HRIR')
         hrir = np.squeeze(hrir.astype(self.dtype))
         if side.startswith('mirrored'):
-            if isinstance(self, SofaInterauralDataPoint):
+            if isinstance(self, SofaSphericalDataPoint):
+                # flip azimuths (in rows)
+                selected_azimuths = unique_row_angles[row_indices]
+                if np.isclose(selected_azimuths[0], -180):
+                    return np.ma.row_stack((hrir[0:1], np.flipud(hrir[1:])))
+                else:
+                    return np.flipud(hrir)
+            else:
                 # flip lateral angles (in columns)
                 return np.fliplr(hrir)
-            else:
-                # flip azimuths (in rows)
-                return np.flipud(hrir)
         return hrir
 
 

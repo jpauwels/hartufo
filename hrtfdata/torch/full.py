@@ -1,3 +1,4 @@
+from ..datapoint import DataPoint, SofaSphericalDataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint, SonicomDataPoint
 import warnings
 from pathlib import Path
 from typing import Any, Callable, List, Iterable, Optional, TypeVar, Dict, IO, Tuple, Iterator
@@ -6,8 +7,7 @@ from PIL.Image import Image, LANCZOS
 from torch.utils.data import Dataset as TorchDataset
 from torchvision.transforms import ToTensor
 # from torchvision.datasets.utils import check_integrity, download_and_extract_archive
-from ..datapoint import DataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint, SonicomDataPoint
-
+import numpy as np
 
 
 class HRTFDataset(TorchDataset):
@@ -67,9 +67,23 @@ class HRTFDataset(TorchDataset):
         if 'hrirs' in self._specification.keys():
             self._selected_angles, row_indices, column_indices = datapoint.hrir_angle_indices(
                 self.subject_ids[0],
-                self._specification.get('hrirs', {}).get('row_angles'),
-                self._specification.get('hrirs', {}).get('column_angles')
+                self._specification['hrirs'].get('row_angles'),
+                self._specification['hrirs'].get('column_angles')
             )
+            side = self._specification['hrirs'].get('side', '')
+            if side.startswith('both-'):
+                if isinstance(datapoint, SofaSphericalDataPoint):
+                    # mirror azimuths/rows
+                    azimuths = np.array(list(self._selected_angles.keys()))
+                    start_idx = 1 if np.isclose(azimuths[0], -180) else 0
+                    if not np.allclose(azimuths[start_idx:], -np.flip(azimuths[start_idx:])):
+                        raise ValueError(f'Only datasets with symmetric azimuths can use {side} sides.')
+                else:
+                    # mirror laterals/columns
+                    lateral_angles = np.ma.getdata(list(self._selected_angles.values())[0])
+                    if not np.allclose(lateral_angles, -np.flip(lateral_angles)):
+                        raise ValueError(f'Only datasets with symmetric lateral angles can use {side} sides.')
+                
         else:
             self._selected_angles = []
 
