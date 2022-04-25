@@ -114,13 +114,13 @@ class SofaDataPoint(DataPoint):
             raise ValueError(f'Error reading file "{sofa_path}"')
         finally:
             hrir_file.close()
-        quantified_positions = np.round(positions, 3)
-        quantified_positions[:, 0] = wrap_closed_open_interval(quantified_positions[:, 0], -180, 180)
-        unique_row_angles = np.unique(quantified_positions[:, 0])
-        unique_column_angles = np.unique(quantified_positions[:, 1])
-        unique_radii = np.unique(quantified_positions[:, 2])
+        quantised_positions = np.round(positions, 3)
+        quantised_positions[:, 0] = wrap_closed_open_interval(quantised_positions[:, 0], -180, 180)
+        unique_row_angles = np.unique(quantised_positions[:, 0])
+        unique_column_angles = np.unique(quantised_positions[:, 1])
+        unique_radii = np.unique(quantised_positions[:, 2])
         position_map = np.empty((3, len(positions)), dtype=int)
-        for idx, (row_angle, column_angle, radius) in enumerate(quantified_positions):
+        for idx, (row_angle, column_angle, radius) in enumerate(quantised_positions):
             position_map[:, idx] = np.argmax(row_angle == unique_row_angles), np.argmax(column_angle == unique_column_angles), np.argmax(radius == unique_radii)
         position_map = tuple(position_map)
         
