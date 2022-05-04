@@ -142,7 +142,7 @@ class HRTFDataset(TorchDataset):
                     return np.array([])
                 if len(keys) == 1:
                     return characteristics[list(keys)[0]]
-                return np.concatenate([characteristics[k] for k in keys])
+                return tuple(characteristics[k] for k in keys)
 
             return {
                 'features': shape_data(features.keys()),
