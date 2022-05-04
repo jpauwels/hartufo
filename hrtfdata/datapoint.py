@@ -36,6 +36,8 @@ class SofaDataPoint(DataPoint):
     (elevation for spherical coordinates, lateral angle for interaurl coordinates)
     """
 
+    _quantisation: int = 3
+
     @abstractmethod
     def _sofa_path(self, subject_id):
         pass
@@ -114,7 +116,7 @@ class SofaDataPoint(DataPoint):
             raise ValueError(f'Error reading file "{sofa_path}"')
         finally:
             hrir_file.close()
-        quantised_positions = np.round(positions, 3)
+        quantised_positions = np.round(positions, self._quantisation)
         quantised_positions[:, 0] = wrap_closed_open_interval(quantised_positions[:, 0], -180, 180)
         unique_row_angles = np.unique(quantised_positions[:, 0])
         unique_column_angles = np.unique(quantised_positions[:, 1])
@@ -429,6 +431,7 @@ class ChedarDataPoint(SofaSphericalDataPoint):
             self.radius = '2m'
         else:
             raise ValueError('The radius needs to be one of 0.2, 0.5, 1 or 2')
+        self._quantisation = 0
 
 
     def _sofa_path(self, subject_id):
@@ -450,6 +453,7 @@ class WidespreadDataPoint(SofaSphericalDataPoint):
             self.radius = '2m'
         else:
             raise ValueError('The radius needs to be one of 0.2, 0.5, 1 or 2')
+        self._quantisation = 0
 
 
     def _sofa_path(self, subject_id):
