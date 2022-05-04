@@ -60,6 +60,8 @@ class HRTFDataset(TorchDataset):
             self._targets = []
             self._groups = []
             self._selected_angles = {}
+            self.row_angles = np.array([])
+            self.column_angles = np.array([])
             return
 
         self.subject_ids, _ = zip(*ear_ids)
@@ -70,22 +72,24 @@ class HRTFDataset(TorchDataset):
                 self._specification['hrirs'].get('row_angles'),
                 self._specification['hrirs'].get('column_angles')
             )
+            self.row_angles = np.array(list(self._selected_angles.keys()))
+            self.column_angles = np.ma.getdata(list(self._selected_angles.values())[0])
             side = self._specification['hrirs'].get('side', '')
             if side.startswith('both-'):
                 if isinstance(datapoint, SofaSphericalDataPoint):
                     # mirror azimuths/rows
-                    azimuths = np.array(list(self._selected_angles.keys()))
-                    start_idx = 1 if np.isclose(azimuths[0], -180) else 0
-                    if not np.allclose(azimuths[start_idx:], -np.flip(azimuths[start_idx:])):
+                    start_idx = 1 if np.isclose(self.row_angles[0], -180) else 0
+                    if not np.allclose(self.row_angles[start_idx:], -np.flip(self.row_angles[start_idx:])):
                         raise ValueError(f'Only datasets with symmetric azimuths can use {side} sides.')
                 else:
                     # mirror laterals/columns
-                    lateral_angles = np.ma.getdata(list(self._selected_angles.values())[0])
-                    if not np.allclose(lateral_angles, -np.flip(lateral_angles)):
+                    if not np.allclose(self.column_angles, -np.flip(self.column_angles)):
                         raise ValueError(f'Only datasets with symmetric lateral angles can use {side} sides.')
                 
         else:
-            self._selected_angles = []
+            self._selected_angles = {}
+            self.row_angles = np.array([])
+            self.column_angles = np.array([])
 
 
         self.hrir_samplerate = datapoint.hrir_samplerate(self.subject_ids[0])
