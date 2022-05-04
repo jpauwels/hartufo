@@ -15,7 +15,7 @@ class HRTFDataset(TorchDataset):
     def __init__(
         self,
         datapoint: DataPoint,
-        feature_spec: Optional[Dict] = None,
+        feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
@@ -38,14 +38,14 @@ class HRTFDataset(TorchDataset):
         #     raise RuntimeError('Dataset not found or corrupted.' +
         #                        ' You can use download=True to download it')
 
-        if feature_spec is None:
-            feature_spec = {}
         if target_spec is None:
             target_spec = {}
         if group_spec is None:
             group_spec = {}
 
         self._specification = {**feature_spec, **target_spec, **group_spec}
+        if not self._specification:
+            raise ValueError('At least one specification should not be empty')
         if subject_requirements is not None:
             self._specification = {**self._specification, **subject_requirements}
         ear_ids = self._query.specification_based_ids(self._specification, include_subjects=subject_ids)
@@ -180,7 +180,7 @@ class CIPIC(HRTFDataset):
     def __init__(
         self,
         root: str,
-        feature_spec: Optional[Dict] = None,
+        feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
@@ -202,7 +202,7 @@ class ARI(HRTFDataset):
     def __init__(
         self,
         root: str,
-        feature_spec: Optional[Dict] = None,
+        feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
@@ -224,7 +224,7 @@ class Listen(HRTFDataset):
     def __init__(
         self,
         root: str,
-        feature_spec: Optional[Dict] = None,
+        feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
@@ -242,7 +242,7 @@ class BiLi(HRTFDataset):
     def __init__(
         self,
         root: str,
-        feature_spec: Optional[Dict] = None,
+        feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
@@ -260,7 +260,7 @@ class ITA(HRTFDataset):
     def __init__(
         self,
         root: str,
-        feature_spec: Optional[Dict] = None,
+        feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
@@ -278,7 +278,7 @@ class HUTUBS(HRTFDataset):
     def __init__(
         self,
         root: str,
-        feature_spec: Optional[Dict] = None,
+        feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
@@ -296,7 +296,7 @@ class RIEC(HRTFDataset):
     def __init__(
         self,
         root: str,
-        feature_spec: Optional[Dict] = None,
+        feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
@@ -314,7 +314,7 @@ class CHEDAR(HRTFDataset):
     def __init__(
         self,
         root: str,
-        feature_spec: Optional[Dict] = None,
+        feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
@@ -332,7 +332,7 @@ class Widespread(HRTFDataset):
     def __init__(
         self,
         root: str,
-        feature_spec: Optional[Dict] = None,
+        feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
@@ -350,7 +350,7 @@ class SADIE2(HRTFDataset):
     def __init__(
         self,
         root: str,
-        feature_spec: Optional[Dict] = None,
+        feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
@@ -368,7 +368,7 @@ class ThreeDThreeA(HRTFDataset):
     def __init__(
         self,
         root: str,
-        feature_spec: Optional[Dict] = None,
+        feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
@@ -386,7 +386,7 @@ class SONICOM(HRTFDataset):
     def __init__(
         self,
         root: str,
-        feature_spec: Optional[Dict] = None,
+        feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
