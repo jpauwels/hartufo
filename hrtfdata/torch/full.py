@@ -358,7 +358,7 @@ class SADIE2(HRTFDataset):
         hrir_transform: Optional[Callable] = None,
         # download: bool = True,
     ) -> None:
-        datapoint = Sadie2DataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = Sadie2DataPoint(sofa_directory_path=Path(root)/'Database-Master_V1-4')
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
 
 
