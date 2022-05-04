@@ -15,20 +15,20 @@ class DataQuery:
 
 
     def __init__(self, sofa_directory_path=None, mesh_directory_path=None, image_directory_path=None, anthropomorphy_matfile_path=None):
-        self.allowed_keys = ['subject', 'side', 'dataset']
+        self.allowed_keys = ['subject', 'side', 'collection']
         if sofa_directory_path is not None:
             self.sofa_directory_path = Path(sofa_directory_path)
             self.allowed_keys += ['hrirs']
         if mesh_directory_path is not None:
             self.mesh_directory_path = Path(mesh_directory_path)
-            self.allowed_keys += ['3d-models']
+            self.allowed_keys += ['3d-model']
         if image_directory_path is not None:
             self.image_directory_path = Path(image_directory_path)
-            self.allowed_keys += ['images']
+            self.allowed_keys += ['image']
         if anthropomorphy_matfile_path is not None:
             self.anthropomorphy_matfile_path = anthropomorphy_matfile_path
             self.anth = io.loadmat(anthropomorphy_matfile_path, squeeze_me=True)
-            self.allowed_keys += ['measurements']
+            self.allowed_keys += ['anthropometry']
 
 
     def _all_hrir_ids(self, side):
@@ -56,7 +56,7 @@ class DataQuery:
     def specification_based_ids(self, specification, include_subjects=None, exclude_subjects=None):
         self.validate_specification(specification)
         all_sides = {}
-        for key in ('hrirs', 'images', 'measurements'):
+        for key in ('hrirs', 'images', 'anthropometry'):
             side = specification.get(key, {}).get('side')
             if side is not None:
                 all_sides[key] = side
@@ -70,8 +70,8 @@ class DataQuery:
         separate_ids = []
         if 'images' in specification.keys():
             separate_ids.append(set(self.image_ids(**{'exclude': exclude_subjects, **specification['images']})))
-        if 'measurements' in specification.keys():
-            separate_ids.append(set(self.measurements_ids(**{'exclude': exclude_subjects, **specification['measurements']})))
+        if 'anthropometry' in specification.keys():
+            separate_ids.append(set(self.measurements_ids(**{'exclude': exclude_subjects, **specification['anthropometry']})))
         if 'hrirs' in specification.keys():
             side = specification['hrirs'].get('side')
             exclude = specification['hrirs'].get('exclude', exclude_subjects)

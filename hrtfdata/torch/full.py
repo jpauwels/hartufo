@@ -99,16 +99,16 @@ class HRTFDataset(TorchDataset):
                 subject_data = {}
                 if 'images' in spec.keys():
                     subject_data['images'] = datapoint.pinna_image(subject, side=side, rear=spec['images'].get('rear', False))
-                if 'measurements' in spec.keys():
-                    subject_data['measurements'] = datapoint.anthropomorphic_data(subject, side=side, select=spec['measurements'].get('select', None))
+                if 'anthropometry' in spec.keys():
+                    subject_data['anthropometry'] = datapoint.anthropomorphic_data(subject, side=side, select=spec['anthropometry'].get('select', None))
                 if 'hrirs' in spec.keys():
                     subject_data['hrirs'] = datapoint.hrir(subject, side=side, domain=spec['hrirs'].get('domain', 'time'), row_indices=row_indices, column_indices=column_indices)
                 if 'subject' in spec.keys():
                     subject_data['subject'] = subject
                 if 'side' in spec.keys():
                     subject_data['side'] = side
-                if 'dataset' in spec.keys():
-                    subject_data['dataset'] = datapoint.dataset_id
+                if 'collection' in spec.keys():
+                    subject_data['collection'] = datapoint.dataset_id
                 store.append(subject_data)
 
 
@@ -128,8 +128,8 @@ class HRTFDataset(TorchDataset):
                     resized_im = self._image_transform(resized_im)
                 # resized_im = resized_im.transpose((1, 2, 0))  # convert to HWC
                 characteristics['images'] = resized_im
-            if 'measurements' in characteristics and self._measurement_transform:
-                characteristics['measurements'] = self._measurement_transform(characteristics['measurements'])
+            if 'anthropometry' in characteristics and self._measurement_transform:
+                characteristics['anthropometry'] = self._measurement_transform(characteristics['anthropometry'])
             if 'hrirs' in characteristics and self._hrir_transform:
                 characteristics['hrirs'] = self._hrir_transform(characteristics['hrirs'])
 
