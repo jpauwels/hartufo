@@ -187,11 +187,13 @@ class CIPIC(HRTFDataset):
         subject_requirements: Optional[Dict] = None,
         measurement_transform: Optional[Callable] = None,
         hrir_transform: Optional[Callable] = None,
+        dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         datapoint = CipicDataPoint(
             anthropomorphy_matfile_path=Path(root)/'CIPIC_hrtf_database/anthropometry/anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
+            dtype=dtype,
         )
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, measurement_transform, hrir_transform)
 
@@ -209,11 +211,13 @@ class ARI(HRTFDataset):
         subject_requirements: Optional[Dict] = None,
         measurement_transform: Optional[Callable] = None,
         hrir_transform: Optional[Callable] = None,
+        dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         datapoint = AriDataPoint(
             anthropomorphy_matfile_path=Path(root)/'anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
+            dtype=dtype,
         )
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, measurement_transform, hrir_transform)
 
@@ -230,9 +234,10 @@ class Listen(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
+        dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = ListenDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/44100')
+        datapoint = ListenDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/44100', dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
 
 
@@ -248,9 +253,10 @@ class BiLi(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
+        dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = BiLiDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/96000')
+        datapoint = BiLiDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/96000', dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
 
 
@@ -266,9 +272,10 @@ class ITA(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
+        dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = ItaDataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = ItaDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
 
 
@@ -284,9 +291,10 @@ class HUTUBS(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
+        dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = HutubsDataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = HutubsDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
 
 
@@ -302,9 +310,10 @@ class RIEC(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
+        dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = RiecDataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = RiecDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
 
 
@@ -320,9 +329,10 @@ class CHEDAR(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
+        dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = ChedarDataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = ChedarDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
 
 
@@ -338,9 +348,10 @@ class Widespread(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
+        dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = WidespreadDataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = WidespreadDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
 
 
@@ -356,9 +367,10 @@ class SADIE2(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
+        dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = Sadie2DataPoint(sofa_directory_path=Path(root)/'Database-Master_V1-4')
+        datapoint = Sadie2DataPoint(sofa_directory_path=Path(root)/'Database-Master_V1-4', dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
 
 
@@ -374,9 +386,10 @@ class ThreeDThreeA(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
+        dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = ThreeDThreeADataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = ThreeDThreeADataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
 
 
@@ -392,7 +405,8 @@ class SONICOM(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         hrir_transform: Optional[Callable] = None,
+        dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = SonicomDataPoint(sofa_directory_path=Path(root))
+        datapoint = SonicomDataPoint(sofa_directory_path=Path(root), dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)

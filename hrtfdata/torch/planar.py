@@ -500,8 +500,9 @@ class CIPICPlane(InterauralPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
     ):
-        datapoint = CipicDataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = CipicDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
         super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
 
 
@@ -516,8 +517,9 @@ class ARIPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
     ):
-        datapoint = AriDataPoint(sofa_directory_path=Path(root)/'sofa', anthropomorphy_matfile_path=None)
+        datapoint = AriDataPoint(sofa_directory_path=Path(root)/'sofa', anthropomorphy_matfile_path=None, dtype=dtype)
         if positive_angles is None:
             positive_angles = False
         super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
@@ -534,8 +536,9 @@ class ListenPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
     ):
-        datapoint = ListenDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/44100')
+        datapoint = ListenDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/44100', dtype=dtype)
         super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
 
 
@@ -550,8 +553,9 @@ class BiLiPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
     ):
-        datapoint = BiLiDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/96000')
+        datapoint = BiLiDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/96000', dtype=dtype)
         super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
 
 
@@ -566,8 +570,9 @@ class ITAPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
     ):
-        datapoint = ItaDataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = ItaDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
         super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
 
 
@@ -582,8 +587,9 @@ class HUTUBSPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
     ):
-        datapoint = HutubsDataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = HutubsDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
         super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
 
 
@@ -598,8 +604,9 @@ class RIECPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
     ):
-        datapoint = RiecDataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = RiecDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
         super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
 
 
@@ -614,8 +621,9 @@ class CHEDARPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
     ):
-        datapoint = ChedarDataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = ChedarDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
         super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
 
 
@@ -630,8 +638,9 @@ class WidespreadPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
     ):
-        datapoint = WidespreadDataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = WidespreadDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
         super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
 
 
@@ -646,8 +655,9 @@ class SADIE2Plane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
     ):
-        datapoint = Sadie2DataPoint(sofa_directory_path=Path(root)/'Database-Master_V1-4')
+        datapoint = Sadie2DataPoint(sofa_directory_path=Path(root)/'Database-Master_V1-4', dtype=dtype)
         super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
 
 
@@ -662,8 +672,9 @@ class ThreeDThreeAPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
     ):
-        datapoint = ThreeDThreeADataPoint(sofa_directory_path=Path(root)/'sofa')
+        datapoint = ThreeDThreeADataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
         super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
 
 
@@ -678,6 +689,7 @@ class SONICOMPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
     ):
-        datapoint = SonicomDataPoint(sofa_directory_path=Path(root))
+        datapoint = SonicomDataPoint(sofa_directory_path=Path(root), dtype=dtype)
         super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)

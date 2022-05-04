@@ -231,6 +231,8 @@ class SofaDataPoint(DataPoint):
                 hrir = np.angle(selected_hrtf_matrix)
             else:
                 hrir = ValueError(f'Unknown domain "{domain}" for HRIR')
+        if domain == 'complex' and not issubclass(self.dtype, np.complexfloating):
+            raise ValueError(f'An HRTF in the complex domain requires the dtype to be set to a complex type (currently {self.dtype})')
         hrir = np.squeeze(hrir.astype(self.dtype))
         if side.startswith('mirrored'):
             if isinstance(self, SofaSphericalDataPoint):
