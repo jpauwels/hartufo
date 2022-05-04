@@ -1,4 +1,4 @@
-from ..datapoint import DataPoint, SofaSphericalDataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint, SonicomDataPoint
+from ..datapoint import DataPoint, SofaSphericalDataPoint, CipicDataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint, SonicomDataPoint
 import warnings
 from pathlib import Path
 from typing import Any, Callable, List, Iterable, Optional, TypeVar, Dict, IO, Tuple, Iterator
@@ -172,6 +172,28 @@ class HRTFDataset(TorchDataset):
         ear_ids = self._query.specification_based_ids(self._specification)
         subject_ids, _ = zip(*ear_ids)
         return tuple(sorted(set(subject_ids)))
+
+
+class CIPIC(HRTFDataset):
+    """CIPIC HRTF Dataset
+    """
+    def __init__(
+        self,
+        root: str,
+        feature_spec: Optional[Dict] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
+        measurement_transform: Optional[Callable] = None,
+        hrir_transform: Optional[Callable] = None,
+        # download: bool = True,
+    ) -> None:
+        datapoint = CipicDataPoint(
+            anthropomorphy_matfile_path=Path(root)/'CIPIC_hrtf_database/anthropometry/anthro.mat',
+            sofa_directory_path=Path(root)/'sofa',
+        )
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, measurement_transform, hrir_transform)
 
 
 class ARI(HRTFDataset):
