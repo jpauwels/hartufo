@@ -31,7 +31,6 @@ class Dataset:
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         dict_format = True,
-        # download: bool = True,
     ) -> None:
         super().__init__()
         self._query = datareader.query
@@ -237,18 +236,21 @@ class Cipic(Dataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         dtype: type = np.float32,
-        # download: bool = True,
+        download: bool = False,
+        verify: bool = False,
     ) -> None:
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = CipicDataReader(
-            anthropomorphy_matfile_path=Path(root)/'CIPIC_hrtf_database/anthropometry/anthro.mat',
+            anthropometry_matfile_path=Path(root)/'anthropometry/anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
-            image_directory_path=Path(root)/'binural-updates'/'ear_photos',
+            image_directory_path=Path(root)/'ear_photos',
             hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
+            download=download,
+            verify=verify,
         )
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
@@ -266,17 +268,20 @@ class Ari(Dataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         dtype: type = np.float32,
-        # download: bool = True,
+        download: bool = False,
+        verify: bool = False,
     ) -> None:
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = AriDataReader(
-            anthropomorphy_matfile_path=Path(root)/'anthro.mat',
+            anthropometry_matfile_path=Path(root)/'anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
             hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
+            download=download,
+            verify=verify,
         )
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
@@ -295,18 +300,21 @@ class Listen(Dataset):
         exclude_ids: Optional[Iterable[int]] = None,
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
-        # download: bool = True,
+        download: bool = False,
+        verify: bool = False,
     ) -> None:
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = ListenDataReader(
             sofa_directory_path=Path(root)/'sofa',
-            anthropometry_directory_path=Path(root)/'morphology',
+            anthropometry_directory_path=Path(root)/'anthropometry',
             hrtf_type=hrtf_type,
             hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
+            download=download,
+            verify=verify,
         )
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
@@ -325,7 +333,8 @@ class BiLi(Dataset):
         exclude_ids: Optional[Iterable[int]] = None,
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
-        # download: bool = True,
+        download: bool = False,
+        verify: bool = False,
     ) -> None:
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = BiLiDataReader(
@@ -336,6 +345,8 @@ class BiLi(Dataset):
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
+            download=download,
+            verify=verify,
         )
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
@@ -353,17 +364,20 @@ class Ita(Dataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         dtype: type = np.float32,
-        # download: bool = True,
+        download: bool = False,
+        verify: bool = False,
     ) -> None:
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = ItaDataReader(
             sofa_directory_path=Path(root)/'sofa',
-            anthropometry_csvfile_path=Path(root)/'Dimensions.csv',
+            anthropometry_csvfile_path=Path(root)/'Dimensions.xlsx',
             hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
+            download=download,
+            verify=verify,
         )
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
@@ -382,7 +396,8 @@ class Hutubs(Dataset):
         exclude_ids: Optional[Iterable[int]] = None,
         measured_hrtf: bool = True,
         dtype: type = np.float32,
-        # download: bool = True,
+        download: bool = False,
+        verify: bool = False,
     ) -> None:
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = HutubsDataReader(
@@ -394,6 +409,8 @@ class Hutubs(Dataset):
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
+            download=download,
+            verify=verify,
             )
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
@@ -411,7 +428,8 @@ class Riec(Dataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         dtype: type = np.float32,
-        # download: bool = True,
+        download: bool = False,
+        verify: bool = False,
     ) -> None:
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = RiecDataReader(
@@ -421,6 +439,8 @@ class Riec(Dataset):
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
+            download=download,
+            verify=verify,
         )
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
@@ -439,7 +459,8 @@ class Chedar(Dataset):
         exclude_ids: Optional[Iterable[int]] = None,
         radius: float = 1,
         dtype: type = np.float32,
-        # download: bool = True,
+        download: bool = False,
+        verify: bool = False,
     ) -> None:
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = ChedarDataReader(
@@ -451,6 +472,8 @@ class Chedar(Dataset):
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
+            download=download,
+            verify=verify,
         )
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
@@ -470,7 +493,8 @@ class Widespread(Dataset):
         radius: float = 1,
         grid: str = 'UV',
         dtype: type = np.float32,
-        # download: bool = True,
+        download: bool = False,
+        verify: bool = False,
     ) -> None:
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = WidespreadDataReader(
@@ -482,6 +506,8 @@ class Widespread(Dataset):
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
+            download=download,
+            verify=verify,
         )
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
@@ -499,7 +525,8 @@ class Sadie2(Dataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         dtype: type = np.float32,
-        # download: bool = True,
+        download: bool = False,
+        verify: bool = False,
     ) -> None:
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = Sadie2DataReader(
@@ -510,6 +537,8 @@ class Sadie2(Dataset):
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
+            download=download,
+            verify=verify,
         )
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
@@ -529,7 +558,8 @@ class Princeton3D3A(Dataset):
         hrtf_method: str = 'measured',
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
-        # download: bool = True,
+        download: bool = False,
+        verify: bool = False,
     ) -> None:
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = Princeton3D3ADataReader(
@@ -542,6 +572,8 @@ class Princeton3D3A(Dataset):
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
+            download=download,
+            verify=verify,
         )
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
@@ -560,7 +592,8 @@ class Sonicom(Dataset):
         exclude_ids: Optional[Iterable[int]] = None,
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
-        # download: bool = True,
+        download: bool = False,
+        verify: bool = False,
     ) -> None:
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = SonicomDataReader(
@@ -571,5 +604,7 @@ class Sonicom(Dataset):
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
+            download=download,
+            verify=verify,
         )
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)

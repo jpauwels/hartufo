@@ -236,11 +236,14 @@ class CipicPlane(InterauralPlaneMixin, Cipic):
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
         super().__init__(
             plane, domain, side, plane_angles, plane_offset, positive_angles, root=root,
             hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
+            download=download, verify=verify,
         )
 
 
@@ -262,6 +265,8 @@ class AriPlane(SphericalPlaneMixin, Ari):
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
         if positive_angles is None:
             positive_angles = False
@@ -269,6 +274,7 @@ class AriPlane(SphericalPlaneMixin, Ari):
             plane, domain, side, plane_angles, plane_offset, positive_angles, root=root,
             hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
+            download=download, verify=verify,
         )
 
 
@@ -291,11 +297,14 @@ class ListenPlane(SphericalPlaneMixin, Listen):
         exclude_ids: Optional[Iterable[int]] = None,
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
         super().__init__(
             plane, domain, side, plane_angles, plane_offset, positive_angles, root=root,
             hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, hrtf_type=hrtf_type, dtype=dtype,
+            download=download, verify=verify,
         )
 
 
@@ -318,11 +327,14 @@ class BiLiPlane(SphericalPlaneMixin, BiLi):
         exclude_ids: Optional[Iterable[int]] = None,
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
         super().__init__(
             plane, domain, side, plane_angles, plane_offset, positive_angles, root=root,
             hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, hrtf_type=hrtf_type,
+            download=download, verify=verify,
         )
 
 
@@ -344,11 +356,14 @@ class ItaPlane(SphericalPlaneMixin, Ita):
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
         super().__init__(
             plane, domain, side, plane_angles, plane_offset, positive_angles, root=root,
             hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
+            download=download, verify=verify,
         )
 
 
@@ -371,11 +386,14 @@ class HutubsPlane(SphericalPlaneMixin, Hutubs):
         exclude_ids: Optional[Iterable[int]] = None,
         measured_hrtf: bool = True,
         dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
         super().__init__(
             plane, domain, side, plane_angles, plane_offset, positive_angles, root=root,
             hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, measured_hrtf=measured_hrtf,
+            download=download, verify=verify,
         )
 
 
@@ -397,11 +415,14 @@ class RiecPlane(SphericalPlaneMixin, Riec):
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
         super().__init__(
             plane, domain, side, plane_angles, plane_offset, positive_angles, root=root,
             hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
+            download=download, verify=verify,
         )
 
 
@@ -424,11 +445,14 @@ class ChedarPlane(SphericalPlaneMixin, Chedar):
         exclude_ids: Optional[Iterable[int]] = None,
         radius: float = 1,
         dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = False,
     ):
         super().__init__(
             plane, domain, side, plane_angles, plane_offset, positive_angles, root=root,
             hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, radius=radius,
+            download=download, verify=verify,
         )
 
 
@@ -452,11 +476,14 @@ class WidespreadPlane(SphericalPlaneMixin, Widespread):
         radius: float = 1,
         grid: str = 'UV',
         dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = False,
     ):
         super().__init__(
             plane, domain, side, plane_angles, plane_offset, positive_angles, root=root,
             hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, radius=radius, grid=grid,
+            download=download, verify=verify,
         )
 
 
@@ -478,10 +505,13 @@ class Sadie2Plane(SphericalPlaneMixin, Sadie2):
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
         super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, root=root,
             hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
+            download=download, verify=verify,
         )
 
 
@@ -505,11 +535,14 @@ class Princeton3D3APlane(SphericalPlaneMixin, Princeton3D3A):
         hrtf_method: str = 'measured',
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
         super().__init__(
             plane, domain, side, plane_angles, plane_offset, positive_angles, root=root,
             hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, hrtf_method=hrtf_method, hrtf_type=hrtf_type,
+            download=download, verify=verify,
         )
 
 
@@ -532,9 +565,12 @@ class SonicomPlane(SphericalPlaneMixin, Sonicom):
         exclude_ids: Optional[Iterable[int]] = None,
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
         super().__init__(
             plane, domain, side, plane_angles, plane_offset, positive_angles, root=root,
             hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, hrtf_type=hrtf_type,
+            download=download, verify=verify,
         )
