@@ -442,8 +442,10 @@ class CipicDataReader(SofaInterauralDataReader, AnthropometryDataReader, ImageDa
         hrir_min_phase: bool = False,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
-        query = CipicDataQuery(sofa_directory_path, image_directory_path, anthropometry_matfile_path)
+        query = CipicDataQuery(sofa_directory_path, image_directory_path, anthropometry_matfile_path, download, verify)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -471,8 +473,10 @@ class AriDataReader(SofaSphericalDataReader, AnthropometryDataReader):
         hrir_min_phase: bool = False,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
-        query = AriDataQuery(sofa_directory_path, anthropometry_matfile_path)
+        query = AriDataQuery(sofa_directory_path, anthropometry_matfile_path, download, verify)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -495,13 +499,15 @@ class ListenDataReader(SofaSphericalDataReader, AnthropometryDataReader):
         hrir_min_phase: bool = False,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
-        query = ListenDataQuery(sofa_directory_path, anthropometry_directory_path, hrtf_type)
+        query = ListenDataQuery(sofa_directory_path, anthropometry_directory_path, hrtf_type, download, verify)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / self.query._variant_key / 'IRC_{:04d}_{}_44100.sofa'.format(subject_id, self.query._hrtf_type_char))
+        return str(self.query.sofa_directory_path / self.query._variant_key / '44100' / 'IRC_{:04d}_{}_44100.sofa'.format(subject_id, self.query._hrtf_type_char))
 
 
 class BiLiDataReader(SofaSphericalDataReader):
@@ -515,13 +521,15 @@ class BiLiDataReader(SofaSphericalDataReader):
         hrir_min_phase: bool = False,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
-        query = BiLiDataQuery(sofa_directory_path, hrir_samplerate, hrtf_type)
+        query = BiLiDataQuery(sofa_directory_path, hrir_samplerate, hrtf_type, download, verify)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / self.query._variant_key / 'IRC_{:04d}_{}_HRIR_{}.sofa'.format(subject_id, self.query._hrtf_type_char, self.query._samplerate))
+        return str(self.query.sofa_directory_path / self.query._hrtf_type / str(self.query._samplerate) / 'IRC_{:04d}_{}_HRIR_{}.sofa'.format(subject_id, self.query._hrtf_type_char, self.query._samplerate))
 
 
 class ItaDataReader(SofaSphericalDataReader, AnthropometryDataReader):
@@ -535,8 +543,10 @@ class ItaDataReader(SofaSphericalDataReader, AnthropometryDataReader):
         hrir_min_phase: bool = False,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
-        query = ItaDataQuery(sofa_directory_path, anthropometry_csvfile_path)
+        query = ItaDataQuery(sofa_directory_path, anthropometry_csvfile_path, download, verify)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -556,8 +566,10 @@ class HutubsDataReader(SofaSphericalDataReader, AnthropometryDataReader):
         hrir_min_phase: bool = False,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
-        query = HutubsDataQuery(sofa_directory_path, anthropometry_csvfile_path, measured_hrtf)
+        query = HutubsDataQuery(sofa_directory_path, anthropometry_csvfile_path, measured_hrtf, download, verify)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -575,8 +587,10 @@ class RiecDataReader(SofaSphericalDataReader):
         hrir_min_phase: bool = False,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
-        query = RiecDataQuery(sofa_directory_path)
+        query = RiecDataQuery(sofa_directory_path, download, verify)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -599,9 +613,12 @@ class ChedarDataReader(SofaSphericalDataReader, AnthropometryDataReader):
         hrir_min_phase: bool = False,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
-        query = ChedarDataQuery(sofa_directory_path, anthropometry_matfile_path, radius)
+        query = ChedarDataQuery(sofa_directory_path, anthropometry_matfile_path, radius, download, verify)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
+        self._quantisation = 1
 
 
     def _sofa_path(self, subject_id):
@@ -623,9 +640,12 @@ class WidespreadDataReader(SofaSphericalDataReader):
         hrir_min_phase: bool = False,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
-        query = WidespreadDataQuery(sofa_directory_path, radius, grid)
+        query = WidespreadDataQuery(sofa_directory_path, radius, grid, download, verify)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
+        self._quantisation = 1
 
 
     def _sofa_path(self, subject_id):
@@ -643,8 +663,10 @@ class Sadie2DataReader(SofaSphericalDataReader, ImageDataReader):
         hrir_min_phase: bool = False,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
-        query = Sadie2DataQuery(sofa_directory_path, image_directory_path, hrir_samplerate)
+        query = Sadie2DataQuery(sofa_directory_path, image_directory_path, hrir_samplerate, download, verify)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -682,8 +704,10 @@ class Princeton3D3ADataReader(SofaSphericalDataReader, AnthropometryDataReader):
         hrir_min_phase: bool = False,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
-        query = Princeton3D3ADataQuery(sofa_directory_path, anthropometry_directory_path, hrtf_method, hrtf_type)
+        query = Princeton3D3ADataQuery(sofa_directory_path, anthropometry_directory_path, hrtf_method, hrtf_type, download, verify)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -702,10 +726,12 @@ class SonicomDataReader(SofaSphericalDataReader):
         hrir_min_phase: bool = False,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
+        download: bool = False,
+        verify: bool = True,
     ):
-        query = SonicomDataQuery(sofa_directory_path, hrir_samplerate, hrtf_type)
+        query = SonicomDataQuery(sofa_directory_path, hrir_samplerate, hrtf_type, download, verify)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / f'P{subject_id:04d}/HRTF/{self.query._samplerate_str}/P{subject_id:04d}_{self.query._hrtf_type_str}_{self.query._samplerate_str}.sofa')
+        return str(self.query.sofa_directory_path / f'P{subject_id:04d}' / 'HRTF' / 'HRTF' / self.query._samplerate_str / f'P{subject_id:04d}_{self.query._hrtf_type_str}_{self.query._samplerate_str}.sofa')

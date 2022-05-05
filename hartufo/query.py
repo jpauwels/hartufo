@@ -1,3 +1,4 @@
+from .checksums import HRIR_CHECKSUMS, ANTHROPOMETRY_CHECKSUMS, IMAGE_CHECKSUMS, MESH_CHECKSUMS
 import csv
 from pathlib import Path
 import warnings
@@ -5,10 +6,14 @@ import random
 from abc import abstractmethod
 from numbers import Number
 from xml.etree.ElementTree import parse
+import tempfile
+import os.path
+from urllib.parse import quote
 import numpy as np
 from openpyxl import load_workbook
 from pymatreader import read_mat
 from scipy import io
+from torchvision.datasets.utils import download_url, download_and_extract_archive, check_integrity
 
 
 _CIPIC_ANTHROPOMETRY_NAMES = {
@@ -60,12 +65,69 @@ def str2float(value):
 
 class DataQuery:
 
+    allowed_keys = ('subject', 'side', 'collection')
+
+
     def __init__(
         self,
         collection_id: str,
+        download: bool,
+        verify: bool,
     ):
         self.collection_id = collection_id
-        self.allowed_keys = ['subject', 'side', 'collection']
+
+        if download:
+            self._download()
+
+        if verify and not self._check_integrity():
+            raise RuntimeError('Collection not found or corrupted. You can use download=True to download it')
+
+
+    @staticmethod
+    def _integrity_helper(checksum_info, target_path) -> bool:
+        if target_path.is_dir():
+            return all([check_integrity(target_path / filename, md5) for filename, md5 in checksum_info])
+        else:
+            return check_integrity(target_path, checksum_info[0][1])
+
+
+    def _check_integrity(self) -> bool:
+        return True
+
+
+    @staticmethod
+    def _download_helper(download_info, checksum_info, target_path):
+        if 'base_url' in download_info:
+            target_path.mkdir(parents=True, exist_ok=True)
+            for filename, md5 in checksum_info:
+                if (target_path / filename).exists():
+                    continue
+                url = quote(os.path.join(download_info['base_url'], filename), safe='/:()')
+                download_url(url, root=target_path, filename=filename, md5=md5)
+        else:
+            parent_dir = target_path.parent
+            parent_dir.mkdir(parents=True, exist_ok=True)
+            if 'file_url' in download_info:
+                if target_path.exists():
+                    return
+                download_url(quote(download_info['file_url'], safe='/:()'), root=parent_dir, filename=target_path.name, md5=checksum_info[0][1])
+            elif 'archive_url' in download_info:
+                if target_path.is_file() or all([(target_path / filename).exists() for filename, _ in checksum_info]):
+                    return
+                url = download_info['archive_url']
+                checksum = download_info['archive_checksum']
+                with tempfile.TemporaryDirectory(dir=parent_dir) as temp_dir:
+                    download_and_extract_archive(quote(url, safe='/:()'), download_root=parent_dir, extract_root=temp_dir, md5=checksum, remove_finished=True)
+                    if 'target_suffix' in download_info:
+                        extract_path = target_path / download_info['target_suffix']
+                        extract_path.mkdir(parents=True, exist_ok=True)
+                    else:
+                        extract_path = target_path
+                    os.replace(Path(temp_dir) / download_info['path_in_archive'], extract_path)
+
+
+    def _download(self) -> None:
+        return
 
 
     def validate_specification(self, spec):
@@ -158,6 +220,7 @@ class DataQuery:
 class HrirDataQuery(DataQuery):
 
     _default_hrirs_exclude = ()
+    HRIR_DOWNLOAD = {}
 
 
     def __init__(self,
@@ -165,11 +228,12 @@ class HrirDataQuery(DataQuery):
         variant_key: str = '',
         **kwargs,
     ):
-        super().__init__(**kwargs)
         if sofa_directory_path:
-            self.sofa_directory_path = Path(sofa_directory_path)
+            self.allowed_keys = list(self.allowed_keys)
             self.allowed_keys += ['hrirs']
-            self._variant_key = variant_key
+        self.sofa_directory_path = Path(sofa_directory_path)
+        self._variant_key = variant_key
+        super().__init__(**kwargs)
 
 
     def hrir_ids(self, side, exclude=None):
@@ -181,19 +245,36 @@ class HrirDataQuery(DataQuery):
         pass
 
 
+    def _check_integrity(self) -> bool:
+        check = super()._check_integrity()
+        if 'hrirs' in self.allowed_keys:
+            return check and self._integrity_helper(HRIR_CHECKSUMS[self.collection_id][self._variant_key], self.sofa_directory_path)
+        return check
+
+
+    def _download(self) -> None:
+        super()._download()
+        if 'hrirs' in self.allowed_keys:
+            self._download_helper(self.HRIR_DOWNLOAD, HRIR_CHECKSUMS[self.collection_id][self._variant_key], self.sofa_directory_path)
+
+
 class AnthropometryDataQuery(DataQuery):
 
     _default_anthropometry_exclude = ()
+    ANTHROPOMETRY_DOWNLOAD = {}
+
 
     def __init__(self,
         anthropometry_path: str = '',
         **kwargs,
     ):
+        if anthropometry_path:
+            self.allowed_keys = list(self.allowed_keys)
+            self.allowed_keys += ['anthropometry']
+        self.anthropometry_path = Path(anthropometry_path)
         super().__init__(**kwargs)
         if anthropometry_path:
-            self.anthropometry_path = Path(anthropometry_path)
             self._load_anthropometry(self.anthropometry_path)
-            self.allowed_keys += ['anthropometry']
         else:
             self._anthropometric_ids = np.array([], dtype=int)
             self._anthropometry = {}
@@ -255,19 +336,34 @@ class AnthropometryDataQuery(DataQuery):
         return np.column_stack([self._anthropometry[s][real_side] if s.startswith('pinna') else self._anthropometry[s] for s in select])
 
 
+    def _check_integrity(self) -> bool:
+        check = super()._check_integrity()
+        if 'anthropometry' in self.allowed_keys:
+            return check and self._integrity_helper(ANTHROPOMETRY_CHECKSUMS[self.collection_id], self.anthropometry_path)
+        return check
+
+
+    def _download(self) -> None:
+        super()._download()
+        if 'anthropometry' in self.allowed_keys:
+            self._download_helper(self.ANTHROPOMETRY_DOWNLOAD, ANTHROPOMETRY_CHECKSUMS[self.collection_id], self.anthropometry_path)
+
+
 class ImageDataQuery(DataQuery):
 
     _default_images_exclude = ()
+    IMAGE_DOWNLOAD = {}
 
 
     def __init__(self,
         image_directory_path: str = '',
         **kwargs,
     ):
-        super().__init__(**kwargs)
         if image_directory_path:
-            self.image_directory_path = Path(image_directory_path)
+            self.allowed_keys = list(self.allowed_keys)
             self.allowed_keys += ['image']
+        self.image_directory_path = Path(image_directory_path)
+        super().__init__(**kwargs)
 
 
     def image_ids(self, side, rear=False, exclude=None):
@@ -279,19 +375,34 @@ class ImageDataQuery(DataQuery):
         pass
 
 
+    def _check_integrity(self) -> bool:
+        check = super()._check_integrity()
+        if 'image' in self.allowed_keys:
+            return check and self._integrity_helper(IMAGE_CHECKSUMS[self.collection_id], self.image_directory_path)
+        return check
+
+
+    def _download(self) -> None:
+        super()._download()
+        if 'image' in self.allowed_keys:
+            self._download_helper(self.IMAGE_DOWNLOAD, IMAGE_CHECKSUMS[self.collection_id], self.image_directory_path)
+
+
 class MeshDataQuery(DataQuery):
 
     _default_mesh_exclude = ()
+    MESH_DOWNLOAD = {}
 
 
     def __init__(self,
         mesh_directory_path: str = '',
         **kwargs,
     ):
-        super().__init__(**kwargs)
         if mesh_directory_path:
-            self.mesh_directory_path = Path(mesh_directory_path)
+            self.allowed_keys = list(self.allowed_keys)
             self.allowed_keys += ['3d-model']
+        self.mesh_directory_path = Path(mesh_directory_path)
+        super().__init__(**kwargs)
 
 
     def mesh_ids(self, side, exclude=None):
@@ -303,10 +414,32 @@ class MeshDataQuery(DataQuery):
         pass
 
 
+    def _check_integrity(self) -> bool:
+        check = super()._check_integrity()
+        if '3d-model' in self.allowed_keys:
+            return check and self._integrity_helper(MESH_CHECKSUMS[self.collection_id], self.mesh_directory_path)
+        return check
+
+
+    def _download(self) -> None:
+        super()._download()
+        if '3d-model' in self.allowed_keys:
+            self._download_helper(self.MESH_DOWNLOAD, MESH_CHECKSUMS[self.collection_id], self.mesh_directory_path)
+
+
 class CipicDataQuery(HrirDataQuery, AnthropometryDataQuery, ImageDataQuery):
 
-    def __init__(self, sofa_directory_path=None, image_directory_path=None, anthropometry_matfile_path=None):
-        super().__init__(collection_id='cipic', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, anthropometry_path=anthropometry_matfile_path)
+    HRIR_DOWNLOAD = {'base_url': 'https://sofacoustics.org/data/database/cipic/'}
+    ANTHROPOMETRY_DOWNLOAD = {'archive_url': 'https://sofacoustics.org/data/database/cipic/anthropometry.zip',
+                              'archive_checksum': '12e0848c3f7305b38843ea213e5e6ddb',
+                              'path_in_archive': 'anthro.mat',}
+    IMAGE_DOWNLOAD = {'archive_url': 'https://github.com/jpauwels/cipic_ear_photos/archive/refs/heads/main.zip',
+                      'archive_checksum': '21d43c612ccbb54481672d63252ceb65',
+                      'path_in_archive': 'cipic_ear_photos-main',}
+
+
+    def __init__(self, sofa_directory_path='', image_directory_path='', anthropometry_matfile_path='', download=False, verify=False):
+        super().__init__(collection_id='cipic', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, anthropometry_path=anthropometry_matfile_path, download=download, verify=verify)
         self._default_hrirs_exclude = (21, 165) # KEMAR dummy
         self._default_images_exclude = (21,) # KEMAR dummy
         self._default_anthropometry_exclude = (21, 165) # KEMAR dummy
@@ -350,8 +483,12 @@ class CipicDataQuery(HrirDataQuery, AnthropometryDataQuery, ImageDataQuery):
 
 class AriDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
-    def __init__(self, sofa_directory_path=None, anthropometry_matfile_path=None):
-        super().__init__(collection_id='ari', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_matfile_path)
+    HRIR_DOWNLOAD = {'base_url': 'https://sofacoustics.org/data/database/ari/'}
+    ANTHROPOMETRY_DOWNLOAD = {'file_url': 'https://www.oeaw.ac.at/fileadmin/Institute/ISF/IMG/software/anthro.mat'}
+
+
+    def __init__(self, sofa_directory_path='', anthropometry_matfile_path='', download=False, verify=False):
+        super().__init__(collection_id='ari', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_matfile_path, download=download, verify=verify)
         self._default_hrirs_exclude = (10, 22, 826) # missing 1, 2, and 2 measurement positions
 
 
@@ -382,18 +519,29 @@ class AriDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 class ListenDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
-    def __init__(self, sofa_directory_path=None, anthropometry_directory_path=None, hrtf_type='compensated'):
+    HRIR_DOWNLOAD = {'archive_url': 'http://bili2.ircam.fr/Archives/SimpleFreeFieldHRIR/LISTEN/{}/44100/archive.zip',
+                     'archive_checksum': '',
+                     'path_in_archive': '.',
+                     'target_suffix': ''}
+    HRIR_ARCHIVE_CHECKSUMS = {'raw': 'b796edd37be92eb5262b9032c59d72c7', 'compensated': '174282e95526eb27c20a0a8ccb23e1d1'}
+    ANTHROPOMETRY_DOWNLOAD = {'base_url': 'http://eecs.qmul.ac.uk/~johan/hartufo/MORPHO/'} #'ftp://ftp.ircam.fr/pub/IRCAM/equipes/salles/listen/archive/MORPHO/'}
+
+
+    def __init__(self, sofa_directory_path='', anthropometry_directory_path='', hrtf_type='compensated', download=False, verify=False):
         if hrtf_type == 'raw':
             self._hrtf_type_char = 'R'
         elif hrtf_type == 'compensated':
             self._hrtf_type_char = 'C'
         else:
             raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
-        super().__init__(collection_id='listen', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, variant_key=f'{hrtf_type}/44100')
+        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD['archive_url'].format(hrtf_type.upper())
+        self.HRIR_DOWNLOAD['archive_checksum'] = self.HRIR_ARCHIVE_CHECKSUMS[hrtf_type]
+        self.HRIR_DOWNLOAD['target_suffix'] = f'{hrtf_type}/44100'
+        super().__init__(collection_id='listen', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, variant_key=hrtf_type, download=download, verify=verify)
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._variant_key).glob(f'IRC_????_{self._hrtf_type_char}_44100.sofa')])
+        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._variant_key / '44100').glob(f'IRC_????_{self._hrtf_type_char}_44100.sofa')])
 
 
     def _load_anthropometry(self, anthropometry_path):
@@ -434,7 +582,20 @@ class ListenDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 class BiLiDataQuery(HrirDataQuery):
 
-    def __init__(self, sofa_directory_path, samplerate=96000, hrtf_type='compensated'):
+    HRIR_DOWNLOAD = {'archive_url': 'http://bili2.ircam.fr/Archives/SimpleFreeFieldHRIR/BILI/{}/{}/archive.zip',
+                     'archive_checksum': '',
+                     'path_in_archive': '.',
+                     'target_suffix': ''}
+    HRIR_ARCHIVE_CHECKSUMS = {
+        'raw-96000': 'fc4306bb66c62a89d6ea1f243565592d',
+        'compensated-96000': 'c9dbb7a7310aac9679777f454371c9ca',
+        'compensated-interpolated-96000': 'efb9b5c83a6c16cdb36d6fc0192c9d92',
+        'compensated-interpolated-48000': '6b752719d4356c65435cef6393811aae',
+        'compensated-interpolated-44100': 'cc97c607e194744ec24c95b07790b262',
+    }
+
+
+    def __init__(self, sofa_directory_path='', samplerate=96000, hrtf_type='compensated', download=False, verify=False):
         if hrtf_type == 'raw':
             self._hrtf_type_char = 'R'
         elif hrtf_type == 'compensated':
@@ -446,18 +607,27 @@ class BiLiDataQuery(HrirDataQuery):
         if samplerate not in (44100, 48000, 96000) or hrtf_type != 'compensated-interpolated':
             samplerate = 96000
         self._samplerate = samplerate
-        super().__init__(collection_id='bili', sofa_directory_path=sofa_directory_path, variant_key=f'{hrtf_type}/{samplerate}')
+        self._hrtf_type = hrtf_type
+        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD['archive_url'].format(hrtf_type.upper().replace('-', '_'), samplerate)
+        variant_key = f'{hrtf_type}-{samplerate}'
+        self.HRIR_DOWNLOAD['archive_checksum'] = self.HRIR_ARCHIVE_CHECKSUMS[variant_key]
+        self.HRIR_DOWNLOAD['target_suffix'] = f'{hrtf_type}/{samplerate}'
+        super().__init__(collection_id='bili', sofa_directory_path=sofa_directory_path, variant_key=variant_key, download=download, verify=verify)
         self._default_hrirs_exclude = () # TODO: Neumann KU100 and Brüel & Kjaer type 4100D with and without pinna dummies
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._variant_key).glob(f'IRC_????_{self._hrtf_type_char}_HRIR_{self._samplerate}.sofa')])
+        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._hrtf_type / str(self._samplerate)).glob(f'IRC_????_{self._hrtf_type_char}_HRIR_{self._samplerate}.sofa')])
 
 
 class ItaDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
-    def __init__(self, sofa_directory_path=None, anthropometry_csvfile_path=None):
-        super().__init__(collection_id='ita', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_csvfile_path)
+    HRIR_DOWNLOAD = {'base_url': 'https://sofacoustics.org/data/database/aachen/'}
+    ANTHROPOMETRY_DOWNLOAD = {'file_url': 'http://eecs.qmul.ac.uk/~johan/hartufo/Dimensions.xlsx'} # 'https://sofacoustics.org/data/database/aachen/Dimensions.xlsx'
+
+
+    def __init__(self, sofa_directory_path='', anthropometry_csvfile_path='', download=False, verify=False):
+        super().__init__(collection_id='ita', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_csvfile_path, download=download, verify=verify)
         self._default_hrirs_exclude = (2, 14) # lower resolution of measurement grid
 
 
@@ -490,8 +660,12 @@ class ItaDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 class HutubsDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
-    def __init__(self, sofa_directory_path=None, anthropometry_csvfile_path=None, measured_hrtf=True):
-        super().__init__(collection_id='hutubs', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_csvfile_path, variant_key='measured' if measured_hrtf else 'simulated')
+    HRIR_DOWNLOAD = {'base_url': 'https://sofacoustics.org/data/database/hutubs/'}
+    ANTHROPOMETRY_DOWNLOAD = {'file_url': 'https://sofacoustics.org/data/database/hutubs/AntrhopometricMeasures.csv'}
+
+
+    def __init__(self, sofa_directory_path='', anthropometry_csvfile_path='', measured_hrtf=True, download=False, verify=False):
+        super().__init__(collection_id='hutubs', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_csvfile_path, variant_key='measured' if measured_hrtf else 'simulated', download=download, verify=verify)
         self._default_hrirs_exclude = (1, 96) # FABIAN dummy
         self._default_anthropometry_exclude = (1, 96) # FABIAN dummy
         self._default_mesh_exclude = (1, 96) # FABIAN dummy
@@ -530,8 +704,11 @@ class HutubsDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 class RiecDataQuery(HrirDataQuery):
 
-    def __init__(self, sofa_directory_path):
-        super().__init__(collection_id='riec', sofa_directory_path=sofa_directory_path)
+    HRIR_DOWNLOAD = {'base_url': 'https://sofacoustics.org/data/database/riec/'}
+
+
+    def __init__(self, sofa_directory_path='', download=False, verify=False):
+        super().__init__(collection_id='riec', sofa_directory_path=sofa_directory_path, download=download, verify=verify)
         self._default_hrirs_exclude = (46, 80) # SAMRAI & KEMAR dummy
         self._default_mesh_exclude = (46,) # SAMRAI dummy
 
@@ -542,7 +719,11 @@ class RiecDataQuery(HrirDataQuery):
 
 class ChedarDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
-    def __init__(self, sofa_directory_path=None, anthropometry_matfile_path=None, radius=1):
+    HRIR_DOWNLOAD = {'base_url': 'https://sofacoustics.org/data/database/chedar/'}
+    ANTHROPOMETRY_DOWNLOAD = {'file_url': 'https://sofacoustics.org/data/database/chedar/measurements.mat'}
+
+
+    def __init__(self, sofa_directory_path='', anthropometry_matfile_path='', radius=1, download=False, verify=False):
         if np.isclose(radius, 0.2):
             self._radius = '02m'
         elif np.isclose(radius, 0.5):
@@ -553,7 +734,7 @@ class ChedarDataQuery(HrirDataQuery, AnthropometryDataQuery):
             self._radius = '2m'
         else:
             raise ValueError('The radius needs to be one of 0.2, 0.5, 1 or 2')
-        super().__init__(collection_id='chedar', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_matfile_path, variant_key=self._radius)
+        super().__init__(collection_id='chedar', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_matfile_path, variant_key=self._radius, download=download, verify=verify)
 
 
     def _all_hrir_ids(self, side):
@@ -583,7 +764,10 @@ class ChedarDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 class WidespreadDataQuery(HrirDataQuery):
 
-    def __init__(self, sofa_directory_path='', radius=1, grid='UV'):
+    HRIR_DOWNLOAD = {'base_url': 'https://sofacoustics.org/data/database/widespread/'}
+
+
+    def __init__(self, sofa_directory_path='', radius=1, grid='UV', download=False, verify=False):
         if np.isclose(radius, 0.2):
             self._radius = '02m'
         elif np.isclose(radius, 0.5):
@@ -597,7 +781,7 @@ class WidespreadDataQuery(HrirDataQuery):
         if grid not in ('UV', 'ICO'):
             raise ValueError('The grid needs to be either "UV" or "ICO".')
         self._grid = grid
-        super().__init__(collection_id='widespread', sofa_directory_path=sofa_directory_path, variant_key=f'{self._grid}-{self._radius}')
+        super().__init__(collection_id='widespread', sofa_directory_path=sofa_directory_path, variant_key=f'{self._grid}-{self._radius}', download=download, verify=verify)
 
 
     def _all_hrir_ids(self, side):
@@ -606,14 +790,23 @@ class WidespreadDataQuery(HrirDataQuery):
 
 class Sadie2DataQuery(HrirDataQuery, ImageDataQuery):
 
-    def __init__(self, sofa_directory_path=None, image_directory_path=None, samplerate=96000):
+    HRIR_DOWNLOAD = {'archive_url': 'https://www.york.ac.uk/sadie-project/Resources/SADIEIIDatabase/Database-Master_V1-4.zip',
+                     'archive_checksum': '13be7c386cbd05c5a2bcd7d9a9da3a23',
+                     'path_in_archive': 'Database-Master_V1-4',}
+    IMAGE_DOWNLOAD = {'archive_url': 'https://www.york.ac.uk/sadie-project/Resources/SADIEIIDatabase/Database-Master_V1-4.zip',
+                      'archive_checksum': '13be7c386cbd05c5a2bcd7d9a9da3a23',
+                     'path_in_archive': 'Database-Master_V1-4',}
+
+
+    def __init__(self, sofa_directory_path='', image_directory_path='', samplerate=96000, download=False, verify=False):
         if samplerate == 44100:
             self._samplerate_str = '44K_16bit_256tap'
         elif samplerate == 48000:
             self._samplerate_str = '48K_24bit_256tap'
         else:
+            samplerate = 96000
             self._samplerate_str = '96K_24bit_512tap'
-        super().__init__(collection_id='sadie2', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, variant_key=f'{samplerate}')
+        super().__init__(collection_id='sadie2', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, variant_key=f'{samplerate}', download=download, verify=verify)
         self._default_hrirs_exclude = (1, 2, 3, 4, 5, 6, 7, 8, 9) # higher spatial resolution
         self._default_images_exclude = (1, 2, 3, 16) # dummies (1, 2) & empty images (3, 16)
 
@@ -636,7 +829,11 @@ class Sadie2DataQuery(HrirDataQuery, ImageDataQuery):
 
 class Princeton3D3ADataQuery(HrirDataQuery, AnthropometryDataQuery):
 
-    def __init__(self, sofa_directory_path='', anthropometry_directory_path='', hrtf_method='measured', hrtf_type='compensated'):
+    HRIR_DOWNLOAD = {'base_url': 'https://3d3a.princeton.edu/3d3a-lab-head-related-transfer-function-database'}
+    ANTHROPOMETRY_DOWNLOAD = {'base_url': ''}
+
+
+    def __init__(self, sofa_directory_path='', anthropometry_directory_path='', hrtf_method='measured', hrtf_type='compensated', download=False, verify=False):
         if hrtf_type == 'raw':
             self._hrtf_type_str = 'BIRs'
         elif hrtf_type == 'compensated':
@@ -662,7 +859,13 @@ class Princeton3D3ADataQuery(HrirDataQuery, AnthropometryDataQuery):
                 self._method_str = 'BEM/Head-Ears-and-Torso/Reference-Grade'
             else:
                 raise ValueError(f'Unknown HRTF method "{hrtf_method}"')
-        super().__init__(collection_id='3d3a', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, variant_key=f'{hrtf_method}-{hrtf_type}')
+        if download:
+            raise NotImplementedError(
+                f'Downloading of the 3D3A collection is not yet supported. Manually download the files linked from {self.HRIR_DOWNLOAD["base_url"]} and extract'
+                f' them to {sofa_directory_path} and {anthropometry_directory_path}. Then pass "verify=True" to the constructor to check the expected'
+                ' location and content of the files.'
+            )
+        super().__init__(collection_id='3d3a', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, variant_key=f'{hrtf_method}-{hrtf_type}', download=download, verify=verify)
         self._default_hrirs_exclude = (37, 44) # Neumann KU100 and Brüel & Kjaer HATS 4128C dummy
         self._default_anthropometry_exclude = (37, 44) # Neumann KU100 and Brüel & Kjaer HATS 4128C dummy
 
@@ -695,7 +898,10 @@ class Princeton3D3ADataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 class SonicomDataQuery(HrirDataQuery):
 
-    def __init__(self, sofa_directory_path='', samplerate=96000, hrtf_type='compensated'):
+    HRIR_DOWNLOAD = {'base_url': 'https://www.axdesign.co.uk/tools-and-devices/sonicom-hrtf-dataset'}
+
+
+    def __init__(self, sofa_directory_path='', samplerate=96000, hrtf_type='compensated', download=False, verify=False):
         if samplerate not in (44100, 48000, 96000):
             samplerate = 96000
         self._samplerate_str = f'{round(samplerate/1000)}kHz'
@@ -717,8 +923,13 @@ class SonicomDataQuery(HrirDataQuery):
             self._hrtf_type_str = 'FreeFieldCompMinPhase_NoITD'
         else:
             raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
-        super().__init__(collection_id='sonicom', sofa_directory_path=sofa_directory_path, variant_key=f'{hrtf_type}-{samplerate}')
+        if download:
+            raise NotImplementedError(
+                f'Downloading of the SONICOM collection is not yet supported. Manually download the zip files from {self.HRIR_DOWNLOAD["base_url"]} and extract'
+                f' them to {sofa_directory_path}. Then pass "verify=True" to the constructor to check the expected location and content of the files.'
+            )
+        super().__init__(collection_id='sonicom', sofa_directory_path=sofa_directory_path, variant_key=f'{hrtf_type}-{samplerate}', download=download, verify=verify)
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[0].lstrip('P')) for x in self.sofa_directory_path.glob(f'P????/HRTF/{self._samplerate_str}/P????_{self._hrtf_type_str}_{self._samplerate_str}.sofa')])
+        return sorted([int(x.stem.split('_')[0].lstrip('P')) for x in self.sofa_directory_path.glob(f'P????/HRTF/HRTF/{self._samplerate_str}/P????_{self._hrtf_type_str}_{self._samplerate_str}.sofa')])
