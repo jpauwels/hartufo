@@ -20,6 +20,7 @@ class HRTFDataset(TorchDataset):
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
         image_transform: Optional[Callable] = ToTensor(),
         measurement_transform: Optional[Callable] = None,
         hrir_transform: Optional[Callable] = None,
@@ -30,13 +31,10 @@ class HRTFDataset(TorchDataset):
         self._measurement_transform = measurement_transform
         self._hrir_transform = hrir_transform
         self._query = datapoint.query
-
-        # if download:
-        #     self.download()
-
-        # if not self._check_integrity():
-        #     raise RuntimeError('Dataset not found or corrupted.' +
-        #                        ' You can use download=True to download it')
+        # Allow specifying ids that are excluded by default without explicitly overriding `exclude_ids``
+        if subject_ids is not None and not isinstance(subject_ids, str) and exclude_ids is None:
+            exclude_ids = ()
+        self._exclude_ids = exclude_ids
 
         if target_spec is None:
             target_spec = {}
@@ -48,7 +46,7 @@ class HRTFDataset(TorchDataset):
             raise ValueError('At least one specification should not be empty')
         if subject_requirements is not None:
             self._specification = {**self._specification, **subject_requirements}
-        ear_ids = self._query.specification_based_ids(self._specification, include_subjects=subject_ids)
+        ear_ids = self._query.specification_based_ids(self._specification, include_subjects=subject_ids, exclude_subjects=exclude_ids)
 
         if len(ear_ids) == 0:
             if len(self._query.specification_based_ids(self._specification)) == 0:
@@ -64,7 +62,7 @@ class HRTFDataset(TorchDataset):
             self.column_angles = np.array([])
             return
 
-        self.subject_ids, _ = zip(*ear_ids)
+        self.subject_ids, self.sides = zip(*ear_ids)
 
         if 'hrirs' in self._specification.keys():
             self._selected_angles, row_indices, column_indices = datapoint.hrir_angle_indices(
@@ -158,8 +156,8 @@ class HRTFDataset(TorchDataset):
                 items.append(get_single_item(features, target, group))
             try:
                 return {k: np.stack([d[k] for d in items]) for k in items[0].keys()}
-            except ValueError:
-                raise ValueError('Not all data points have the same shape')
+            except ValueError as exc:
+                raise ValueError('Not all data points have the same shape') from exc
 
 
     @property
@@ -169,7 +167,7 @@ class HRTFDataset(TorchDataset):
 
     @property
     def available_subject_ids(self):
-        ear_ids = self._query.specification_based_ids(self._specification)
+        ear_ids = self._query.specification_based_ids(self._specification, exclude_subjects=self._exclude_ids)
         subject_ids, _ = zip(*ear_ids)
         return tuple(sorted(set(subject_ids)))
 
@@ -185,6 +183,7 @@ class CIPIC(HRTFDataset):
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
         measurement_transform: Optional[Callable] = None,
         hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
@@ -195,7 +194,7 @@ class CIPIC(HRTFDataset):
             sofa_directory_path=Path(root)/'sofa',
             dtype=dtype,
         )
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, measurement_transform, hrir_transform)
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, measurement_transform, hrir_transform)
 
 
 class ARI(HRTFDataset):
@@ -209,6 +208,7 @@ class ARI(HRTFDataset):
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
         measurement_transform: Optional[Callable] = None,
         hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
@@ -219,7 +219,7 @@ class ARI(HRTFDataset):
             sofa_directory_path=Path(root)/'sofa',
             dtype=dtype,
         )
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, measurement_transform, hrir_transform)
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, measurement_transform, hrir_transform)
 
 
 class Listen(HRTFDataset):
@@ -233,12 +233,13 @@ class Listen(HRTFDataset):
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         datapoint = ListenDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/44100', dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class BiLi(HRTFDataset):
@@ -252,12 +253,13 @@ class BiLi(HRTFDataset):
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         datapoint = BiLiDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/96000', dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class ITA(HRTFDataset):
@@ -271,12 +273,13 @@ class ITA(HRTFDataset):
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         datapoint = ItaDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class HUTUBS(HRTFDataset):
@@ -290,12 +293,13 @@ class HUTUBS(HRTFDataset):
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         datapoint = HutubsDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class RIEC(HRTFDataset):
@@ -309,12 +313,13 @@ class RIEC(HRTFDataset):
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         datapoint = RiecDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class CHEDAR(HRTFDataset):
@@ -328,12 +333,13 @@ class CHEDAR(HRTFDataset):
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         datapoint = ChedarDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class Widespread(HRTFDataset):
@@ -347,12 +353,13 @@ class Widespread(HRTFDataset):
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         datapoint = WidespreadDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class SADIE2(HRTFDataset):
@@ -366,12 +373,13 @@ class SADIE2(HRTFDataset):
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         datapoint = Sadie2DataPoint(sofa_directory_path=Path(root)/'Database-Master_V1-4', dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class ThreeDThreeA(HRTFDataset):
@@ -385,12 +393,13 @@ class ThreeDThreeA(HRTFDataset):
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         datapoint = ThreeDThreeADataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class SONICOM(HRTFDataset):
@@ -404,9 +413,10 @@ class SONICOM(HRTFDataset):
         group_spec: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         datapoint = SonicomDataPoint(sofa_directory_path=Path(root), dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, None, None, hrir_transform)
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)

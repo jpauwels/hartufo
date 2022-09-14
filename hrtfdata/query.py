@@ -252,8 +252,8 @@ class Sadie2DataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path=None, image_directory_path=None):
         super().__init__(sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path)
-        self._default_hrirs_exclude = (1, 2, 3, 4, 5, 6, 7, 8, 9)
-        self._default_images_exclude = (3, 16)
+        self._default_hrirs_exclude = (1, 2, 3, 4, 5, 6, 7, 8, 9) # higher spatial resolution
+        self._default_images_exclude = (3, 16) # empty images
 
 
     def _all_hrir_ids(self, side):

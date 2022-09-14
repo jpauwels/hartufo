@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Dict, Iterable, Optional
 import numpy as np
 from .full import HRTFDataset
 from ..datapoint import DataPoint, CipicDataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint, SonicomDataPoint
@@ -19,6 +19,9 @@ class HRTFPlaneDataset(HRTFDataset):
         column_angles: Iterable[float],
         planar_transform: PlaneTransform,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
     ):
         self._plane = plane
         self._plane_offset = plane_offset
@@ -28,9 +31,7 @@ class HRTFPlaneDataset(HRTFDataset):
         self._planar_transform = planar_transform
 
         feature_spec = {'hrirs': {'row_angles': row_angles, 'column_angles': column_angles, 'side': side, 'domain': domain}}
-        target_spec = {'side': {}}
-        group_spec = {'subject': {}}
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, hrir_transform=planar_transform)
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, None, exclude_ids, hrir_transform=planar_transform)
         self.positive_angles = planar_transform.positive_angles
 
 
@@ -71,8 +72,8 @@ class HRTFPlaneDataset(HRTFDataset):
         if title is None:
             title = "{} Plane{} of Subject {}'s {} Ear".format(self._plane.title(),
                 ' With Offset {}°'.format(self._plane_offset) if self._plane_offset != 0 or self._plane in ('vertical', 'interaural') else '',
-                item['group'],
-                item['target'].replace('-', ' ').title(),
+                self.subject_ids[idx],
+                self.sides[idx].replace('-', ' ').title(),
             )
         ax.set_title(title)
         return ax
@@ -104,6 +105,9 @@ class InterauralPlaneDataset(HRTFPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
     ):
         if plane == 'horizontal':
             if plane_offset != 0:
@@ -126,7 +130,7 @@ class InterauralPlaneDataset(HRTFPlaneDataset):
                 raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal" or "interaural".')
 
         plane_transform = InterauralPlaneTransform(plane, plane_offset, positive_angles)
-        super().__init__(datapoint, plane, domain, side, plane_offset, vertical_angles, lateral_angles, plane_transform, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_offset, vertical_angles, lateral_angles, plane_transform, subject_ids, exclude_ids, target_spec, group_spec)
 
 
 class SphericalPlaneDataset(HRTFPlaneDataset):
@@ -139,6 +143,9 @@ class SphericalPlaneDataset(HRTFPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
     ):
         if plane == 'horizontal':
             azimuth_angles = plane_angles
@@ -161,7 +168,7 @@ class SphericalPlaneDataset(HRTFPlaneDataset):
                 raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal" or "vertical".')
 
         plane_transform = SphericalPlaneTransform(plane, plane_offset, positive_angles)
-        super().__init__(datapoint, plane, domain, side, plane_offset, azimuth_angles, elevation_angles, plane_transform, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_offset, azimuth_angles, elevation_angles, plane_transform, subject_ids, exclude_ids, target_spec, group_spec)
 
 
 
@@ -176,10 +183,13 @@ class CIPICPlane(InterauralPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
         datapoint = CipicDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
-        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids, exclude_ids, target_spec, group_spec)
 
 
 class ARIPlane(SphericalPlaneDataset):
@@ -193,12 +203,15 @@ class ARIPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
         datapoint = AriDataPoint(sofa_directory_path=Path(root)/'sofa', anthropomorphy_matfile_path=None, dtype=dtype)
         if positive_angles is None:
             positive_angles = False
-        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids, exclude_ids, target_spec, group_spec)
 
 
 class ListenPlane(SphericalPlaneDataset):
@@ -212,10 +225,13 @@ class ListenPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
         datapoint = ListenDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/44100', dtype=dtype)
-        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids, exclude_ids, target_spec, group_spec)
 
 
 class BiLiPlane(SphericalPlaneDataset):
@@ -229,10 +245,13 @@ class BiLiPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
         datapoint = BiLiDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/96000', dtype=dtype)
-        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids, exclude_ids, target_spec, group_spec)
 
 
 class ITAPlane(SphericalPlaneDataset):
@@ -246,10 +265,13 @@ class ITAPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
         datapoint = ItaDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
-        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids, exclude_ids, target_spec, group_spec)
 
 
 class HUTUBSPlane(SphericalPlaneDataset):
@@ -263,10 +285,13 @@ class HUTUBSPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
         datapoint = HutubsDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
-        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids, exclude_ids, target_spec, group_spec)
 
 
 class RIECPlane(SphericalPlaneDataset):
@@ -280,10 +305,13 @@ class RIECPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
         datapoint = RiecDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
-        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids, exclude_ids, target_spec, group_spec)
 
 
 class CHEDARPlane(SphericalPlaneDataset):
@@ -297,10 +325,13 @@ class CHEDARPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
         datapoint = ChedarDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
-        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids, exclude_ids, target_spec, group_spec)
 
 
 class WidespreadPlane(SphericalPlaneDataset):
@@ -314,10 +345,13 @@ class WidespreadPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
         datapoint = WidespreadDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
-        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids, exclude_ids, target_spec, group_spec)
 
 
 class SADIE2Plane(SphericalPlaneDataset):
@@ -331,10 +365,13 @@ class SADIE2Plane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
         datapoint = Sadie2DataPoint(sofa_directory_path=Path(root)/'Database-Master_V1-4', dtype=dtype)
-        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids, exclude_ids, target_spec, group_spec)
 
 
 class ThreeDThreeAPlane(SphericalPlaneDataset):
@@ -348,10 +385,13 @@ class ThreeDThreeAPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
         datapoint = ThreeDThreeADataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
-        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids, exclude_ids, target_spec, group_spec)
 
 
 class SONICOMPlane(SphericalPlaneDataset):
@@ -365,7 +405,10 @@ class SONICOMPlane(SphericalPlaneDataset):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
         datapoint = SonicomDataPoint(sofa_directory_path=Path(root), dtype=dtype)
-        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids)
+        super().__init__(datapoint, plane, domain, side, plane_angles, plane_offset, positive_angles, subject_ids, exclude_ids, target_spec, group_spec)
