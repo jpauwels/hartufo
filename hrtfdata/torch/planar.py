@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional
 import numpy as np
 from .full import HRTFDataset
 from ..datapoint import DataPoint, CipicDataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint, SonicomDataPoint
