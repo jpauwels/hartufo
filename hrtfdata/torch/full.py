@@ -235,10 +235,11 @@ class Listen(HRTFDataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
+        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = ListenDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/44100', dtype=dtype)
+        datapoint = ListenDataPoint(sofa_directory_path=Path(root)/'sofa', hrtf_type=hrtf_type, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -255,10 +256,12 @@ class BiLi(HRTFDataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
+        samplerate: int = 96000,
+        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = BiLiDataPoint(sofa_directory_path=Path(root)/'sofa/compensated/96000', dtype=dtype)
+        datapoint = BiLiDataPoint(sofa_directory_path=Path(root)/'sofa', samplerate=samplerate, hrtf_type=hrtf_type, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -295,10 +298,11 @@ class HUTUBS(HRTFDataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
+        measured_hrtf: bool = True,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = HutubsDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
+        datapoint = HutubsDataPoint(sofa_directory_path=Path(root)/'sofa', measured_hrtf=measured_hrtf, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -335,10 +339,11 @@ class CHEDAR(HRTFDataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
+        radius: float = 1,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = ChedarDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
+        datapoint = ChedarDataPoint(sofa_directory_path=Path(root)/'sofa', radius=radius, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -355,10 +360,12 @@ class Widespread(HRTFDataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
+        radius: float = 1,
+        grid: str = 'UV',
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = WidespreadDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
+        datapoint = WidespreadDataPoint(sofa_directory_path=Path(root)/'sofa', radius=radius, grid=grid, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -375,10 +382,11 @@ class SADIE2(HRTFDataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
+        samplerate: float = 48000,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = Sadie2DataPoint(sofa_directory_path=Path(root)/'Database-Master_V1-4', dtype=dtype)
+        datapoint = Sadie2DataPoint(sofa_directory_path=Path(root)/'Database-Master_V1-4', samplerate=samplerate, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -395,10 +403,12 @@ class ThreeDThreeA(HRTFDataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
+        hrtf_method: str = 'measured',
+        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = ThreeDThreeADataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
+        datapoint = ThreeDThreeADataPoint(sofa_directory_path=Path(root)/'HRTFs', hrtf_method=hrtf_method, hrtf_type=hrtf_type, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -415,8 +425,10 @@ class SONICOM(HRTFDataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
+        samplerate: int = 48000,
+        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = SonicomDataPoint(sofa_directory_path=Path(root), dtype=dtype)
+        datapoint = SonicomDataPoint(sofa_directory_path=Path(root), samplerate=samplerate, hrtf_type=hrtf_type, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)

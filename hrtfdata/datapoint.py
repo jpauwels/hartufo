@@ -1,8 +1,8 @@
 from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, ThreeDThreeADataQuery, SonicomDataQuery
 from .util import wrap_closed_open_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian
 from abc import abstractmethod
-from pathlib import Path
 import numpy as np
+import numpy.typing as npt
 import netCDF4 as ncdf
 from scipy.fft import rfft, fftfreq
 from PIL import Image
@@ -10,11 +10,10 @@ from PIL import Image
 
 class DataPoint:
 
-    def __init__(
-        self,
+    def __init__(self,
         query: DataQuery,
         verbose: bool = False,
-        dtype: type = np.float32,
+        dtype: npt.DTypeLike = np.float32,
     ):
         self.query = query
         self.verbose = verbose
@@ -361,24 +360,35 @@ class AriDataPoint(SofaSphericalDataPoint, MatFileAnthropometryDataPoint):
 
 class ListenDataPoint(SofaSphericalDataPoint):
 
-    def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
-        query = ListenDataQuery(sofa_directory_path)
+    def __init__(self,
+        sofa_directory_path: str = None,
+        hrtf_type: str = 'compensated',
+        verbose: bool = False,
+        dtype: npt.DTypeLike = np.float32,
+    ):
+        query = ListenDataQuery(sofa_directory_path, hrtf_type)
         super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / 'IRC_{:04d}_C_44100.sofa'.format(subject_id))
+        return str(self.query.sofa_directory_path / 'IRC_{:04d}_{}_44100.sofa'.format(subject_id, self.query._hrtf_type_str))
 
 
 class BiLiDataPoint(SofaSphericalDataPoint):
 
-    def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
-        query = BiLiDataQuery(sofa_directory_path)
+    def __init__(self,
+        sofa_directory_path: str = None,
+        samplerate: int = 96000,
+        hrtf_type: str = 'compensated',
+        verbose: bool = False,
+        dtype: npt.DTypeLike = np.float32,
+    ):
+        query = BiLiDataQuery(sofa_directory_path, samplerate, hrtf_type)
         super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / 'IRC_{:04d}_C_HRIR_96000.sofa'.format(subject_id))
+        return str(self.query.sofa_directory_path / 'IRC_{:04d}_{}_HRIR_{}.sofa'.format(subject_id, self.query._hrtf_type_str, self.query._samplerate))
 
 
 class ItaDataPoint(SofaSphericalDataPoint):
@@ -394,13 +404,18 @@ class ItaDataPoint(SofaSphericalDataPoint):
 
 class HutubsDataPoint(SofaSphericalDataPoint):
 
-    def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
-        query = HutubsDataQuery(sofa_directory_path)
+    def __init__(self,
+        sofa_directory_path: str = None,
+        measured_hrtf: bool = True,
+        verbose: bool = False,
+        dtype: npt.DTypeLike = np.float32,
+    ):
+        query = HutubsDataQuery(sofa_directory_path, measured_hrtf)
         super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / 'pp{:d}_HRIRs_measured.sofa'.format(subject_id))
+        return str(self.query.sofa_directory_path / 'pp{:d}_HRIRs_{}.sofa'.format(subject_id, self.query._variant_key))
 
 
 class RiecDataPoint(SofaSphericalDataPoint):
@@ -416,52 +431,49 @@ class RiecDataPoint(SofaSphericalDataPoint):
 
 class ChedarDataPoint(SofaSphericalDataPoint):
 
-    def __init__(self, sofa_directory_path, radius=1, verbose=False, dtype=np.float32):
-        query = ChedarDataQuery(sofa_directory_path)
+    def __init__(self,
+        sofa_directory_path: str = None,
+        radius: float = 1,
+        verbose: bool = False,
+        dtype: npt.DTypeLike = np.float32,
+    ):
+        query = ChedarDataQuery(sofa_directory_path, radius)
         super().__init__(query, verbose, dtype)
-        if np.isclose(radius, 0.2):
-            self.radius = '02m'
-        elif np.isclose(radius, 0.5):
-            self.radius = '05m'
-        elif np.isclose(radius, 1):
-            self.radius = '1m'
-        elif np.isclose(radius, 2):
-            self.radius = '2m'
-        else:
-            raise ValueError('The radius needs to be one of 0.2, 0.5, 1 or 2')
-        self._quantisation = 0
+        self._quantisation = 1
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / f'chedar_{subject_id:04d}_UV{self.radius}.sofa')
+        return str(self.query.sofa_directory_path / f'chedar_{subject_id:04d}_UV{self.query._radius}.sofa')
 
 
 class WidespreadDataPoint(SofaSphericalDataPoint):
 
-    def __init__(self, sofa_directory_path, radius=1, verbose=False, dtype=np.float32):
-        query = WidespreadDataQuery(sofa_directory_path)
+    def __init__(self,
+        sofa_directory_path: str = None,
+        radius: float = 1,
+        grid: str = 'UV',
+        verbose: bool = False,
+        dtype: npt.DTypeLike = np.float32,
+    ):
+        query = WidespreadDataQuery(sofa_directory_path, radius, grid)
         super().__init__(query, verbose, dtype)
-        if np.isclose(radius, 0.2):
-            self.radius = '02m'
-        elif np.isclose(radius, 0.5):
-            self.radius = '05m'
-        elif np.isclose(radius, 1):
-            self.radius = '1m'
-        elif np.isclose(radius, 2):
-            self.radius = '2m'
-        else:
-            raise ValueError('The radius needs to be one of 0.2, 0.5, 1 or 2')
-        self._quantisation = 0
+        self._quantisation = 1
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / f'UV{self.radius}_{subject_id:05d}.sofa')
+        return str(self.query.sofa_directory_path / f'{self.query._grid}{self.query._radius}_{subject_id:05d}.sofa')
 
 
 class Sadie2DataPoint(SofaSphericalDataPoint, ImageDataPoint):
 
-    def __init__(self, sofa_directory_path=None, image_directory_path=None, verbose=False, dtype=np.float32):
-        query = Sadie2DataQuery(sofa_directory_path, image_directory_path)
+    def __init__(self,
+        sofa_directory_path: str = None,
+        image_directory_path: str = None,
+        samplerate: int = 48000,
+        verbose: bool = False,
+        dtype: npt.DTypeLike = np.float32,
+    ):
+        query = Sadie2DataQuery(sofa_directory_path, image_directory_path, samplerate)
         super().__init__(query, verbose, dtype)
 
 
@@ -470,26 +482,32 @@ class Sadie2DataPoint(SofaSphericalDataPoint, ImageDataPoint):
             sadie2_id = f'D{subject_id}'
         else:
             sadie2_id = f'H{subject_id}'
-        return str(self.query.sofa_directory_path / f'{sadie2_id}/{sadie2_id}_HRIR_SOFA/{sadie2_id}_96K_24bit_512tap_FIR_SOFA.sofa')
+        return str(self.query.sofa_directory_path / f'{sadie2_id}/{sadie2_id}_HRIR_SOFA/{sadie2_id}_{self.query._samplerate_str}_FIR_SOFA.sofa')
 
 
 class ThreeDThreeADataPoint(SofaSphericalDataPoint):
 
-    def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
-        query = ThreeDThreeADataQuery(sofa_directory_path)
+    def __init__(self, sofa_directory_path, hrtf_method = 'measured', hrtf_type = 'compensated', verbose=False, dtype=np.float32):
+        query = ThreeDThreeADataQuery(sofa_directory_path, hrtf_method, hrtf_type)
         super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / f'Subject{subject_id}_HRIRs.sofa')
+        return str(self.query.sofa_directory_path / f'{self.query._method_str}/Subject{subject_id}/Subject{subject_id}_{self.query._hrtf_type_str}.sofa')
 
 
 class SonicomDataPoint(SofaSphericalDataPoint):
 
-    def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
-        query = SonicomDataQuery(sofa_directory_path)
+    def __init__(self,
+        sofa_directory_path: str = None,
+        samplerate: int = 48000,
+        hrtf_type: str = 'compensated',
+        verbose: bool = False,
+        dtype: npt.DTypeLike = np.float32,
+    ):
+        query = SonicomDataQuery(sofa_directory_path, samplerate, hrtf_type)
         super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / f'P{subject_id:04d}/HRTF/{self.query._samplerate_str}/P{subject_id:04d}_{self.query._hrtf_variant_str}_{self.query._samplerate_str}.sofa')
+        return str(self.query.sofa_directory_path / f'P{subject_id:04d}/HRTF/{self.query._samplerate_str}/P{subject_id:04d}_{self.query._hrtf_type_str}_{self.query._samplerate_str}.sofa')

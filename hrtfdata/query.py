@@ -21,6 +21,7 @@ class DataQuery:
         mesh_directory_path: Optional[str] = None,
         image_directory_path: Optional[str] = None,
         anthropomorphy_matfile_path: Optional[str] = None,
+        variant_key: str = '',
     ):
         self.collection_id = collection_id
         self.allowed_keys = ['subject', 'side', 'collection']
@@ -37,6 +38,7 @@ class DataQuery:
             self.anthropomorphy_matfile_path = anthropomorphy_matfile_path
             self.anth = io.loadmat(anthropomorphy_matfile_path, squeeze_me=True)
             self.allowed_keys += ['anthropometry']
+        self._variant_key = variant_key
 
 
     def _all_hrir_ids(self, side):
@@ -166,22 +168,41 @@ class AriDataQuery(DataQuery):
 
 class ListenDataQuery(DataQuery):
 
-    def __init__(self, sofa_directory_path):
-        super().__init__('listen', sofa_directory_path)
+    def __init__(self, sofa_directory_path, hrtf_type='compensated'):
+        if hrtf_type == 'raw':
+            self._hrtf_type_str = 'R'
+        elif hrtf_type == 'compensated':
+            self._hrtf_type_str = 'C'
+        else:
+            raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
+        super().__init__('listen', str(Path(sofa_directory_path) / hrtf_type / '44100'), variant_key=hrtf_type)
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob('IRC_????_C_44100.sofa')])
+        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'IRC_????_{self._hrtf_type_str}_44100.sofa')])
 
 
 class BiLiDataQuery(DataQuery):
 
-    def __init__(self, sofa_directory_path):
-        super().__init__('bili', sofa_directory_path)
+    def __init__(self, sofa_directory_path, samplerate=96000, hrtf_type='compensated'):
+        if samplerate not in (44100, 48000, 96000):
+            raise ValueError(f'Sample rate {samplerate} is unavailable. Choose one of 44100, 48000 or 96000.')
+        self._samplerate = samplerate
+        if hrtf_type == 'raw':
+            self._hrtf_type_str = 'R'
+        elif hrtf_type == 'compensated':
+            self._hrtf_type_str = 'C'
+        elif hrtf_type == 'compensated-interpolated':
+            self._hrtf_type_str = 'I'
+        else:
+            raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
+        if hrtf_type != 'compensated-interpolated' and samplerate != 96000:
+            raise ValueError(f'HRTF type "{hrtf_type}" is only available with a sample rate of 96000 Hz.')
+        super().__init__('bili', str(Path(sofa_directory_path) / hrtf_type / str(samplerate)), variant_key=f'{hrtf_type}-{samplerate}')
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob('IRC_????_C_HRIR_96000.sofa')])
+        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'IRC_????_{self._hrtf_type_str}_HRIR_{self._samplerate}.sofa')])
 
 
 class ItaDataQuery(DataQuery):
@@ -197,12 +218,12 @@ class ItaDataQuery(DataQuery):
 
 class HutubsDataQuery(DataQuery):
 
-    def __init__(self, sofa_directory_path):
-        super().__init__('hutubs', sofa_directory_path)
+    def __init__(self, sofa_directory_path, measured_hrtf=True):
+        super().__init__('hutubs', sofa_directory_path, variant_key='measured' if measured_hrtf else 'simulated')
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[0].split('pp')[1]) for x in self.sofa_directory_path.glob('pp??_HRIRs_measured.sofa')])
+        return sorted([int(x.stem.split('_')[0].split('pp')[1]) for x in self.sofa_directory_path.glob(f'pp??_HRIRs_{self._variant_key}.sofa')])
 
 
 class RiecDataQuery(DataQuery):
@@ -218,53 +239,64 @@ class RiecDataQuery(DataQuery):
 class ChedarDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path, radius=1):
-        super().__init__('chedar', sofa_directory_path)
         if np.isclose(radius, 0.2):
-            self.radius = '02m'
+            self._radius = '02m'
         elif np.isclose(radius, 0.5):
-            self.radius = '05m'
+            self._radius = '05m'
         elif np.isclose(radius, 1):
-            self.radius = '1m'
+            self._radius = '1m'
         elif np.isclose(radius, 2):
-            self.radius = '2m'
+            self._radius = '2m'
         else:
             raise ValueError('The radius needs to be one of 0.2, 0.5, 1 or 2')
+        super().__init__('chedar', sofa_directory_path, variant_key=self._radius)
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'chedar_????_UV{self.radius}.sofa')])
+        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'chedar_????_UV{self._radius}.sofa')])
 
 
 class WidespreadDataQuery(DataQuery):
 
-    def __init__(self, sofa_directory_path, radius=1):
-        super().__init__('widespread', sofa_directory_path)
+    def __init__(self, sofa_directory_path, radius=1, grid='UV'):
         if np.isclose(radius, 0.2):
-            self.radius = '02m'
+            self._radius = '02m'
         elif np.isclose(radius, 0.5):
-            self.radius = '05m'
+            self._radius = '05m'
         elif np.isclose(radius, 1):
-            self.radius = '1m'
+            self._radius = '1m'
         elif np.isclose(radius, 2):
-            self.radius = '2m'
+            self._radius = '2m'
         else:
             raise ValueError('The radius needs to be one of 0.2, 0.5, 1 or 2')
+        if grid not in ('UV', 'ICO'):
+            raise ValueError('The grid needs to be either "UV" or "ICO".')
+        self._grid = grid
+        super().__init__('widespread', sofa_directory_path, variant_key=f'{self._grid}-{self._radius}')
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'UV{self.radius}_?????.sofa')])
+        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'{self._grid}{self._radius}_?????.sofa')])
 
 
 class Sadie2DataQuery(DataQuery):
 
-    def __init__(self, sofa_directory_path=None, image_directory_path=None):
-        super().__init__('sadie2', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path)
+    def __init__(self, sofa_directory_path=None, image_directory_path=None, samplerate=96000):
+        if samplerate == 44100:
+            self._samplerate_str = '44K_16bit_256tap'
+        elif samplerate == 48000:
+            self._samplerate_str = '48K_24bit_256tap'
+        elif samplerate == 96000:
+            self._samplerate_str = '96K_24bit_512tap'
+        else:
+            raise ValueError(f'Sample rate {samplerate} is unavailable. Choose one of 44100, 48000 or 96000.')
+        super().__init__('sadie2', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, variant_key=f'{samplerate}')
         self._default_hrirs_exclude = (1, 2, 3, 4, 5, 6, 7, 8, 9) # higher spatial resolution
         self._default_images_exclude = (3, 16) # empty images
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[0][1:]) for x in self.sofa_directory_path.glob('[DH]*/[DH]*_HRIR_SOFA/[DH]*_96K_24bit_512tap_FIR_SOFA.sofa')])
+        return sorted([int(x.stem.split('_')[0][1:]) for x in self.sofa_directory_path.glob(f'[DH]*/[DH]*_HRIR_SOFA/[DH]*_{self._samplerate_str}_FIR_SOFA.sofa')])
 
 
     def _all_image_ids(self, side, rear):
@@ -276,40 +308,65 @@ class Sadie2DataQuery(DataQuery):
 
 class ThreeDThreeADataQuery(DataQuery):
 
-    def __init__(self, sofa_directory_path):
-        super().__init__('3d3a', sofa_directory_path)
+    def __init__(self, sofa_directory_path, hrtf_method='measured', hrtf_type='compensated'):
+        if hrtf_type == 'raw':
+            self._hrtf_type_str = 'BIRs'
+        elif hrtf_type == 'compensated':
+            self._hrtf_type_str = 'HRIRs'
+        elif hrtf_type == 'compensated-lowfreqextended':
+            self._hrtf_type_str = 'HRIRs_lfc'
+        elif hrtf_type == 'compensated-equalized':
+            self._hrtf_type_str = 'HRIRs_dfeq'
+        else:
+            raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
+        if hrtf_method == 'measured':
+            self._method_str = 'Acoustic'
+        else:
+            if hrtf_type not in ('compensated', 'compensated-equalized'):
+                raise ValueError('Only compensated and diffuse field equalized types of HRTF available for BEM-simulations')
+            if hrtf_method == 'simulated-head':
+                self._method_str = 'BEM/Head-Only'
+            elif hrtf_method == 'simulated-head_ears':
+                self._method_str = 'BEM/Head-and-Ears'
+            elif hrtf_method == 'simulated-head_ears_torso-consumer_grade':
+                self._method_str = 'BEM/Head-Ears-and-Torso/Consumer-Grade'
+            elif hrtf_method == 'simulated-head_ears_torso-reference_grade':
+                self._method_str = 'BEM/Head-Ears-and-Torso/Reference-Grade'
+            else:
+                raise ValueError(f'Unknown HRTF method "{hrtf_method}"')
+        super().__init__('3d3a', sofa_directory_path, variant_key=f'{self._method_str}-{hrtf_type}')
 
 
-    def _all_hrir_ids(self, exclude=()):
-        return sorted([int(x.stem.split('_')[0].lstrip('Subject')) for x in self.sofa_directory_path.glob('Subject*_HRIRs.sofa')])
+    def _all_hrir_ids(self, side):
+        return sorted([int(x.stem.split('_')[0].lstrip('Subject')) for x in self.sofa_directory_path.glob(f'{self._method_str}/Subject*/Subject*_{self._hrtf_type_str}.sofa')])
 
 
 class SonicomDataQuery(DataQuery):
 
-    def __init__(self, sofa_directory_path, samplerate=48000, hrtf_variant='compensated'):
-        super().__init__('sonicom', sofa_directory_path)
+    def __init__(self, sofa_directory_path, samplerate=48000, hrtf_type='compensated'):
         if samplerate not in (44100, 48000, 96000):
             raise ValueError(f'Sample rate {samplerate} is unavailable. Choose one of 44100, 48000 or 96000.')
-        if hrtf_variant == 'compensated':
-            self._hrtf_variant_str = 'FreeFieldComp'
-        elif hrtf_variant == 'compensated-minphase':
-            self._hrtf_variant_str = 'FreeFieldCompMinPhase'
-        elif hrtf_variant == 'compensated-noitd':
-            self._hrtf_variant_str = 'FreeFieldComp_NoITD'
-        elif hrtf_variant == 'compensated-minphase-noitd':
-            self._hrtf_variant_str = 'FreeFieldCompMinPhase_NoITD'
-        elif hrtf_variant == 'raw':
-            self._hrtf_variant_str = 'Raw'
-        elif hrtf_variant == 'raw-noitd':
-            self._hrtf_variant_str = 'Raw_NoITD'
-        elif hrtf_variant == 'windowed':
-            self._hrtf_variant_str = 'Windowed'
-        elif hrtf_variant == 'windowed-noitd':
-            self._hrtf_variant_str = 'Windowed_NoITD'
-        else:
-            raise ValueError(f'{hrtf_variant}')
         self._samplerate_str = f'{round(samplerate/1000)}kHz'
+        if hrtf_type == 'raw':
+            self._hrtf_type_str = 'Raw'
+        elif hrtf_type == 'raw-nodelay':
+            self._hrtf_type_str = 'Raw_NoITD'
+        elif hrtf_type == 'windowed':
+            self._hrtf_type_str = 'Windowed'
+        elif hrtf_type == 'windowed-nodelay':
+            self._hrtf_type_str = 'Windowed_NoITD'
+        elif hrtf_type == 'compensated':
+            self._hrtf_type_str = 'FreeFieldComp'
+        elif hrtf_type == 'compensated-nodelay':
+            self._hrtf_type_str = 'FreeFieldComp_NoITD'
+        elif hrtf_type == 'compensated-minphase':
+            self._hrtf_type_str = 'FreeFieldCompMinPhase'
+        elif hrtf_type == 'compensated-minphase-nodelay':
+            self._hrtf_type_str = 'FreeFieldCompMinPhase_NoITD'
+        else:
+            raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
+        super().__init__('sonicom', sofa_directory_path, variant_key=f'{hrtf_type}-{samplerate}')
 
 
-    def _all_hrir_ids(self, exclude=()):
-        return sorted([int(x.stem.split('_')[0].lstrip('P')) for x in self.sofa_directory_path.glob(f'P????/HRTF/{self._samplerate_str}/P????_{self._hrtf_variant_str}_{self._samplerate_str}.sofa')])
+    def _all_hrir_ids(self, side):
+        return sorted([int(x.stem.split('_')[0].lstrip('P')) for x in self.sofa_directory_path.glob(f'P????/HRTF/{self._samplerate_str}/P????_{self._hrtf_type_str}_{self._samplerate_str}.sofa')])
