@@ -110,7 +110,7 @@ class HRTFDataset(TorchDataset):
                 if 'side' in spec.keys():
                     subject_data['side'] = side
                 if 'collection' in spec.keys():
-                    subject_data['collection'] = datapoint.dataset_id
+                    subject_data['collection'] = datapoint.query.collection_id
                 store.append(subject_data)
 
 

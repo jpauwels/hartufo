@@ -13,12 +13,10 @@ class DataPoint:
     def __init__(
         self,
         query: DataQuery,
-        dataset_id: str,
         verbose: bool = False,
         dtype: type = np.float32,
     ):
         self.query = query
-        self.dataset_id = dataset_id
         self.verbose = verbose
         self.dtype = dtype
 
@@ -337,7 +335,7 @@ class CipicDataPoint(SofaInterauralDataPoint, ImageDataPoint, MatFileAnthropomet
         dtype=np.float32
     ):
         query = CipicDataQuery(sofa_directory_path, image_directory_path, anthropomorphy_matfile_path)
-        super().__init__(query, 'cipic', verbose, dtype)
+        super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -354,7 +352,7 @@ class AriDataPoint(SofaSphericalDataPoint, MatFileAnthropometryDataPoint):
         dtype=np.float32
     ):
         query = AriDataQuery(sofa_directory_path, anthropomorphy_matfile_path)
-        super().__init__(query, 'ari', verbose, dtype)
+        super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -365,7 +363,7 @@ class ListenDataPoint(SofaSphericalDataPoint):
 
     def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
         query = ListenDataQuery(sofa_directory_path)
-        super().__init__(query, 'listen', verbose, dtype)
+        super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -376,7 +374,7 @@ class BiLiDataPoint(SofaSphericalDataPoint):
 
     def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
         query = BiLiDataQuery(sofa_directory_path)
-        super().__init__(query, 'bili', verbose, dtype)
+        super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -387,7 +385,7 @@ class ItaDataPoint(SofaSphericalDataPoint):
 
     def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
         query = ItaDataQuery(sofa_directory_path)
-        super().__init__(query, 'ita', verbose, dtype)
+        super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -398,7 +396,7 @@ class HutubsDataPoint(SofaSphericalDataPoint):
 
     def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
         query = HutubsDataQuery(sofa_directory_path)
-        super().__init__(query, 'hutubs', verbose, dtype)
+        super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -409,7 +407,7 @@ class RiecDataPoint(SofaSphericalDataPoint):
 
     def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
         query = RiecDataQuery(sofa_directory_path)
-        super().__init__(query, 'riec', verbose, dtype)
+        super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -420,7 +418,7 @@ class ChedarDataPoint(SofaSphericalDataPoint):
 
     def __init__(self, sofa_directory_path, radius=1, verbose=False, dtype=np.float32):
         query = ChedarDataQuery(sofa_directory_path)
-        super().__init__(query, 'chedar', verbose, dtype)
+        super().__init__(query, verbose, dtype)
         if np.isclose(radius, 0.2):
             self.radius = '02m'
         elif np.isclose(radius, 0.5):
@@ -442,7 +440,7 @@ class WidespreadDataPoint(SofaSphericalDataPoint):
 
     def __init__(self, sofa_directory_path, radius=1, verbose=False, dtype=np.float32):
         query = WidespreadDataQuery(sofa_directory_path)
-        super().__init__(query, 'widespread', verbose, dtype)
+        super().__init__(query, verbose, dtype)
         if np.isclose(radius, 0.2):
             self.radius = '02m'
         elif np.isclose(radius, 0.5):
@@ -464,7 +462,7 @@ class Sadie2DataPoint(SofaSphericalDataPoint, ImageDataPoint):
 
     def __init__(self, sofa_directory_path=None, image_directory_path=None, verbose=False, dtype=np.float32):
         query = Sadie2DataQuery(sofa_directory_path, image_directory_path)
-        super().__init__(query, 'sadie2', verbose, dtype)
+        super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -479,7 +477,7 @@ class ThreeDThreeADataPoint(SofaSphericalDataPoint):
 
     def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
         query = ThreeDThreeADataQuery(sofa_directory_path)
-        super().__init__(query, '3d3a', verbose, dtype)
+        super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -490,7 +488,7 @@ class SonicomDataPoint(SofaSphericalDataPoint):
 
     def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
         query = SonicomDataQuery(sofa_directory_path)
-        super().__init__(query, 'sonicom', verbose, dtype)
+        super().__init__(query, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):

@@ -1,7 +1,7 @@
-from abc import abstractmethod
 from pathlib import Path
 import warnings
 import random
+from typing import Optional
 import numpy as np
 from scipy import io
 
@@ -14,7 +14,15 @@ class DataQuery:
     _default_3dmodels_exclude = ()
 
 
-    def __init__(self, sofa_directory_path=None, mesh_directory_path=None, image_directory_path=None, anthropomorphy_matfile_path=None):
+    def __init__(
+        self,
+        collection_id: str,
+        sofa_directory_path: Optional[str] = None,
+        mesh_directory_path: Optional[str] = None,
+        image_directory_path: Optional[str] = None,
+        anthropomorphy_matfile_path: Optional[str] = None,
+    ):
+        self.collection_id = collection_id
         self.allowed_keys = ['subject', 'side', 'collection']
         if sofa_directory_path is not None:
             self.sofa_directory_path = Path(sofa_directory_path)
@@ -133,7 +141,7 @@ class DataQuery:
 class CipicDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path=None, image_directory_path=None, anthropomorphy_matfile_path=None):
-        super().__init__(sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, anthropomorphy_matfile_path=anthropomorphy_matfile_path)
+        super().__init__('cipic', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, anthropomorphy_matfile_path=anthropomorphy_matfile_path)
 
 
     def _all_hrir_ids(self, side):
@@ -148,7 +156,7 @@ class CipicDataQuery(DataQuery):
 class AriDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path=None, anthropomorphy_matfile_path=None):
-        super().__init__(sofa_directory_path=sofa_directory_path, anthropomorphy_matfile_path=anthropomorphy_matfile_path)
+        super().__init__('ari', sofa_directory_path=sofa_directory_path, anthropomorphy_matfile_path=anthropomorphy_matfile_path)
         self._default_hrirs_exclude = (10, 22, 826)
 
 
@@ -159,7 +167,7 @@ class AriDataQuery(DataQuery):
 class ListenDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path):
-        super().__init__(sofa_directory_path)
+        super().__init__('listen', sofa_directory_path)
 
 
     def _all_hrir_ids(self, side):
@@ -169,7 +177,7 @@ class ListenDataQuery(DataQuery):
 class BiLiDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path):
-        super().__init__(sofa_directory_path)
+        super().__init__('bili', sofa_directory_path)
 
 
     def _all_hrir_ids(self, side):
@@ -179,7 +187,7 @@ class BiLiDataQuery(DataQuery):
 class ItaDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path):
-        super().__init__(sofa_directory_path)
+        super().__init__('ita', sofa_directory_path)
         self._default_hrirs_exclude = (2, 14)
 
 
@@ -190,7 +198,7 @@ class ItaDataQuery(DataQuery):
 class HutubsDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path):
-        super().__init__(sofa_directory_path)
+        super().__init__('hutubs', sofa_directory_path)
 
 
     def _all_hrir_ids(self, side):
@@ -200,7 +208,7 @@ class HutubsDataQuery(DataQuery):
 class RiecDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path):
-        super().__init__(sofa_directory_path)
+        super().__init__('riec', sofa_directory_path)
 
 
     def _all_hrir_ids(self, side):
@@ -210,7 +218,7 @@ class RiecDataQuery(DataQuery):
 class ChedarDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path, radius=1):
-        super().__init__(sofa_directory_path)
+        super().__init__('chedar', sofa_directory_path)
         if np.isclose(radius, 0.2):
             self.radius = '02m'
         elif np.isclose(radius, 0.5):
@@ -223,7 +231,6 @@ class ChedarDataQuery(DataQuery):
             raise ValueError('The radius needs to be one of 0.2, 0.5, 1 or 2')
 
 
-
     def _all_hrir_ids(self, side):
         return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'chedar_????_UV{self.radius}.sofa')])
 
@@ -231,7 +238,7 @@ class ChedarDataQuery(DataQuery):
 class WidespreadDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path, radius=1):
-        super().__init__(sofa_directory_path)
+        super().__init__('widespread', sofa_directory_path)
         if np.isclose(radius, 0.2):
             self.radius = '02m'
         elif np.isclose(radius, 0.5):
@@ -251,7 +258,7 @@ class WidespreadDataQuery(DataQuery):
 class Sadie2DataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path=None, image_directory_path=None):
-        super().__init__(sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path)
+        super().__init__('sadie2', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path)
         self._default_hrirs_exclude = (1, 2, 3, 4, 5, 6, 7, 8, 9) # higher spatial resolution
         self._default_images_exclude = (3, 16) # empty images
 
@@ -270,7 +277,7 @@ class Sadie2DataQuery(DataQuery):
 class ThreeDThreeADataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path):
-        super().__init__(sofa_directory_path)
+        super().__init__('3d3a', sofa_directory_path)
 
 
     def _all_hrir_ids(self, exclude=()):
@@ -280,7 +287,7 @@ class ThreeDThreeADataQuery(DataQuery):
 class SonicomDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path, samplerate=48000, hrtf_variant='compensated'):
-        super().__init__(sofa_directory_path)
+        super().__init__('sonicom', sofa_directory_path)
         if samplerate not in (44100, 48000, 96000):
             raise ValueError(f'Sample rate {samplerate} is unavailable. Choose one of 44100, 48000 or 96000.')
         if hrtf_variant == 'compensated':
