@@ -58,9 +58,22 @@ class DataQuery:
 
 
     def validate_specification(self, spec):
-        unknown_spec = sorted(set(spec.keys()).difference(self.allowed_keys))
-        if unknown_spec:
-            raise ValueError(f'Unknown specifier{"s" if len(unknown_spec) > 1 else ""} "{", ".join(unknown_spec)}"')
+        def validate_dict(given_dict, allowed_keys, key=''):
+            if key:
+                try:
+                    given_dict = given_dict[key]
+                except KeyError:
+                    return
+            unknown_keys = sorted(set(given_dict.keys()).difference(allowed_keys))
+            if unknown_keys:
+                raise ValueError(f'Unknown specifier{"s" if len(unknown_keys) > 1 else ""} "{", ".join(unknown_keys)}" in {key if key else "specification"}')
+        validate_dict(spec, self.allowed_keys)
+        validate_dict(spec, ('side', 'domain', 'row_angles', 'column_angles', 'samplerate', 'length', 'exclude'), 'hrirs')
+        validate_dict(spec, (), 'subject')
+        validate_dict(spec, (), 'side')
+        validate_dict(spec, (), 'collection')
+        validate_dict(spec, ('side',), 'images')
+        validate_dict(spec, ('side',), 'images')
 
 
     def specification_based_ids(self, specification, include_subjects=None, exclude_subjects=None):
@@ -185,9 +198,6 @@ class ListenDataQuery(DataQuery):
 class BiLiDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path, samplerate=96000, hrtf_type='compensated'):
-        if samplerate not in (44100, 48000, 96000):
-            raise ValueError(f'Sample rate {samplerate} is unavailable. Choose one of 44100, 48000 or 96000.')
-        self._samplerate = samplerate
         if hrtf_type == 'raw':
             self._hrtf_type_str = 'R'
         elif hrtf_type == 'compensated':
@@ -196,8 +206,9 @@ class BiLiDataQuery(DataQuery):
             self._hrtf_type_str = 'I'
         else:
             raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
-        if hrtf_type != 'compensated-interpolated' and samplerate != 96000:
-            raise ValueError(f'HRTF type "{hrtf_type}" is only available with a sample rate of 96000 Hz.')
+        if samplerate not in (44100, 48000, 96000) or hrtf_type != 'compensated-interpolated':
+            samplerate = 96000
+        self._samplerate = samplerate
         super().__init__('bili', str(Path(sofa_directory_path) / hrtf_type / str(samplerate)), variant_key=f'{hrtf_type}-{samplerate}')
 
 
@@ -286,10 +297,8 @@ class Sadie2DataQuery(DataQuery):
             self._samplerate_str = '44K_16bit_256tap'
         elif samplerate == 48000:
             self._samplerate_str = '48K_24bit_256tap'
-        elif samplerate == 96000:
-            self._samplerate_str = '96K_24bit_512tap'
         else:
-            raise ValueError(f'Sample rate {samplerate} is unavailable. Choose one of 44100, 48000 or 96000.')
+            self._samplerate_str = '96K_24bit_512tap'
         super().__init__('sadie2', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, variant_key=f'{samplerate}')
         self._default_hrirs_exclude = (1, 2, 3, 4, 5, 6, 7, 8, 9) # higher spatial resolution
         self._default_images_exclude = (3, 16) # empty images
@@ -343,9 +352,9 @@ class ThreeDThreeADataQuery(DataQuery):
 
 class SonicomDataQuery(DataQuery):
 
-    def __init__(self, sofa_directory_path, samplerate=48000, hrtf_type='compensated'):
+    def __init__(self, sofa_directory_path, samplerate=96000, hrtf_type='compensated'):
         if samplerate not in (44100, 48000, 96000):
-            raise ValueError(f'Sample rate {samplerate} is unavailable. Choose one of 44100, 48000 or 96000.')
+            samplerate = 96000
         self._samplerate_str = f'{round(samplerate/1000)}kHz'
         if hrtf_type == 'raw':
             self._hrtf_type_str = 'Raw'

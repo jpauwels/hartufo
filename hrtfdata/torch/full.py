@@ -10,6 +10,12 @@ from torchvision.transforms import ToTensor
 import numpy as np
 
 
+def _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec):
+    spec_list = [spec for spec in (feature_spec, target_spec, group_spec) if spec is not None]
+    hrir_spec = {k: v for d in spec_list for k, v in d.items()}.get('hrirs', {})
+    return hrir_spec.get('samplerate'), hrir_spec.get('length')
+    
+
 class HRTFDataset(TorchDataset):
 
     def __init__(
@@ -91,6 +97,7 @@ class HRTFDataset(TorchDataset):
 
 
         self.hrir_samplerate = datapoint.hrir_samplerate(self.subject_ids[0])
+        self.hrir_length = datapoint.hrir_length(self.subject_ids[0])
         self.hrtf_frequencies = datapoint.hrtf_frequencies(self.subject_ids[0])
 
         self._features: Any = []
@@ -189,9 +196,12 @@ class CIPIC(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
+        hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
         datapoint = CipicDataPoint(
             anthropomorphy_matfile_path=Path(root)/'CIPIC_hrtf_database/anthropometry/anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
+            hrir_samplerate=hrir_samplerate,
+            hrir_length=hrir_length,
             dtype=dtype,
         )
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, measurement_transform, hrir_transform)
@@ -214,9 +224,12 @@ class ARI(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
+        hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
         datapoint = AriDataPoint(
             anthropomorphy_matfile_path=Path(root)/'anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
+            hrir_samplerate=hrir_samplerate,
+            hrir_length=hrir_length,
             dtype=dtype,
         )
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, measurement_transform, hrir_transform)
@@ -239,7 +252,8 @@ class Listen(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = ListenDataPoint(sofa_directory_path=Path(root)/'sofa', hrtf_type=hrtf_type, dtype=dtype)
+        hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
+        datapoint = ListenDataPoint(sofa_directory_path=Path(root)/'sofa', hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -256,12 +270,12 @@ class BiLi(HRTFDataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
-        samplerate: int = 96000,
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = BiLiDataPoint(sofa_directory_path=Path(root)/'sofa', samplerate=samplerate, hrtf_type=hrtf_type, dtype=dtype)
+        hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
+        datapoint = BiLiDataPoint(sofa_directory_path=Path(root)/'sofa', hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -281,7 +295,8 @@ class ITA(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = ItaDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
+        hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
+        datapoint = ItaDataPoint(sofa_directory_path=Path(root)/'sofa', hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -302,7 +317,8 @@ class HUTUBS(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = HutubsDataPoint(sofa_directory_path=Path(root)/'sofa', measured_hrtf=measured_hrtf, dtype=dtype)
+        hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
+        datapoint = HutubsDataPoint(sofa_directory_path=Path(root)/'sofa', measured_hrtf=measured_hrtf, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -322,7 +338,8 @@ class RIEC(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = RiecDataPoint(sofa_directory_path=Path(root)/'sofa', dtype=dtype)
+        hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
+        datapoint = RiecDataPoint(sofa_directory_path=Path(root)/'sofa', hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -343,7 +360,8 @@ class CHEDAR(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = ChedarDataPoint(sofa_directory_path=Path(root)/'sofa', radius=radius, dtype=dtype)
+        hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
+        datapoint = ChedarDataPoint(sofa_directory_path=Path(root)/'sofa', radius=radius, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -365,7 +383,8 @@ class Widespread(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = WidespreadDataPoint(sofa_directory_path=Path(root)/'sofa', radius=radius, grid=grid, dtype=dtype)
+        hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
+        datapoint = WidespreadDataPoint(sofa_directory_path=Path(root)/'sofa', radius=radius, grid=grid, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -382,11 +401,11 @@ class SADIE2(HRTFDataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
-        samplerate: float = 48000,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = Sadie2DataPoint(sofa_directory_path=Path(root)/'Database-Master_V1-4', samplerate=samplerate, dtype=dtype)
+        hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
+        datapoint = Sadie2DataPoint(sofa_directory_path=Path(root)/'Database-Master_V1-4', hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -408,7 +427,8 @@ class ThreeDThreeA(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = ThreeDThreeADataPoint(sofa_directory_path=Path(root)/'HRTFs', hrtf_method=hrtf_method, hrtf_type=hrtf_type, dtype=dtype)
+        hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
+        datapoint = ThreeDThreeADataPoint(sofa_directory_path=Path(root)/'HRTFs', hrtf_method=hrtf_method, hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
@@ -425,10 +445,10 @@ class SONICOM(HRTFDataset):
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrir_transform: Optional[Callable] = None,
-        samplerate: int = 48000,
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        datapoint = SonicomDataPoint(sofa_directory_path=Path(root), samplerate=samplerate, hrtf_type=hrtf_type, dtype=dtype)
+        hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
+        datapoint = SonicomDataPoint(sofa_directory_path=Path(root), hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
         super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)

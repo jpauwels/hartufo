@@ -1,11 +1,13 @@
 from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, ThreeDThreeADataQuery, SonicomDataQuery
 from .util import wrap_closed_open_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian
 from abc import abstractmethod
+from typing import Optional
 import numpy as np
 import numpy.typing as npt
 import netCDF4 as ncdf
 from scipy.fft import rfft, fftfreq
 from PIL import Image
+from samplerate import resample
 
 
 class DataPoint:
@@ -35,33 +37,50 @@ class SofaDataPoint(DataPoint):
 
     _quantisation: int = 3
 
+
+    def __init__(self, 
+        query: DataQuery,
+        resample_rate: Optional[float] = None, 
+        truncate_length: Optional[int] = None,
+        verbose: bool = False,
+        dtype: npt.DTypeLike = np.float32,
+    ):
+        super().__init__(query, verbose, dtype)
+        self._resample_rate = resample_rate
+        self._truncate_length = truncate_length
+
+
     @abstractmethod
     def _sofa_path(self, subject_id):
         pass
     
 
     def hrir_samplerate(self, subject_id):
-        sofa_path = self._sofa_path(subject_id)
-        hrir_file = ncdf.Dataset(sofa_path)
-        try:
-            samplerate = hrir_file.variables['Data.SamplingRate'][:].item()
-        except:
-            raise ValueError(f'Error reading file "{sofa_path}"')
-        finally:
-            hrir_file.close()
-        return samplerate
+        if self._resample_rate is None:
+            sofa_path = self._sofa_path(subject_id)
+            hrir_file = ncdf.Dataset(sofa_path)
+            try:
+                samplerate = hrir_file.variables['Data.SamplingRate'][:].item()
+            except Exception as exc:
+                raise ValueError(f'Error reading file "{sofa_path}"') from exc
+            finally:
+                hrir_file.close()
+            return samplerate
+        return self._resample_rate
 
 
     def hrir_length(self, subject_id):
-        sofa_path = self._sofa_path(subject_id)
-        hrir_file = ncdf.Dataset(sofa_path)
-        try:
-            length = hrir_file.dimensions['N'].size
-        except:
-            raise ValueError(f'Error reading file "{sofa_path}"')
-        finally:
-            hrir_file.close()
-        return length
+        if self._truncate_length is None:
+            sofa_path = self._sofa_path(subject_id)
+            hrir_file = ncdf.Dataset(sofa_path)
+            try:
+                length = hrir_file.dimensions['N'].size
+            except Exception as exc:
+                raise ValueError(f'Error reading file "{sofa_path}"') from exc
+            finally:
+                hrir_file.close()
+            return length
+        return self._truncate_length
 
 
     def hrtf_frequencies(self, subject_id):
@@ -109,8 +128,8 @@ class SofaDataPoint(DataPoint):
                 positions[:, [0, 1]] = positions[:, [1, 0]]
             elif hrir_file.variables['SourcePosition'].Type == 'cartesian':
                 positions = np.stack(cartesian2spherical(*positions.T), axis=1)
-        except:
-            raise ValueError(f'Error reading file "{sofa_path}"')
+        except Exception as exc:
+            raise ValueError(f'Error reading file "{sofa_path}"') from exc
         finally:
             hrir_file.close()
         quantised_positions = np.round(positions, self._quantisation)
@@ -194,8 +213,9 @@ class SofaDataPoint(DataPoint):
         hrir_file = ncdf.Dataset(sofa_path)
         try:
             hrirs = np.ma.getdata(hrir_file.variables['Data.IR'][:, 0 if side.endswith('left') else 1, :])
-        except:
-            raise ValueError(f'Error reading file "{sofa_path}"')
+            samplerate = hrir_file.variables['Data.SamplingRate'][:].item()
+        except Exception as exc:
+            raise ValueError(f'Error reading file "{sofa_path}"') from exc
         finally:
             hrir_file.close()
         unique_row_angles, _, _, position_mask, position_map, single_start_mask, start_pole_idx, single_end_mask, end_pole_idx = self._map_sofa_position_order_to_matrix(subject_id)
@@ -209,13 +229,18 @@ class SofaDataPoint(DataPoint):
         if column_indices is None:
             column_indices = slice(None)
 
-        selected_position_mask = position_mask[row_indices][:, column_indices]
-        tiled_position_mask = np.tile(selected_position_mask[:, :, :, np.newaxis], (1, 1, 1, hrirs.shape[1]))
         selected_hrir_matrix = hrir_matrix[row_indices][:, column_indices]
+        if self._resample_rate is not None and self._resample_rate != samplerate:
+            channel_view = selected_hrir_matrix.reshape(-1, selected_hrir_matrix.shape[-1])
+            selected_hrir_matrix = np.hstack([resample(channel_view[ch_idx:ch_idx+128].T, self._resample_rate / samplerate) for ch_idx in range(0, len(channel_view), 128)]).T.reshape(*selected_hrir_matrix.shape[:3], -1)
+        if self._truncate_length is not None:
+            selected_hrir_matrix = selected_hrir_matrix[:, :, :, :self._truncate_length]
+        selected_position_mask = position_mask[row_indices][:, column_indices]
+        tiled_position_mask = np.tile(selected_position_mask[:, :, :, np.newaxis], (1, 1, 1, selected_hrir_matrix.shape[-1]))
         if domain == 'time':
             hrir = np.ma.masked_where(tiled_position_mask, selected_hrir_matrix, copy=False)
         else:
-            selected_hrtf_matrix = np.ma.masked_where(tiled_position_mask[:, :, :, :hrirs.shape[1]//2+1], rfft(selected_hrir_matrix), copy=False)
+            selected_hrtf_matrix = np.ma.masked_where(tiled_position_mask[:, :, :, :selected_hrir_matrix.shape[-1]//2+1], rfft(selected_hrir_matrix), copy=False)
             if domain == 'complex':
                 hrir = selected_hrtf_matrix
             elif domain.startswith('magnitude'):
@@ -325,16 +350,17 @@ class ImageDataPoint(DataPoint):
 
 class CipicDataPoint(SofaInterauralDataPoint, ImageDataPoint, MatFileAnthropometryDataPoint):
 
-    def __init__(
-        self,
-        sofa_directory_path=None,
-        image_directory_path=None,
-        anthropomorphy_matfile_path=None,
-        verbose=False,
-        dtype=np.float32
+    def __init__(self,
+        sofa_directory_path: str = None,
+        image_directory_path: str = None,
+        anthropomorphy_matfile_path: str = None,
+        hrir_samplerate: Optional[float] = None,
+        hrir_length: Optional[int] = None,
+        verbose: bool = False,
+        dtype: npt.DTypeLike = np.float32,
     ):
         query = CipicDataQuery(sofa_directory_path, image_directory_path, anthropomorphy_matfile_path)
-        super().__init__(query, verbose, dtype)
+        super().__init__(query, hrir_samplerate, hrir_length, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -343,15 +369,16 @@ class CipicDataPoint(SofaInterauralDataPoint, ImageDataPoint, MatFileAnthropomet
 
 class AriDataPoint(SofaSphericalDataPoint, MatFileAnthropometryDataPoint):
 
-    def __init__(
-        self,
-        sofa_directory_path=None,
-        anthropomorphy_matfile_path=None,
-        verbose=False,
-        dtype=np.float32
+    def __init__(self,
+        sofa_directory_path: str = None,
+        anthropomorphy_matfile_path: str = None,
+        hrir_samplerate: Optional[float] = None,
+        hrir_length: Optional[int] = None,
+        verbose: bool = False,
+        dtype: npt.DTypeLike = np.float32,
     ):
         query = AriDataQuery(sofa_directory_path, anthropomorphy_matfile_path)
-        super().__init__(query, verbose, dtype)
+        super().__init__(query, hrir_samplerate, hrir_length, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -363,11 +390,13 @@ class ListenDataPoint(SofaSphericalDataPoint):
     def __init__(self,
         sofa_directory_path: str = None,
         hrtf_type: str = 'compensated',
+        hrir_samplerate: Optional[float] = None,
+        hrir_length: Optional[int] = None,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
         query = ListenDataQuery(sofa_directory_path, hrtf_type)
-        super().__init__(query, verbose, dtype)
+        super().__init__(query, hrir_samplerate, hrir_length, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -378,13 +407,14 @@ class BiLiDataPoint(SofaSphericalDataPoint):
 
     def __init__(self,
         sofa_directory_path: str = None,
-        samplerate: int = 96000,
         hrtf_type: str = 'compensated',
+        hrir_samplerate: Optional[float] = None,
+        hrir_length: Optional[int] = None,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
-        query = BiLiDataQuery(sofa_directory_path, samplerate, hrtf_type)
-        super().__init__(query, verbose, dtype)
+        query = BiLiDataQuery(sofa_directory_path, hrir_samplerate, hrtf_type)
+        super().__init__(query, hrir_samplerate, hrir_length, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -393,9 +423,15 @@ class BiLiDataPoint(SofaSphericalDataPoint):
 
 class ItaDataPoint(SofaSphericalDataPoint):
 
-    def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
+    def __init__(self,
+        sofa_directory_path: str = None,
+        hrir_samplerate: Optional[float] = None,
+        hrir_length: Optional[int] = None,
+        verbose: bool = False,
+        dtype: npt.DTypeLike = np.float32,
+    ):
         query = ItaDataQuery(sofa_directory_path)
-        super().__init__(query, verbose, dtype)
+        super().__init__(query, hrir_samplerate, hrir_length, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -407,11 +443,13 @@ class HutubsDataPoint(SofaSphericalDataPoint):
     def __init__(self,
         sofa_directory_path: str = None,
         measured_hrtf: bool = True,
+        hrir_samplerate: Optional[float] = None,
+        hrir_length: Optional[int] = None,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
         query = HutubsDataQuery(sofa_directory_path, measured_hrtf)
-        super().__init__(query, verbose, dtype)
+        super().__init__(query, hrir_samplerate, hrir_length, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -420,9 +458,15 @@ class HutubsDataPoint(SofaSphericalDataPoint):
 
 class RiecDataPoint(SofaSphericalDataPoint):
 
-    def __init__(self, sofa_directory_path, verbose=False, dtype=np.float32):
+    def __init__(self,
+        sofa_directory_path: str = None,
+        hrir_samplerate: Optional[float] = None,
+        hrir_length: Optional[int] = None,
+        verbose: bool = False,
+        dtype: npt.DTypeLike = np.float32,
+    ):
         query = RiecDataQuery(sofa_directory_path)
-        super().__init__(query, verbose, dtype)
+        super().__init__(query, hrir_samplerate, hrir_length, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -434,11 +478,13 @@ class ChedarDataPoint(SofaSphericalDataPoint):
     def __init__(self,
         sofa_directory_path: str = None,
         radius: float = 1,
+        hrir_samplerate: Optional[float] = None,
+        hrir_length: Optional[int] = None,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
         query = ChedarDataQuery(sofa_directory_path, radius)
-        super().__init__(query, verbose, dtype)
+        super().__init__(query, hrir_samplerate, hrir_length, verbose, dtype)
         self._quantisation = 1
 
 
@@ -452,11 +498,13 @@ class WidespreadDataPoint(SofaSphericalDataPoint):
         sofa_directory_path: str = None,
         radius: float = 1,
         grid: str = 'UV',
+        hrir_samplerate: Optional[float] = None,
+        hrir_length: Optional[int] = None,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
         query = WidespreadDataQuery(sofa_directory_path, radius, grid)
-        super().__init__(query, verbose, dtype)
+        super().__init__(query, hrir_samplerate, hrir_length, verbose, dtype)
         self._quantisation = 1
 
 
@@ -469,12 +517,13 @@ class Sadie2DataPoint(SofaSphericalDataPoint, ImageDataPoint):
     def __init__(self,
         sofa_directory_path: str = None,
         image_directory_path: str = None,
-        samplerate: int = 48000,
+        hrir_samplerate: Optional[float] = None,
+        hrir_length: Optional[int] = None,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
-        query = Sadie2DataQuery(sofa_directory_path, image_directory_path, samplerate)
-        super().__init__(query, verbose, dtype)
+        query = Sadie2DataQuery(sofa_directory_path, image_directory_path, hrir_samplerate)
+        super().__init__(query, hrir_samplerate, hrir_length, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -487,9 +536,17 @@ class Sadie2DataPoint(SofaSphericalDataPoint, ImageDataPoint):
 
 class ThreeDThreeADataPoint(SofaSphericalDataPoint):
 
-    def __init__(self, sofa_directory_path, hrtf_method = 'measured', hrtf_type = 'compensated', verbose=False, dtype=np.float32):
+    def __init__(self,
+        sofa_directory_path: str = None,
+        hrtf_method: str = 'measured',
+        hrtf_type: str = 'compensated',
+        hrir_samplerate: Optional[float] = None,
+        hrir_length: Optional[int] = None,
+        verbose: bool = False,
+        dtype: npt.DTypeLike = np.float32,
+    ):
         query = ThreeDThreeADataQuery(sofa_directory_path, hrtf_method, hrtf_type)
-        super().__init__(query, verbose, dtype)
+        super().__init__(query, hrir_samplerate, hrir_length, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -500,13 +557,14 @@ class SonicomDataPoint(SofaSphericalDataPoint):
 
     def __init__(self,
         sofa_directory_path: str = None,
-        samplerate: int = 48000,
         hrtf_type: str = 'compensated',
+        hrir_samplerate: Optional[float] = None,
+        hrir_length: Optional[int] = None,
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
-        query = SonicomDataQuery(sofa_directory_path, samplerate, hrtf_type)
-        super().__init__(query, verbose, dtype)
+        query = SonicomDataQuery(sofa_directory_path, hrir_samplerate, hrtf_type)
+        super().__init__(query, hrir_samplerate, hrir_length, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
