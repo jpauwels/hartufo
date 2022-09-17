@@ -1,5 +1,5 @@
 from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, ThreeDThreeADataQuery, SonicomDataQuery
-from .util import wrap_closed_open_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian
+from .util import wrap_closed_open_interval, wrap_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian
 from abc import abstractmethod
 from typing import Optional
 import numpy as np
@@ -32,7 +32,7 @@ class SofaDataPoint(DataPoint):
     row_angle: angle in the fundamental plane with range  [-180, 180)
     (azimuth for spherical coordinates, vertical angle for interaural coordinates)
     column_angle: angle between fundamental plane and directional vector with range [-90, 90]
-    (elevation for spherical coordinates, lateral angle for interaurl coordinates)
+    (elevation for spherical coordinates, lateral angle for interaural coordinates)
     """
 
     _quantisation: int = 3
@@ -94,14 +94,16 @@ class SofaDataPoint(DataPoint):
         if row_angles is None:
             select_row_indices = np.full(len(all_row_angles), True)
         else:
-            select_row_indices = np.array([np.isclose(angle, row_angles).any() for angle in all_row_angles])
+            norm_row_angles = wrap_closed_open_interval(row_angles, -180, 180)
+            select_row_indices = np.array([np.isclose(angle, norm_row_angles).any() for angle in all_row_angles])
             if not any(select_row_indices):
                 raise ValueError('None of the specified angles are available in this dataset')
 
         if column_angles is None:
             select_column_indices = np.full(len(all_column_angles), True)
         else:
-            select_column_indices = np.array([np.isclose(angle, column_angles).any() for angle in all_column_angles])
+            norm_column_angles = wrap_closed_interval(column_angles, -90, 90)
+            select_column_indices = np.array([np.isclose(angle, norm_column_angles).any() for angle in all_column_angles])
             if not any(select_column_indices):
                 raise ValueError('None of the specified angles are available in this dataset')
 

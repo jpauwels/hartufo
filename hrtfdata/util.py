@@ -1,11 +1,17 @@
 import numpy as np
 
+
 def wrap_closed_open_interval(values, lower, upper):
     return (np.asarray(values) - lower) % (upper - lower) + lower
 
 
 def wrap_open_closed_interval(values, lower, upper):
     return -((lower - np.asarray(values)) % (upper - lower)) - lower
+
+
+def wrap_closed_interval(values, lower, upper):
+    values = np.asarray(values)
+    return np.where((values < lower) | (values > upper), wrap_closed_open_interval(values, lower, upper), values)
 
 
 def spherical2interaural(azimuth, elevation, radius, angles_in_degrees=True):

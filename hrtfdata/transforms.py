@@ -55,23 +55,19 @@ class PlaneTransform(ABC):
 
 
     @staticmethod
-    def _idx_first_nonneg(iterable):
-        return np.flatnonzero(np.diff(np.sign(iterable)))[0] + 1
-
-
-    @staticmethod
-    def _idx_first_pos(iterable):
-        return np.flatnonzero(np.diff(np.sign(iterable)))[-1] + 1
-
-
-    @staticmethod
     def _idx_first_not_smaller_than(iterable, value=0):
-        return np.flatnonzero(iterable >= value)[0]
+        try:
+            return (iterable >= value).argmax()
+        except IndexError:
+            return len(iterable)
 
 
     @staticmethod
     def _idx_first_larger_than(iterable, value=0):
-        return np.flatnonzero(iterable > value)[0]
+        try:
+            return (iterable > value).argmax()
+        except IndexError:
+            return len(iterable)
 
 
 class InterauralPlaneTransform(PlaneTransform):
@@ -92,11 +88,11 @@ class InterauralPlaneTransform(PlaneTransform):
         if self.plane == 'median':
             input_angles = vertical_angles
             if self.positive_angles:
-                self._split_idx = self._idx_first_nonneg(vertical_angles)
+                self._split_idx = self._idx_first_not_smaller_than(vertical_angles)
             else:
                 self._split_idx = self._idx_first_not_smaller_than(vertical_angles, -90)
         else:
-            self._split_idx = self._idx_first_nonneg(np.ma.getdata(lateral_angles))
+            self._split_idx = self._idx_first_not_smaller_than(np.ma.getdata(lateral_angles))
             if len(vertical_angles) > 1:
                 # both half planes present
                 back_yaw_angles = 180-lateral_angles
@@ -227,9 +223,9 @@ class SphericalPlaneTransform(PlaneTransform):
 
         if self.plane == 'horizontal':
             input_angles = azimuth_angles
-            self._split_idx = self._idx_first_nonneg(azimuth_angles)
+            self._split_idx = self._idx_first_not_smaller_than(azimuth_angles)
         else:
-            self._split_idx = self._idx_first_nonneg(np.ma.getdata(elevation_angles))
+            self._split_idx = self._idx_first_not_smaller_than(np.ma.getdata(elevation_angles))
             if len(azimuth_angles) > 1:
                 # both half planes present
                 back_pitch_angles = 180-elevation_angles
