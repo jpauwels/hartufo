@@ -55,6 +55,18 @@ class SofaDataPoint(DataPoint):
         pass
     
 
+    @staticmethod
+    @abstractmethod
+    def _mirror_hrirs(hrirs, selected_row_angles):
+        pass
+
+
+    @staticmethod
+    @abstractmethod
+    def _verify_angle_symmetry(row_angles, column_angles):
+        pass
+
+
     def hrir_samplerate(self, subject_id):
         if self._resample_rate is None:
             sofa_path = self._sofa_path(subject_id)
@@ -89,35 +101,9 @@ class SofaDataPoint(DataPoint):
         return np.abs(fftfreq(num_samples, 1./self.hrir_samplerate(subject_id))[:num_bins])
 
 
-    @staticmethod
-    def _hrir_select_angles(row_angles, column_angles, all_row_angles, all_column_angles, position_mask):
-        if row_angles is None:
-            select_row_indices = np.full(len(all_row_angles), True)
-        else:
-            norm_row_angles = wrap_closed_open_interval(row_angles, -180, 180)
-            select_row_indices = np.array([np.isclose(angle, norm_row_angles).any() for angle in all_row_angles])
-            if not any(select_row_indices):
-                raise ValueError('None of the specified angles are available in this dataset')
-
-        if column_angles is None:
-            select_column_indices = np.full(len(all_column_angles), True)
-        else:
-            norm_column_angles = wrap_closed_interval(column_angles, -90, 90)
-            select_column_indices = np.array([np.isclose(angle, norm_column_angles).any() for angle in all_column_angles])
-            if not any(select_column_indices):
-                raise ValueError('None of the specified angles are available in this dataset')
-
-        selected_position_mask = position_mask[select_row_indices][:, select_column_indices]
-        # prune those row indices that no longer have a single colum index in the current selection and the other way around
-        keep_row_indices = ~selected_position_mask.all(axis=(1,2))
-        keep_column_indices = ~selected_position_mask.all(axis=(0,2))
-        row_indices = select_row_indices.nonzero()[0][keep_row_indices]
-        column_indices = select_column_indices.nonzero()[0][keep_column_indices]
-
-        return row_indices, column_indices
-
-
-    def _map_sofa_position_order_to_matrix(self, subject_id):
+    def _map_sofa_position_order_to_matrix(self, subject_id, row_angles, column_angles):
+        if row_angles is not None and column_angles is not None and len(row_angles) != len(column_angles):
+            raise ValueError(f'The number of row angles ({len(row_angles)}) differs from the number of column angles ({len(column_angles)})')
         sofa_path = self._sofa_path(subject_id)
         hrir_file = ncdf.Dataset(sofa_path)
         try:
@@ -136,81 +122,109 @@ class SofaDataPoint(DataPoint):
             hrir_file.close()
         quantised_positions = np.round(positions, self._quantisation)
         quantised_positions[:, 0] = wrap_closed_open_interval(quantised_positions[:, 0], -180, 180)
-        unique_row_angles = np.unique(quantised_positions[:, 0])
-        unique_column_angles = np.unique(quantised_positions[:, 1])
-        unique_radii = np.unique(quantised_positions[:, 2])
-        position_map = np.empty((3, len(positions)), dtype=int)
-        for idx, (row_angle, column_angle, radius) in enumerate(quantised_positions):
-            position_map[:, idx] = np.argmax(row_angle == unique_row_angles), np.argmax(column_angle == unique_column_angles), np.argmax(radius == unique_radii)
-        position_map = tuple(position_map)
-        
-        position_mask = np.full((len(unique_row_angles), len(unique_column_angles), len(unique_radii)), True)
-        position_mask[position_map] = False
 
-        # If pole values (column_angle 90 and/or -90) present for single row_angle, copy to all row_angles
-        if np.isclose(unique_column_angles[-1], 90):
-            single_end_mask = np.sum(~position_mask[:, -1], axis=0) == 1 # boolean for each radius value
-            end_pole_idx = (~position_mask[:, -1]).argmax()
-            position_mask[:, -1] = np.where(single_end_mask, False, position_mask[:, -1])
+        if row_angles is not None:
+            row_angles = wrap_closed_open_interval(row_angles, -180, 180)
+        if column_angles is not None:
+            column_angles = wrap_closed_interval(column_angles, -90, 90)
+        if row_angles is None and column_angles is None:
+            # Read all positions in file, without extra checks
+            selected_file_indices = list(range(len(quantised_positions)))
         else:
-            single_end_mask = False
-            end_pole_idx = 0
-        if np.isclose(unique_column_angles[0], -90):
-            single_start_mask = np.sum(~position_mask[:, 0], axis=0) == 1
-            start_pole_idx = (~position_mask[:, 0]).argmax()
-            position_mask[:, 0] = np.where(single_start_mask, False, position_mask[:, 0])
-        else:
-            single_start_mask = False
-            start_pole_idx = 0
-        
-        return unique_row_angles, unique_column_angles, unique_radii, position_mask, position_map, single_start_mask, start_pole_idx, single_end_mask, end_pole_idx
+            # Check if file positions are part of requested positions
+            selected_file_indices = []
+            if row_angles is not None:
+                if column_angles is not None:
+                    check = lambda file_row_angle, file_column_angle: (np.isclose(file_row_angle, row_angles) & np.isclose(file_column_angle, column_angles)).any()
+                else:
+                    check = lambda file_row_angle, _: np.isclose(file_row_angle, row_angles).any()
+            elif column_angles is not None:
+                check = lambda _, file_column_angle: np.isclose(file_column_angle, column_angles).any()
+            for file_idx, (file_row_angle, file_column_angle, file_radius) in enumerate(quantised_positions):
+                if check(file_row_angle, file_column_angle):
+                    selected_file_indices.append(file_idx)
+            if len(selected_file_indices) == 0:
+                raise ValueError('None of the specified angles are available in this dataset')
 
+        selected_positions = quantised_positions[selected_file_indices]
+        selected_row_angles = np.unique(selected_positions[:, 0])
+        selected_column_angles = np.unique(selected_positions[:, 1])
+        selected_radii = np.unique(selected_positions[:, 2])
 
-    # called by torch.full
-    def hrir_angle_indices(self, subject_id, row_angles=None, column_angles=None):
-        unique_row_angles, unique_column_angles, unique_radii, position_mask, *_ = self._map_sofa_position_order_to_matrix(subject_id)
-        row_indices, column_indices = SofaDataPoint._hrir_select_angles(row_angles, column_angles, unique_row_angles, unique_column_angles, position_mask)
-        selected_angles = {unique_row_angles[row_idx]: np.ma.array(unique_column_angles[column_indices], mask=position_mask[row_idx, column_indices]) for row_idx in row_indices}
-        return selected_angles, row_indices, column_indices
+        additional_pole_indices = []
+
+        def repeat_value_at_pole(pole_angle, pole_column_idx):
+            nonlocal selected_column_angles
+            # If value at pole requested
+            if column_angles is None or np.isclose(column_angles, pole_angle).any():
+                for radius_idx, radius in enumerate(selected_radii):
+                    pole_indices = np.flatnonzero(np.isclose(quantised_positions[:, 1], pole_angle) & (quantised_positions[:, 2] == radius))
+                    # Check if present in file
+                    if len(pole_indices) > 0:
+                        pole_idx = pole_indices[0]
+                        # Check if pole angle is already present in selection
+                        if not np.isclose(selected_column_angles[pole_column_idx], pole_angle):
+                            # Add to column angles appropriate extremum
+                            if pole_column_idx < 0:
+                                selected_column_angles = np.append(selected_column_angles, pole_angle)
+                            else:
+                                selected_column_angles = np.insert(selected_column_angles, pole_column_idx, pole_angle)
+                        # Copy to those row angles that miss the value at the pole (if any)
+                        radius_positions = selected_positions[selected_positions[:, 2] == radius]
+                        present_row_angles = radius_positions[np.isclose(radius_positions[:, 1], pole_angle), 0]
+                        missing_row_angles = np.setdiff1d(selected_row_angles, present_row_angles)
+                        missing_row_indices = [np.argmax(angle == selected_row_angles) for angle in missing_row_angles]
+                        selected_file_indices.extend([pole_idx] * len(missing_row_indices))
+                        additional_pole_indices.extend([(row_idx, pole_column_idx, radius_idx) for row_idx in missing_row_indices])
+
+        repeat_value_at_pole(-90, 0)
+        repeat_value_at_pole(90, -1)
+
+        selection_mask_indices = []
+        for file_row_angle, file_column_angle, file_radius in selected_positions:
+            selection_mask_indices.append((np.argmax(file_row_angle == selected_row_angles), np.argmax(file_column_angle == selected_column_angles), np.argmax(file_radius == selected_radii)))
+        selection_mask_indices.extend(additional_pole_indices)
+
+        selection_mask_indices = tuple(np.array(selection_mask_indices).T)
+        selection_mask = np.full((len(selected_row_angles), len(selected_column_angles), len(selected_radii)), True)
+        selection_mask[selection_mask_indices] = False
+
+        return selected_row_angles, selected_column_angles, selected_radii, selection_mask, selected_file_indices, selection_mask_indices
 
 
     def hrir_positions(self, subject_id, coordinate_system, row_angles=None, column_angles=None):
-        unique_row_angles, unique_column_angles, unique_radii, position_mask, *_ = self._map_sofa_position_order_to_matrix(subject_id)
-        row_indices, column_indices = SofaDataPoint._hrir_select_angles(row_angles, column_angles, unique_row_angles, unique_column_angles, position_mask)
-        selected_position_mask = position_mask[row_indices][:, column_indices]
-        selected_row_angles = unique_row_angles[row_indices]
-        selected_column_angles = unique_column_angles[column_indices]
+        selected_row_angles, selected_column_angles, selected_radii, selection_mask, *_ = self._map_sofa_position_order_to_matrix(subject_id, row_angles, column_angles)
 
         if isinstance(self, SofaSphericalDataPoint):
             if coordinate_system == 'spherical':
-                coordinates = selected_row_angles, selected_column_angles, unique_radii
+                coordinates = selected_row_angles, selected_column_angles, selected_radii
             elif coordinate_system == 'interaural':
-                coordinates = spherical2interaural(selected_row_angles, selected_column_angles, unique_radii)
+                coordinates = spherical2interaural(selected_row_angles, selected_column_angles, selected_radii)
             elif coordinate_system == 'cartesian':
-                coordinates = spherical2cartesian(selected_row_angles, selected_column_angles, unique_radii)
+                coordinates = spherical2cartesian(selected_row_angles, selected_column_angles, selected_radii)
             else:
                 raise ValueError(f'Unknown coordinate system "{coordinate_system}"')
         else:
             if coordinate_system == 'interaural':
-                coordinates = selected_row_angles, selected_column_angles, unique_radii
+                coordinates = selected_row_angles, selected_column_angles, selected_radii
             elif coordinate_system == 'spherical':
-                coordinates = interaural2spherical(selected_column_angles, selected_row_angles, unique_radii)
+                coordinates = interaural2spherical(selected_column_angles, selected_row_angles, selected_radii)
                 coordinates[0], coordinates[1] = coordinates[1], coordinates[0]
             elif coordinate_system == 'cartesian':
-                coordinates = interaural2cartesian(selected_row_angles, selected_row_angles, unique_radii)
+                coordinates = interaural2cartesian(selected_row_angles, selected_row_angles, selected_radii)
                 coordinates[0], coordinates[1] = coordinates[1], coordinates[0]
             else:
                 raise ValueError(f'Unknown coordinate system "{coordinate_system}"')
 
         position_grid = np.stack(np.meshgrid(*coordinates, indexing='ij'), axis=-1)
-        if selected_position_mask.any(): # sparse grid
-            tiled_position_mask = np.tile(selected_position_mask[:, :, :, np.newaxis], (1, 1, 1, 3))
+        if selection_mask.any(): # sparse grid
+            tiled_position_mask = np.tile(selection_mask[:, :, :, np.newaxis], (1, 1, 1, 3))
             return np.ma.masked_where(tiled_position_mask, position_grid)
         # dense grid
         return position_grid
 
 
-    def hrir(self, subject_id, side, domain='time', row_indices=None, column_indices=None):
+    def hrir(self, subject_id, side, domain='time', row_angles=None, column_angles=None):
         sofa_path = self._sofa_path(subject_id)
         hrir_file = ncdf.Dataset(sofa_path)
         try:
@@ -220,33 +234,24 @@ class SofaDataPoint(DataPoint):
             raise ValueError(f'Error reading file "{sofa_path}"') from exc
         finally:
             hrir_file.close()
-        unique_row_angles, _, _, position_mask, position_map, single_start_mask, start_pole_idx, single_end_mask, end_pole_idx = self._map_sofa_position_order_to_matrix(subject_id)
-        hrir_matrix = np.empty(position_mask.shape + (hrirs.shape[1],))
-        hrir_matrix[position_map] = hrirs
-        hrir_matrix[:, 0] = np.where(single_start_mask, hrir_matrix[start_pole_idx, 0], hrir_matrix[:, 0])
-        hrir_matrix[:, -1] = np.where(single_end_mask, hrir_matrix[end_pole_idx, -1], hrir_matrix[:, -1])
+        selected_row_angles, _, _, selection_mask, selected_file_indices, selection_mask_indices = self._map_sofa_position_order_to_matrix(subject_id, row_angles, column_angles)
+        hrir_matrix = np.empty(selection_mask.shape + (hrirs.shape[1],))
+        hrir_matrix[selection_mask_indices] = hrirs[selected_file_indices]
 
-        if row_indices is None:
-            row_indices = slice(None)
-        if column_indices is None:
-            column_indices = slice(None)
-
-        selected_hrir_matrix = hrir_matrix[row_indices][:, column_indices]
         if self._resample_rate is not None and self._resample_rate != samplerate:
-            channel_view = selected_hrir_matrix.reshape(-1, selected_hrir_matrix.shape[-1])
-            selected_hrir_matrix = np.hstack([resample(channel_view[ch_idx:ch_idx+128].T, self._resample_rate / samplerate) for ch_idx in range(0, len(channel_view), 128)]).T.reshape(*selected_hrir_matrix.shape[:3], -1)
+            channel_view = hrir_matrix.reshape(-1, hrir_matrix.shape[-1])
+            hrir_matrix = np.hstack([resample(channel_view[ch_idx:ch_idx+128].T, self._resample_rate / samplerate) for ch_idx in range(0, len(channel_view), 128)]).T.reshape(*hrir_matrix.shape[:3], -1)
         if self._truncate_length is not None:
-            selected_hrir_matrix = selected_hrir_matrix[:, :, :, :self._truncate_length]
-        selected_position_mask = position_mask[row_indices][:, column_indices]
-        tiled_position_mask = np.tile(selected_position_mask[:, :, :, np.newaxis], (1, 1, 1, selected_hrir_matrix.shape[-1]))
+            hrir_matrix = hrir_matrix[:, :, :, :self._truncate_length]
+        tiled_position_mask = np.tile(selection_mask[:, :, :, np.newaxis], (1, 1, 1, hrir_matrix.shape[-1]))
         if domain == 'time':
-            hrir = np.ma.masked_where(tiled_position_mask, selected_hrir_matrix, copy=False)
+            hrir = np.ma.masked_where(tiled_position_mask, hrir_matrix, copy=False)
         else:
-            selected_hrtf_matrix = np.ma.masked_where(tiled_position_mask[:, :, :, :selected_hrir_matrix.shape[-1]//2+1], rfft(selected_hrir_matrix), copy=False)
+            hrtf_matrix = np.ma.masked_where(tiled_position_mask[:, :, :, :hrir_matrix.shape[-1]//2+1], rfft(hrir_matrix), copy=False)
             if domain == 'complex':
-                hrir = selected_hrtf_matrix
+                hrir = hrtf_matrix
             elif domain.startswith('magnitude'):
-                magnitudes = np.abs(selected_hrtf_matrix)
+                magnitudes = np.abs(hrtf_matrix)
                 if domain.endswith('_db'):
                     # limit dB range to what is representable in data type
                     min_magnitude = np.max(magnitudes) * np.finfo(self.dtype).resolution
@@ -254,23 +259,14 @@ class SofaDataPoint(DataPoint):
                 else:
                     hrir = magnitudes
             elif domain == 'phase':
-                hrir = np.angle(selected_hrtf_matrix)
+                hrir = np.angle(hrtf_matrix)
             else:
                 hrir = ValueError(f'Unknown domain "{domain}" for HRIR')
         if domain == 'complex' and not issubclass(self.dtype, np.complexfloating):
             raise ValueError(f'An HRTF in the complex domain requires the dtype to be set to a complex type (currently {self.dtype})')
         hrir = np.squeeze(hrir.astype(self.dtype))
         if side.startswith('mirrored'):
-            if isinstance(self, SofaSphericalDataPoint):
-                # flip azimuths (in rows)
-                selected_azimuths = unique_row_angles[row_indices]
-                if np.isclose(selected_azimuths[0], -180):
-                    return np.ma.row_stack((hrir[0:1], np.flipud(hrir[1:])))
-                else:
-                    return np.flipud(hrir)
-            else:
-                # flip lateral angles (in columns)
-                return np.fliplr(hrir)
+            return self._mirror_hrirs(hrir, selected_row_angles)
         return hrir
 
 
@@ -280,10 +276,40 @@ class SofaSphericalDataPoint(SofaDataPoint):
         return super().hrir_positions(subject_id, coordinate_system, row_angles, column_angles)
 
 
+    @staticmethod
+    def _mirror_hrirs(hrirs, selected_row_angles):
+        # flip azimuths (in rows)
+        if np.isclose(selected_row_angles[0], -180):
+            return np.ma.row_stack((hrirs[0:1], np.flipud(hrirs[1:])))
+        else:
+            return np.flipud(hrirs)
+
+
+    @staticmethod
+    def _verify_angle_symmetry(row_angles, _):
+        # mirror azimuths/rows
+        start_idx = 1 if np.isclose(row_angles[0], -180) else 0
+        if not np.allclose(row_angles[start_idx:], -np.flip(row_angles[start_idx:])):
+            raise ValueError('Only datasets with symmetric azimuths can mix mirrored and non-mirrored sides.')
+
+
 class SofaInterauralDataPoint(SofaDataPoint):
 
     def hrir_positions(self, subject_id, row_angles=None, column_angles=None, coordinate_system='interaural'):
         return super().hrir_positions(subject_id, coordinate_system, row_angles, column_angles)
+
+
+    @staticmethod
+    def _mirror_hrirs(hrirs, _):
+        # flip lateral angles (in columns)
+        return np.fliplr(hrirs)
+
+
+    @staticmethod
+    def _verify_angle_symmetry(_, column_angles):
+        # mirror laterals/columns
+        if not np.allclose(column_angles, -np.flip(column_angles)):
+            raise ValueError('Only datasets with symmetric lateral angles can mix mirrored and non-mirrored sides.')
 
 
 class MatFileAnthropometryDataPoint(DataPoint):
@@ -384,7 +410,10 @@ class AriDataPoint(SofaSphericalDataPoint, MatFileAnthropometryDataPoint):
 
 
     def _sofa_path(self, subject_id):
-        return str(next(self.query.sofa_directory_path.glob('hrtf [bc]_nh{}.sofa'.format(subject_id))))
+        try:
+            return str(next(self.query.sofa_directory_path.glob('hrtf [bc]_nh{}.sofa'.format(subject_id))))
+        except :
+            raise ValueError(f'No subject with id "{subject_id}" exists in the collection')
 
 
 class ListenDataPoint(SofaSphericalDataPoint):

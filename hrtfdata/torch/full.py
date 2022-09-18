@@ -59,42 +59,33 @@ class HRTFDataset(TorchDataset):
                 raise ValueError('Empty dataset. Check if its configuration and paths are correct.')
             self.subject_ids = tuple()
             self.hrir_samplerate = None
+            self.hrir_length = None
             self.hrtf_frequencies = None
             self._features = []
             self._targets = []
             self._groups = []
-            self._selected_angles = {}
             self.row_angles = np.array([])
             self.column_angles = np.array([])
+            self.radii = np.array([])
+            self._selection_mask = None
             return
 
         self.subject_ids, self.sides = zip(*ear_ids)
 
         if 'hrirs' in self._specification.keys():
-            self._selected_angles, row_indices, column_indices = datapoint.hrir_angle_indices(
+            self.row_angles, self.column_angles, self.radii, self._selection_mask, *_ = datapoint._map_sofa_position_order_to_matrix(
                 self.subject_ids[0],
                 self._specification['hrirs'].get('row_angles'),
                 self._specification['hrirs'].get('column_angles')
             )
-            self.row_angles = np.array(list(self._selected_angles.keys()))
-            self.column_angles = np.ma.getdata(list(self._selected_angles.values())[0])
             side = self._specification['hrirs'].get('side', '')
             if side.startswith('both-'):
-                if isinstance(datapoint, SofaSphericalDataPoint):
-                    # mirror azimuths/rows
-                    start_idx = 1 if np.isclose(self.row_angles[0], -180) else 0
-                    if not np.allclose(self.row_angles[start_idx:], -np.flip(self.row_angles[start_idx:])):
-                        raise ValueError(f'Only datasets with symmetric azimuths can use {side} sides.')
-                else:
-                    # mirror laterals/columns
-                    if not np.allclose(self.column_angles, -np.flip(self.column_angles)):
-                        raise ValueError(f'Only datasets with symmetric lateral angles can use {side} sides.')
-                
+                datapoint._verify_angle_symmetry(self.row_angles, self.column_angles)
         else:
-            self._selected_angles = {}
             self.row_angles = np.array([])
             self.column_angles = np.array([])
-
+            self.radii = np.array([])
+            self._selection_mask = None
 
         self.hrir_samplerate = datapoint.hrir_samplerate(self.subject_ids[0])
         self.hrir_length = datapoint.hrir_length(self.subject_ids[0])
@@ -111,7 +102,7 @@ class HRTFDataset(TorchDataset):
                 if 'anthropometry' in spec.keys():
                     subject_data['anthropometry'] = datapoint.anthropomorphic_data(subject, side=side, select=spec['anthropometry'].get('select', None))
                 if 'hrirs' in spec.keys():
-                    subject_data['hrirs'] = datapoint.hrir(subject, side=side, domain=spec['hrirs'].get('domain', 'time'), row_indices=row_indices, column_indices=column_indices)
+                    subject_data['hrirs'] = datapoint.hrir(subject, side=side, domain=spec['hrirs'].get('domain', 'time'), row_angles=spec['hrirs'].get('row_angles'), column_angles=spec['hrirs'].get('column_angles'))
                 if 'subject' in spec.keys():
                     subject_data['subject'] = subject
                 if 'side' in spec.keys():
@@ -176,7 +167,7 @@ class HRTFDataset(TorchDataset):
     def available_subject_ids(self):
         ear_ids = self._query.specification_based_ids(self._specification, exclude_subjects=self._exclude_ids)
         subject_ids, _ = zip(*ear_ids)
-        return tuple(sorted(set(subject_ids)))
+        return tuple(np.unique(subject_ids))
 
 
 class CIPIC(HRTFDataset):

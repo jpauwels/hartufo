@@ -79,11 +79,11 @@ class InterauralPlaneTransform(PlaneTransform):
     _neg_sphere_present: bool
 
 
-    def calc_plane_angles(self, selected_angles):
-        if not selected_angles:
+    def calc_plane_angles(self, row_angles, column_angles, selection_mask):
+        if selection_mask is None:
             return np.array([])
-        vertical_angles = np.array(list(selected_angles.keys()))
-        lateral_angles = list(selected_angles.values())[0].copy()
+        vertical_angles = row_angles
+        lateral_angles = np.ma.array(column_angles, mask=selection_mask[0])
 
         if self.plane == 'median':
             input_angles = vertical_angles
@@ -92,11 +92,11 @@ class InterauralPlaneTransform(PlaneTransform):
             else:
                 self._split_idx = self._idx_first_not_smaller_than(vertical_angles, -90)
         else:
-            self._split_idx = self._idx_first_not_smaller_than(np.ma.getdata(lateral_angles))
+            self._split_idx = self._idx_first_not_smaller_than(column_angles)
             if len(vertical_angles) > 1:
                 # both half planes present
                 back_yaw_angles = 180-lateral_angles
-                front_yaw_angles = list(selected_angles.values())[1].copy()
+                front_yaw_angles = np.ma.array(column_angles, mask=selection_mask[0])
                 input_angles = [back_yaw_angles, front_yaw_angles]
                 self._left_pole_overlap = np.isclose(front_yaw_angles, 90).any() and np.isclose(back_yaw_angles, 90).any()
                 self._right_pole_overlap = np.isclose(front_yaw_angles, -90).any() and np.isclose(back_yaw_angles, 270).any()
@@ -214,22 +214,22 @@ class SphericalPlaneTransform(PlaneTransform):
     _pos_sphere_present: bool
     _neg_sphere_present: bool
 
-    
-    def calc_plane_angles(self, selected_angles):
-        if not selected_angles:
+
+    def calc_plane_angles(self, row_angles, column_angles, selection_mask):
+        if selection_mask is None:
             return np.array([])
-        azimuth_angles = np.array(list(selected_angles.keys()))
-        elevation_angles = list(selected_angles.values())[0].copy()
+        azimuth_angles = row_angles
+        elevation_angles = np.ma.array(column_angles, mask=selection_mask[0])
 
         if self.plane == 'horizontal':
             input_angles = azimuth_angles
             self._split_idx = self._idx_first_not_smaller_than(azimuth_angles)
         else:
-            self._split_idx = self._idx_first_not_smaller_than(np.ma.getdata(elevation_angles))
+            self._split_idx = self._idx_first_not_smaller_than(column_angles)
             if len(azimuth_angles) > 1:
                 # both half planes present
                 back_pitch_angles = 180-elevation_angles
-                front_pitch_angles = list(selected_angles.values())[1].copy()
+                front_pitch_angles = np.ma.array(column_angles, mask=selection_mask[1])
                 input_angles = [back_pitch_angles, front_pitch_angles]
                 self._up_pole_overlap = np.isclose(front_pitch_angles, 90).any() and np.isclose(back_pitch_angles, 90).any()
                 self._down_pole_overlap = np.isclose(front_pitch_angles, -90).any() and np.isclose(back_pitch_angles, 270).any()

@@ -45,7 +45,7 @@ class HRTFPlaneDataset(HRTFDataset):
     @positive_angles.setter
     def positive_angles(self, value):
         self._planar_transform.positive_angles = value
-        self.plane_angles = self._planar_transform.calc_plane_angles(self._selected_angles)
+        self.plane_angles = self._planar_transform.calc_plane_angles(self.row_angles, self.column_angles, self._selection_mask)
         self.min_angle = self._planar_transform.min_angle
         self.max_angle = self._planar_transform.max_angle
 
