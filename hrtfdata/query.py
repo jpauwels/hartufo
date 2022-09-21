@@ -1,6 +1,7 @@
 from pathlib import Path
 import warnings
 import random
+from numbers import Number
 from typing import Optional
 import numpy as np
 from scipy import io
@@ -64,7 +65,7 @@ class DataQuery:
                     given_dict = given_dict[key]
                 except KeyError:
                     return
-            unknown_keys = sorted(set(given_dict.keys()).difference(allowed_keys))
+            unknown_keys = sorted([x for x in set(given_dict.keys()).difference(allowed_keys) if not isinstance(x, Number)])
             if unknown_keys:
                 raise ValueError(f'Unknown specifier{"s" if len(unknown_keys) > 1 else ""} "{", ".join(unknown_keys)}" in {key if key else "specification"}')
         validate_dict(spec, self.allowed_keys)

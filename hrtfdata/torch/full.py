@@ -1,6 +1,7 @@
 from ..datapoint import DataPoint, SofaSphericalDataPoint, CipicDataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint, SonicomDataPoint
 import warnings
 from pathlib import Path
+from numbers import Number
 from typing import Any, Callable, List, Iterable, Optional, TypeVar, Dict, IO, Tuple, Iterator
 import numpy as np
 from PIL.Image import Image, LANCZOS
@@ -109,6 +110,9 @@ class HRTFDataset(TorchDataset):
                     subject_data['side'] = side
                 if 'collection' in spec.keys():
                     subject_data['collection'] = datapoint.query.collection_id
+                numeric_keys = [k for k in spec.keys() if isinstance(k, Number)]
+                for n in numeric_keys:
+                    subject_data[n] = n
                 store.append(subject_data)
 
 
@@ -118,7 +122,7 @@ class HRTFDataset(TorchDataset):
 
     def __getitem__(self, idx):
         def get_single_item(features, target, group):
-            # unify both to simpify on-demand transforms
+            # unify all dicts to simpify on-demand transforms
             characteristics = {**features, **target, **group}
 
             if 'images' in characteristics:
@@ -146,7 +150,7 @@ class HRTFDataset(TorchDataset):
                 'group': shape_data(group.keys()),
             }
 
-        if isinstance(idx, int):
+        if isinstance(idx, Number):
             return get_single_item(self._features[idx], self._targets[idx], self._groups[idx])
         else:
             items = []
