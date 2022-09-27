@@ -1,4 +1,4 @@
-from ..datapoint import DataPoint, SofaSphericalDataPoint, CipicDataPoint, AriDataPoint, ListenDataPoint, BiLiDataPoint, ItaDataPoint, HutubsDataPoint, RiecDataPoint, ChedarDataPoint, WidespreadDataPoint, Sadie2DataPoint, ThreeDThreeADataPoint, SonicomDataPoint
+from ..datareader import DataReader, SofaSphericalDataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, ThreeDThreeADataReader, SonicomDataReader
 import warnings
 from pathlib import Path
 from numbers import Number
@@ -21,7 +21,7 @@ class HRTFDataset(TorchDataset):
 
     def __init__(
         self,
-        datapoint: DataPoint,
+        datareader: DataReader,
         feature_spec: Dict,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
@@ -37,7 +37,7 @@ class HRTFDataset(TorchDataset):
         self._image_transform = image_transform
         self._measurement_transform = measurement_transform
         self._hrir_transform = hrir_transform
-        self._query = datapoint.query
+        self._query = datareader.query
         # Allow specifying ids that are excluded by default without explicitly overriding `exclude_ids``
         if subject_ids is not None and not isinstance(subject_ids, str) and exclude_ids is None:
             exclude_ids = ()
@@ -74,23 +74,23 @@ class HRTFDataset(TorchDataset):
         self.subject_ids, self.sides = zip(*ear_ids)
 
         if 'hrirs' in self._specification.keys():
-            self.row_angles, self.column_angles, self.radii, self._selection_mask, *_ = datapoint._map_sofa_position_order_to_matrix(
+            self.row_angles, self.column_angles, self.radii, self._selection_mask, *_ = datareader._map_sofa_position_order_to_matrix(
                 self.subject_ids[0],
                 self._specification['hrirs'].get('row_angles'),
                 self._specification['hrirs'].get('column_angles')
             )
             side = self._specification['hrirs'].get('side', '')
             if side.startswith('both-'):
-                datapoint._verify_angle_symmetry(self.row_angles, self.column_angles)
+                datareader._verify_angle_symmetry(self.row_angles, self.column_angles)
         else:
             self.row_angles = np.array([])
             self.column_angles = np.array([])
             self.radii = np.array([])
             self._selection_mask = None
 
-        self.hrir_samplerate = datapoint.hrir_samplerate(self.subject_ids[0])
-        self.hrir_length = datapoint.hrir_length(self.subject_ids[0])
-        self.hrtf_frequencies = datapoint.hrtf_frequencies(self.subject_ids[0])
+        self.hrir_samplerate = datareader.hrir_samplerate(self.subject_ids[0])
+        self.hrir_length = datareader.hrir_length(self.subject_ids[0])
+        self.hrtf_frequencies = datareader.hrtf_frequencies(self.subject_ids[0])
 
         self._features: Any = []
         self._targets: Any = []
@@ -99,17 +99,17 @@ class HRTFDataset(TorchDataset):
             for spec, store in (feature_spec, self._features), (target_spec, self._targets), (group_spec, self._groups):
                 subject_data = {}
                 if 'images' in spec.keys():
-                    subject_data['images'] = datapoint.pinna_image(subject, side=side, rear=spec['images'].get('rear', False))
+                    subject_data['images'] = datareader.pinna_image(subject, side=side, rear=spec['images'].get('rear', False))
                 if 'anthropometry' in spec.keys():
-                    subject_data['anthropometry'] = datapoint.anthropomorphic_data(subject, side=side, select=spec['anthropometry'].get('select', None))
+                    subject_data['anthropometry'] = datareader.anthropomorphic_data(subject, side=side, select=spec['anthropometry'].get('select', None))
                 if 'hrirs' in spec.keys():
-                    subject_data['hrirs'] = datapoint.hrir(subject, side=side, domain=spec['hrirs'].get('domain', 'time'), row_angles=spec['hrirs'].get('row_angles'), column_angles=spec['hrirs'].get('column_angles'))
+                    subject_data['hrirs'] = datareader.hrir(subject, side=side, domain=spec['hrirs'].get('domain', 'time'), row_angles=spec['hrirs'].get('row_angles'), column_angles=spec['hrirs'].get('column_angles'))
                 if 'subject' in spec.keys():
                     subject_data['subject'] = subject
                 if 'side' in spec.keys():
                     subject_data['side'] = side
                 if 'collection' in spec.keys():
-                    subject_data['collection'] = datapoint.query.collection_id
+                    subject_data['collection'] = datareader.query.collection_id
                 numeric_keys = [k for k in spec.keys() if isinstance(k, Number)]
                 for n in numeric_keys:
                     subject_data[n] = n
@@ -192,14 +192,14 @@ class CIPIC(HRTFDataset):
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
-        datapoint = CipicDataPoint(
+        datareader = CipicDataReader(
             anthropomorphy_matfile_path=Path(root)/'CIPIC_hrtf_database/anthropometry/anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             dtype=dtype,
         )
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, measurement_transform, hrir_transform)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, measurement_transform, hrir_transform)
 
 
 class ARI(HRTFDataset):
@@ -220,14 +220,14 @@ class ARI(HRTFDataset):
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
-        datapoint = AriDataPoint(
+        datareader = AriDataReader(
             anthropomorphy_matfile_path=Path(root)/'anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             dtype=dtype,
         )
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, measurement_transform, hrir_transform)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, measurement_transform, hrir_transform)
 
 
 class Listen(HRTFDataset):
@@ -248,8 +248,8 @@ class Listen(HRTFDataset):
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
-        datapoint = ListenDataPoint(sofa_directory_path=Path(root)/'sofa', hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = ListenDataReader(sofa_directory_path=Path(root)/'sofa', hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class BiLi(HRTFDataset):
@@ -270,8 +270,8 @@ class BiLi(HRTFDataset):
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
-        datapoint = BiLiDataPoint(sofa_directory_path=Path(root)/'sofa', hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = BiLiDataReader(sofa_directory_path=Path(root)/'sofa', hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class ITA(HRTFDataset):
@@ -291,8 +291,8 @@ class ITA(HRTFDataset):
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
-        datapoint = ItaDataPoint(sofa_directory_path=Path(root)/'sofa', hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = ItaDataReader(sofa_directory_path=Path(root)/'sofa', hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class HUTUBS(HRTFDataset):
@@ -313,8 +313,8 @@ class HUTUBS(HRTFDataset):
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
-        datapoint = HutubsDataPoint(sofa_directory_path=Path(root)/'sofa', measured_hrtf=measured_hrtf, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = HutubsDataReader(sofa_directory_path=Path(root)/'sofa', measured_hrtf=measured_hrtf, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class RIEC(HRTFDataset):
@@ -334,8 +334,8 @@ class RIEC(HRTFDataset):
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
-        datapoint = RiecDataPoint(sofa_directory_path=Path(root)/'sofa', hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = RiecDataReader(sofa_directory_path=Path(root)/'sofa', hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class CHEDAR(HRTFDataset):
@@ -356,8 +356,8 @@ class CHEDAR(HRTFDataset):
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
-        datapoint = ChedarDataPoint(sofa_directory_path=Path(root)/'sofa', radius=radius, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = ChedarDataReader(sofa_directory_path=Path(root)/'sofa', radius=radius, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class Widespread(HRTFDataset):
@@ -379,8 +379,8 @@ class Widespread(HRTFDataset):
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
-        datapoint = WidespreadDataPoint(sofa_directory_path=Path(root)/'sofa', radius=radius, grid=grid, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = WidespreadDataReader(sofa_directory_path=Path(root)/'sofa', radius=radius, grid=grid, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class SADIE2(HRTFDataset):
@@ -400,8 +400,8 @@ class SADIE2(HRTFDataset):
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
-        datapoint = Sadie2DataPoint(sofa_directory_path=Path(root)/'Database-Master_V1-4', hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = Sadie2DataReader(sofa_directory_path=Path(root)/'Database-Master_V1-4', hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class ThreeDThreeA(HRTFDataset):
@@ -423,8 +423,8 @@ class ThreeDThreeA(HRTFDataset):
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
-        datapoint = ThreeDThreeADataPoint(sofa_directory_path=Path(root)/'HRTFs', hrtf_method=hrtf_method, hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = ThreeDThreeADataReader(sofa_directory_path=Path(root)/'HRTFs', hrtf_method=hrtf_method, hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
 
 
 class SONICOM(HRTFDataset):
@@ -445,5 +445,5 @@ class SONICOM(HRTFDataset):
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length = _get_samplerate_and_length_from_spec(feature_spec, target_spec, group_spec)
-        datapoint = SonicomDataPoint(sofa_directory_path=Path(root), hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
-        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = SonicomDataReader(sofa_directory_path=Path(root), hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, dtype=dtype)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)

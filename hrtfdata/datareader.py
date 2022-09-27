@@ -10,7 +10,7 @@ from PIL import Image
 from samplerate import resample
 
 
-class DataPoint:
+class DataReader:
 
     def __init__(self,
         query: DataQuery,
@@ -22,7 +22,7 @@ class DataPoint:
         self.dtype = dtype
 
 
-class SofaDataPoint(DataPoint):
+class SofaDataReader(DataReader):
     """
     An abstract class that reads the HRIR for a given subject id of a dataset from a SOFA file and stores it internally
     as a 3D tensor. The HRIR directions are stored in the rows and columns as a plate carrée projection where each
@@ -108,7 +108,7 @@ class SofaDataPoint(DataPoint):
         hrir_file = ncdf.Dataset(sofa_path)
         try:
             positions = np.ma.getdata(hrir_file.variables['SourcePosition'][:])
-            if isinstance(self, SofaInterauralDataPoint):
+            if isinstance(self, SofaInterauralDataReader):
                 if hrir_file.variables['SourcePosition'].Type == 'cartesian':
                     positions = np.stack(cartesian2interaural(*positions.T), axis=1)
                 else:
@@ -195,7 +195,7 @@ class SofaDataPoint(DataPoint):
     def hrir_positions(self, subject_id, coordinate_system, row_angles=None, column_angles=None):
         selected_row_angles, selected_column_angles, selected_radii, selection_mask, *_ = self._map_sofa_position_order_to_matrix(subject_id, row_angles, column_angles)
 
-        if isinstance(self, SofaSphericalDataPoint):
+        if isinstance(self, SofaSphericalDataReader):
             if coordinate_system == 'spherical':
                 coordinates = selected_row_angles, selected_column_angles, selected_radii
             elif coordinate_system == 'interaural':
@@ -261,7 +261,7 @@ class SofaDataPoint(DataPoint):
             elif domain == 'phase':
                 hrir = np.angle(hrtf_matrix)
             else:
-                hrir = ValueError(f'Unknown domain "{domain}" for HRIR')
+                raise ValueError(f'Unknown domain "{domain}" for HRIR')
         if domain == 'complex' and not issubclass(self.dtype, np.complexfloating):
             raise ValueError(f'An HRTF in the complex domain requires the dtype to be set to a complex type (currently {self.dtype})')
         hrir = np.squeeze(hrir.astype(self.dtype))
@@ -270,7 +270,7 @@ class SofaDataPoint(DataPoint):
         return hrir
 
 
-class SofaSphericalDataPoint(SofaDataPoint):
+class SofaSphericalDataReader(SofaDataReader):
 
     def hrir_positions(self, subject_id, row_angles=None, column_angles=None, coordinate_system='spherical'):
         return super().hrir_positions(subject_id, coordinate_system, row_angles, column_angles)
@@ -293,7 +293,7 @@ class SofaSphericalDataPoint(SofaDataPoint):
             raise ValueError('Only datasets with symmetric azimuths can mix mirrored and non-mirrored sides.')
 
 
-class SofaInterauralDataPoint(SofaDataPoint):
+class SofaInterauralDataReader(SofaDataReader):
 
     def hrir_positions(self, subject_id, row_angles=None, column_angles=None, coordinate_system='interaural'):
         return super().hrir_positions(subject_id, coordinate_system, row_angles, column_angles)
@@ -312,7 +312,7 @@ class SofaInterauralDataPoint(SofaDataPoint):
             raise ValueError('Only datasets with symmetric lateral angles can mix mirrored and non-mirrored sides.')
 
 
-class MatFileAnthropometryDataPoint(DataPoint):
+class MatFileAnthropometryDataReader(DataReader):
 
     def anthropomorphic_data(self, subject_id, side=None, select=None):
         select_all = ('head-torso', 'pinna-size', 'pinna-angle', 'weight', 'age', 'sex')
@@ -362,7 +362,7 @@ class MatFileAnthropometryDataPoint(DataPoint):
         return selected_data
 
 
-class ImageDataPoint(DataPoint):
+class ImageDataReader(DataReader):
 
     @abstractmethod
     def _image_path(self, subject_id, side=None, rear=False):
@@ -376,7 +376,7 @@ class ImageDataPoint(DataPoint):
         return img
 
 
-class CipicDataPoint(SofaInterauralDataPoint, ImageDataPoint, MatFileAnthropometryDataPoint):
+class CipicDataReader(SofaInterauralDataReader, ImageDataReader, MatFileAnthropometryDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
@@ -395,7 +395,7 @@ class CipicDataPoint(SofaInterauralDataPoint, ImageDataPoint, MatFileAnthropomet
         return str(self.query.sofa_directory_path / 'subject_{:03d}.sofa'.format(subject_id))
 
 
-class AriDataPoint(SofaSphericalDataPoint, MatFileAnthropometryDataPoint):
+class AriDataReader(SofaSphericalDataReader, MatFileAnthropometryDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
@@ -416,7 +416,7 @@ class AriDataPoint(SofaSphericalDataPoint, MatFileAnthropometryDataPoint):
             raise ValueError(f'No subject with id "{subject_id}" exists in the collection')
 
 
-class ListenDataPoint(SofaSphericalDataPoint):
+class ListenDataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
@@ -434,7 +434,7 @@ class ListenDataPoint(SofaSphericalDataPoint):
         return str(self.query.sofa_directory_path / 'IRC_{:04d}_{}_44100.sofa'.format(subject_id, self.query._hrtf_type_str))
 
 
-class BiLiDataPoint(SofaSphericalDataPoint):
+class BiLiDataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
@@ -452,7 +452,7 @@ class BiLiDataPoint(SofaSphericalDataPoint):
         return str(self.query.sofa_directory_path / 'IRC_{:04d}_{}_HRIR_{}.sofa'.format(subject_id, self.query._hrtf_type_str, self.query._samplerate))
 
 
-class ItaDataPoint(SofaSphericalDataPoint):
+class ItaDataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
@@ -469,7 +469,7 @@ class ItaDataPoint(SofaSphericalDataPoint):
         return str(self.query.sofa_directory_path / 'MRT{:02d}.sofa'.format(subject_id))
 
 
-class HutubsDataPoint(SofaSphericalDataPoint):
+class HutubsDataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
@@ -487,7 +487,7 @@ class HutubsDataPoint(SofaSphericalDataPoint):
         return str(self.query.sofa_directory_path / 'pp{:d}_HRIRs_{}.sofa'.format(subject_id, self.query._variant_key))
 
 
-class RiecDataPoint(SofaSphericalDataPoint):
+class RiecDataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
@@ -504,7 +504,7 @@ class RiecDataPoint(SofaSphericalDataPoint):
         return str(self.query.sofa_directory_path / f'RIEC_hrir_subject_{subject_id:03d}.sofa')
 
 
-class ChedarDataPoint(SofaSphericalDataPoint):
+class ChedarDataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
@@ -523,7 +523,7 @@ class ChedarDataPoint(SofaSphericalDataPoint):
         return str(self.query.sofa_directory_path / f'chedar_{subject_id:04d}_UV{self.query._radius}.sofa')
 
 
-class WidespreadDataPoint(SofaSphericalDataPoint):
+class WidespreadDataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
@@ -543,7 +543,7 @@ class WidespreadDataPoint(SofaSphericalDataPoint):
         return str(self.query.sofa_directory_path / f'{self.query._grid}{self.query._radius}_{subject_id:05d}.sofa')
 
 
-class Sadie2DataPoint(SofaSphericalDataPoint, ImageDataPoint):
+class Sadie2DataReader(SofaSphericalDataReader, ImageDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
@@ -565,7 +565,7 @@ class Sadie2DataPoint(SofaSphericalDataPoint, ImageDataPoint):
         return str(self.query.sofa_directory_path / f'{sadie2_id}/{sadie2_id}_HRIR_SOFA/{sadie2_id}_{self.query._samplerate_str}_FIR_SOFA.sofa')
 
 
-class ThreeDThreeADataPoint(SofaSphericalDataPoint):
+class ThreeDThreeADataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
@@ -584,7 +584,7 @@ class ThreeDThreeADataPoint(SofaSphericalDataPoint):
         return str(self.query.sofa_directory_path / f'{self.query._method_str}/Subject{subject_id}/Subject{subject_id}_{self.query._hrtf_type_str}.sofa')
 
 
-class SonicomDataPoint(SofaSphericalDataPoint):
+class SonicomDataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
