@@ -17,6 +17,7 @@ class PlaneMixin:
         planar_transform: PlaneTransform,
         hrir_samplerate: Optional[float],
         hrir_length: Optional[float],
+        hrir_min_phase: bool = False,
         **kwargs,
     ):
         if plane not in ('horizontal', 'median', 'frontal', 'vertical', 'interaural'):
@@ -24,7 +25,7 @@ class PlaneMixin:
         self._plane = plane
         self._plane_offset = plane_offset
         self._domain = domain
-        feature_spec = {'hrirs': {'row_angles': row_angles, 'column_angles': column_angles, 'side': side, 'domain': domain, 'samplerate': hrir_samplerate, 'length': hrir_length}}
+        feature_spec = {'hrirs': {'row_angles': row_angles, 'column_angles': column_angles, 'side': side, 'domain': domain, 'samplerate': hrir_samplerate, 'length': hrir_length, 'min_phase': hrir_min_phase}}
         super().__init__(feature_spec=feature_spec, hrir_transform=planar_transform, **kwargs)
         self.plane_angles = self._hrir_transform.calc_plane_angles(self.row_angles, self.column_angles, self._selection_mask)
 
@@ -107,6 +108,7 @@ class InterauralPlaneMixin(PlaneMixin):
         positive_angles: bool,
         hrir_samplerate: Optional[float],
         hrir_length: Optional[float],
+        hrir_min_phase: bool = False,
         **kwargs,
     ):
         if plane == 'horizontal':
@@ -126,7 +128,7 @@ class InterauralPlaneMixin(PlaneMixin):
                 raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal" or "interaural".')
 
         plane_transform = InterauralPlaneTransform(plane, plane_offset, positive_angles)
-        super().__init__(plane, domain, side, plane_offset, vertical_angles, lateral_angles, plane_transform, hrir_samplerate, hrir_length, **kwargs)
+        super().__init__(plane, domain, side, plane_offset, vertical_angles, lateral_angles, plane_transform, hrir_samplerate, hrir_length, hrir_min_phase, **kwargs)
 
 
     @staticmethod
@@ -160,6 +162,7 @@ class SphericalPlaneMixin(PlaneMixin):
         positive_angles: bool,
         hrir_samplerate: Optional[float],
         hrir_length: Optional[float],
+        hrir_min_phase: bool = False,
         **kwargs,
     ):
         if plane == 'horizontal':
@@ -178,7 +181,7 @@ class SphericalPlaneMixin(PlaneMixin):
             raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal" or "vertical".')
 
         plane_transform = SphericalPlaneTransform(plane, plane_offset, positive_angles)
-        super().__init__(plane, domain, side, plane_offset, azimuth_angles, elevation_angles, plane_transform, hrir_samplerate, hrir_length, **kwargs)
+        super().__init__(plane, domain, side, plane_offset, azimuth_angles, elevation_angles, plane_transform, hrir_samplerate, hrir_length, hrir_min_phase, **kwargs)
 
 
     @staticmethod
@@ -213,13 +216,14 @@ class CIPICPlane(InterauralPlaneMixin, CIPIC):
         positive_angles: bool = False,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[float] = None,
+        hrir_min_phase: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
-        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length,
+        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length, hrir_min_phase,
             root=root, target_spec=target_spec, group_spec=group_spec, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype)
 
 
@@ -234,6 +238,7 @@ class ARIPlane(SphericalPlaneMixin, ARI):
         positive_angles: bool = False,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[float] = None,
+        hrir_min_phase: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         target_spec: Optional[Dict] = None,
@@ -242,7 +247,7 @@ class ARIPlane(SphericalPlaneMixin, ARI):
     ):
         if positive_angles is None:
             positive_angles = False
-        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length,
+        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length, hrir_min_phase,
             root=root, target_spec=target_spec, group_spec=group_spec, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype)
 
 
@@ -257,6 +262,7 @@ class ListenPlane(SphericalPlaneMixin, Listen):
         positive_angles: bool = False,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[float] = None,
+        hrir_min_phase: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrtf_type: str = 'compensated',
@@ -264,7 +270,7 @@ class ListenPlane(SphericalPlaneMixin, Listen):
         group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
-        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length,
+        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length, hrir_min_phase,
             root=root, target_spec=target_spec, group_spec=group_spec, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, hrtf_type=hrtf_type)
 
 
@@ -279,6 +285,7 @@ class BiLiPlane(SphericalPlaneMixin, BiLi):
         positive_angles: bool = False,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[float] = None,
+        hrir_min_phase: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrtf_type: str = 'compensated',
@@ -286,7 +293,7 @@ class BiLiPlane(SphericalPlaneMixin, BiLi):
         group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
-        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length,
+        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length, hrir_min_phase,
             root=root, target_spec=target_spec, group_spec=group_spec, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, hrtf_type=hrtf_type)
 
 
@@ -301,13 +308,14 @@ class ITAPlane(SphericalPlaneMixin, ITA):
         positive_angles: bool = False,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[float] = None,
+        hrir_min_phase: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
-        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length,
+        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length, hrir_min_phase,
             root=root, target_spec=target_spec, group_spec=group_spec, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype)
 
 
@@ -322,6 +330,7 @@ class HUTUBSPlane(SphericalPlaneMixin, HUTUBS):
         positive_angles: bool = False,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[float] = None,
+        hrir_min_phase: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         measured_hrtf: bool = True,
@@ -329,7 +338,7 @@ class HUTUBSPlane(SphericalPlaneMixin, HUTUBS):
         group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
-        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length,
+        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length, hrir_min_phase,
             root=root, target_spec=target_spec, group_spec=group_spec, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, measured_hrtf=measured_hrtf)
 
 
@@ -344,13 +353,14 @@ class RIECPlane(SphericalPlaneMixin, RIEC):
         positive_angles: bool = False,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[float] = None,
+        hrir_min_phase: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
-        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length,
+        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length, hrir_min_phase,
             root=root, target_spec=target_spec, group_spec=group_spec, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype)
 
 
@@ -365,6 +375,7 @@ class CHEDARPlane(SphericalPlaneMixin, CHEDAR):
         positive_angles: bool = False,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[float] = None,
+        hrir_min_phase: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         radius: float = 1,
@@ -372,7 +383,7 @@ class CHEDARPlane(SphericalPlaneMixin, CHEDAR):
         group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
-        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length,
+        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length, hrir_min_phase,
             root=root, target_spec=target_spec, group_spec=group_spec, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, radius=radius)
 
 
@@ -387,6 +398,7 @@ class WidespreadPlane(SphericalPlaneMixin, Widespread):
         positive_angles: bool = False,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[float] = None,
+        hrir_min_phase: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         radius: float = 1,
@@ -395,7 +407,7 @@ class WidespreadPlane(SphericalPlaneMixin, Widespread):
         group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
-        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length,
+        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length, hrir_min_phase,
             root=root, target_spec=target_spec, group_spec=group_spec, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, radius=radius, grid=grid)
 
 
@@ -410,13 +422,14 @@ class SADIE2Plane(SphericalPlaneMixin, SADIE2):
         positive_angles: bool = False,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[float] = None,
+        hrir_min_phase: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         target_spec: Optional[Dict] = None,
         group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
-        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length,
+        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length, hrir_min_phase,
             root=root, target_spec=target_spec, group_spec=group_spec, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype)
 
 
@@ -431,6 +444,7 @@ class ThreeDThreeAPlane(SphericalPlaneMixin, ThreeDThreeA):
         positive_angles: bool = False,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[float] = None,
+        hrir_min_phase: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrtf_method: str = 'measured',
@@ -439,7 +453,7 @@ class ThreeDThreeAPlane(SphericalPlaneMixin, ThreeDThreeA):
         group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
-        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length,
+        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length, hrir_min_phase,
             root=root, target_spec=target_spec, group_spec=group_spec, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, hrtf_method=hrtf_method, hrtf_type=hrtf_type)
 
 
@@ -454,6 +468,7 @@ class SONICOMPlane(SphericalPlaneMixin, SONICOM):
         positive_angles: bool = False,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[float] = None,
+        hrir_min_phase: bool = False,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
         hrtf_type: str = 'compensated',
@@ -461,5 +476,5 @@ class SONICOMPlane(SphericalPlaneMixin, SONICOM):
         group_spec: Optional[Dict] = None,
         dtype: type = np.float32,
     ):
-        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length,
+        super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_samplerate, hrir_length, hrir_min_phase,
             root=root, target_spec=target_spec, group_spec=group_spec, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, hrtf_type=hrtf_type)
