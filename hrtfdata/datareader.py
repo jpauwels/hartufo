@@ -56,7 +56,19 @@ class SofaDataReader(DataReader):
     @abstractmethod
     def _sofa_path(self, subject_id):
         pass
-    
+
+
+    @staticmethod
+    @abstractmethod
+    def _convert_positions(coordinate_system, positions):
+        pass
+
+
+    @staticmethod
+    @abstractmethod
+    def _coordinate_transform(coordinate_system, selected_row_angles, selected_column_angles, selected_radii):
+        pass
+
 
     @staticmethod
     @abstractmethod
@@ -109,15 +121,10 @@ class SofaDataReader(DataReader):
         sofa_path = self._sofa_path(subject_id)
         hrir_file = ncdf.Dataset(sofa_path)
         try:
-            positions = np.ma.getdata(hrir_file.variables['SourcePosition'][:])
-            if isinstance(self, SofaInterauralDataReader):
-                if hrir_file.variables['SourcePosition'].Type == 'cartesian':
-                    positions = np.stack(cartesian2interaural(*positions.T), axis=1)
-                else:
-                    positions = np.stack(spherical2interaural(*positions.T), axis=1)
-                positions[:, [0, 1]] = positions[:, [1, 0]]
-            elif hrir_file.variables['SourcePosition'].Type == 'cartesian':
-                positions = np.stack(cartesian2spherical(*positions.T), axis=1)
+            positions = self._convert_positions(
+                hrir_file.variables['SourcePosition'].Type,
+                np.ma.getdata(hrir_file.variables['SourcePosition'][:]),
+            )
         except Exception as exc:
             raise ValueError(f'Error reading file "{sofa_path}"') from exc
         finally:
@@ -197,26 +204,7 @@ class SofaDataReader(DataReader):
     def hrir_positions(self, subject_id, coordinate_system, row_angles=None, column_angles=None):
         selected_row_angles, selected_column_angles, selected_radii, selection_mask, *_ = self._map_sofa_position_order_to_matrix(subject_id, row_angles, column_angles)
 
-        if isinstance(self, SofaSphericalDataReader):
-            if coordinate_system == 'spherical':
-                coordinates = selected_row_angles, selected_column_angles, selected_radii
-            elif coordinate_system == 'interaural':
-                coordinates = spherical2interaural(selected_row_angles, selected_column_angles, selected_radii)
-            elif coordinate_system == 'cartesian':
-                coordinates = spherical2cartesian(selected_row_angles, selected_column_angles, selected_radii)
-            else:
-                raise ValueError(f'Unknown coordinate system "{coordinate_system}"')
-        else:
-            if coordinate_system == 'interaural':
-                coordinates = selected_row_angles, selected_column_angles, selected_radii
-            elif coordinate_system == 'spherical':
-                coordinates = interaural2spherical(selected_column_angles, selected_row_angles, selected_radii)
-                coordinates[0], coordinates[1] = coordinates[1], coordinates[0]
-            elif coordinate_system == 'cartesian':
-                coordinates = interaural2cartesian(selected_row_angles, selected_row_angles, selected_radii)
-                coordinates[0], coordinates[1] = coordinates[1], coordinates[0]
-            else:
-                raise ValueError(f'Unknown coordinate system "{coordinate_system}"')
+        coordinates = self._coordinate_transform(coordinate_system, selected_row_angles, selected_column_angles, selected_radii)
 
         position_grid = np.stack(np.meshgrid(*coordinates, indexing='ij'), axis=-1)
         if selection_mask.any(): # sparse grid
@@ -285,6 +273,24 @@ class SofaSphericalDataReader(SofaDataReader):
 
 
     @staticmethod
+    def _convert_positions(coordinate_system, positions):
+        if coordinate_system == 'cartesian':
+            positions = np.stack(cartesian2spherical(*positions.T), axis=1)
+        return positions
+
+
+    @staticmethod
+    def _coordinate_transform(coordinate_system, selected_row_angles, selected_column_angles, selected_radii):
+        if coordinate_system == 'spherical':
+            return selected_row_angles, selected_column_angles, selected_radii
+        if coordinate_system == 'interaural':
+            return spherical2interaural(selected_row_angles, selected_column_angles, selected_radii)
+        if coordinate_system == 'cartesian':
+            return spherical2cartesian(selected_row_angles, selected_column_angles, selected_radii)
+        raise ValueError(f'Unknown coordinate system "{coordinate_system}"')
+
+
+    @staticmethod
     def _mirror_hrirs(hrirs, selected_row_angles):
         # flip azimuths (in rows)
         if np.isclose(selected_row_angles[0], -180):
@@ -305,6 +311,31 @@ class SofaInterauralDataReader(SofaDataReader):
 
     def hrir_positions(self, subject_id, row_angles=None, column_angles=None, coordinate_system='interaural'):
         return super().hrir_positions(subject_id, coordinate_system, row_angles, column_angles)
+
+
+    @staticmethod
+    def _convert_positions(coordinate_system, positions):
+        if coordinate_system == 'cartesian':
+            positions = np.stack(cartesian2interaural(*positions.T), axis=1)
+        else:
+            positions = np.stack(spherical2interaural(*positions.T), axis=1)
+        positions[:, [0, 1]] = positions[:, [1, 0]]
+        return positions
+
+
+    @staticmethod
+    def _coordinate_transform(coordinate_system, selected_row_angles, selected_column_angles, selected_radii):
+        if coordinate_system == 'interaural':
+            coordinates = selected_row_angles, selected_column_angles, selected_radii
+        elif coordinate_system == 'spherical':
+            coordinates = interaural2spherical(selected_column_angles, selected_row_angles, selected_radii)
+            coordinates[0], coordinates[1] = coordinates[1], coordinates[0]
+        elif coordinate_system == 'cartesian':
+            coordinates = interaural2cartesian(selected_row_angles, selected_row_angles, selected_radii)
+            coordinates[0], coordinates[1] = coordinates[1], coordinates[0]
+        else:
+            raise ValueError(f'Unknown coordinate system "{coordinate_system}"')
+        return coordinates
 
 
     @staticmethod

@@ -151,15 +151,17 @@ class HRTFDataset(TorchDataset):
             }
 
         if isinstance(idx, Number):
-            return get_single_item(self._features[idx], self._targets[idx], self._groups[idx])
-        else:
-            items = []
-            for features, target, group in zip(self._features[idx], self._targets[idx], self._groups[idx]):
-                items.append(get_single_item(features, target, group))
             try:
-                return {k: np.stack([d[k] for d in items]) for k in items[0].keys()}
-            except ValueError as exc:
-                raise ValueError('Not all data points have the same shape') from exc
+                return get_single_item(self._features[idx], self._targets[idx], self._groups[idx])
+            except IndexError:
+                raise IndexError('Dataset index out of range') from None
+        items = []
+        for features, target, group in zip(self._features[idx], self._targets[idx], self._groups[idx]):
+            items.append(get_single_item(features, target, group))
+        try:
+            return {k: np.stack([d[k] for d in items]) for k in items[0].keys()}
+        except ValueError:
+            raise ValueError('Not all data points have the same shape') from None
 
 
     @property
