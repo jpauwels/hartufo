@@ -3,7 +3,7 @@ import numpy as np
 from .full import CIPIC, ARI, Listen, BiLi, ITA, HUTUBS, RIEC, CHEDAR, Widespread, SADIE2, ThreeDThreeA, SONICOM
 from ..display import plot_hrir_plane, plot_hrtf_plane, plot_plane_angles
 from ..transforms import PlaneTransform, InterauralPlaneTransform, SphericalPlaneTransform
-from ..util import wrap_closed_open_interval
+from ..util import lateral_vertical_from_yaw, lateral_vertical_from_pitch, lateral_vertical_from_roll, azimuth_elevation_from_yaw, azimuth_elevation_from_pitch, azimuth_elevation_from_roll
 
 
 class PlaneMixin:
@@ -133,30 +133,21 @@ class InterauralPlaneMixin(PlaneMixin):
     def _lateral_vertical_from_yaw(yaw_angles, plane_offset=0):
         if yaw_angles is None:
             return None, (plane_offset - 180, plane_offset)
-        norm_yaw = wrap_closed_open_interval(yaw_angles, -90, 270)
-        lateral_angles = tuple(np.where(norm_yaw < 90, norm_yaw, 180 - norm_yaw))
-        vertical_angles = tuple(np.where(norm_yaw < 90, plane_offset, plane_offset - 180))
-        return lateral_angles, vertical_angles
+        return lateral_vertical_from_yaw(yaw_angles, plane_offset)
 
 
     @staticmethod
     def _lateral_vertical_from_pitch(pitch_angles, plane_offset=0):
         if pitch_angles is None:
             return (plane_offset,), None
-        norm_pitch = wrap_closed_open_interval(pitch_angles, -180, 180)
-        if not isinstance(norm_pitch, Iterable):
-            norm_pitch = (norm_pitch,)
-        return (plane_offset,) * len(norm_pitch), tuple(norm_pitch)
+        return lateral_vertical_from_pitch(pitch_angles, plane_offset)
 
 
     @staticmethod
     def _lateral_vertical_from_roll(roll_angles, plane_offset=0):
         if roll_angles is None:
             return None, (plane_offset - 90, plane_offset + 90)
-        norm_roll = wrap_closed_open_interval(roll_angles, -90, 270)
-        lateral_angles = tuple(np.where(norm_roll < 90, -norm_roll, norm_roll - 180))
-        vertical_angles = tuple(np.where(norm_roll < 90, plane_offset + 90, plane_offset - 90))
-        return lateral_angles, vertical_angles
+        return lateral_vertical_from_roll(roll_angles, plane_offset)
 
 
 class SphericalPlaneMixin(PlaneMixin):
@@ -194,30 +185,21 @@ class SphericalPlaneMixin(PlaneMixin):
     def _azimuth_elevation_from_yaw(yaw_angles, plane_offset=0):
         if yaw_angles is None:
             return None, (plane_offset,)
-        norm_yaw = wrap_closed_open_interval(yaw_angles, -180, 180)
-        if not isinstance(norm_yaw, Iterable):
-            norm_yaw = (norm_yaw,)
-        return tuple(norm_yaw), (plane_offset,) * len(norm_yaw)
+        return azimuth_elevation_from_yaw(yaw_angles, plane_offset)
 
 
     @staticmethod
     def _azimuth_elevation_from_pitch(pitch_angles, plane_offset=0):
         if pitch_angles is None:
             return (plane_offset - 180, plane_offset), None
-        norm_pitch = wrap_closed_open_interval(pitch_angles, -90, 270)
-        azimuth_angles = tuple(np.where(norm_pitch < 90, plane_offset, plane_offset - 180))
-        elevation_angles = tuple(np.where(norm_pitch < 90, norm_pitch, 180 - norm_pitch))
-        return azimuth_angles, elevation_angles
+        return azimuth_elevation_from_pitch(pitch_angles, plane_offset)
 
 
     @staticmethod
     def _azimuth_elevation_from_roll(roll_angles, plane_offset=0):
         if roll_angles is None:
             return (plane_offset - 90, plane_offset + 90), None
-        norm_roll = wrap_closed_open_interval(roll_angles, -180, 180)
-        azimuth_angles = tuple(np.where(norm_roll < 0, plane_offset + 90, plane_offset - 90))
-        elevation_angles = tuple(np.where(norm_roll < 0, norm_roll + 90, 90 - norm_roll))
-        return azimuth_angles, elevation_angles
+        return azimuth_elevation_from_roll(roll_angles, plane_offset)
 
 
 class CIPICPlane(InterauralPlaneMixin, CIPIC):

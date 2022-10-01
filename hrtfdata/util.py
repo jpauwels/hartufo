@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Iterable
 
 
 def wrap_closed_open_interval(values, lower, upper):
@@ -84,3 +85,58 @@ def interaural2cartesian(lateral, vertical, radius, angles_in_degrees=True):
     y = radius * np.sin(lateral)
     z = med_proj * np.sin(vertical)
     return x, y, z
+
+
+def azimuth_elevation_from_yaw(yaw_angles, plane_offset=0):
+    norm_yaw = wrap_closed_open_interval(yaw_angles, -180, 180)
+    try:
+        return tuple(norm_yaw), (plane_offset,) * len(norm_yaw)
+    except TypeError:
+        return (norm_yaw,), (plane_offset,)
+
+
+def azimuth_elevation_from_pitch(pitch_angles, plane_offset=0):
+    norm_pitch = wrap_closed_open_interval(pitch_angles, -90, 270)
+    azimuth_angles = np.where(norm_pitch < 90, plane_offset, plane_offset - 180)
+    elevation_angles = np.where(norm_pitch < 90, norm_pitch, 180 - norm_pitch)
+    try:
+        return tuple(azimuth_angles), tuple(elevation_angles)
+    except TypeError:
+        return (azimuth_angles.item(),), (elevation_angles.item(),)
+
+
+def azimuth_elevation_from_roll(roll_angles, plane_offset=0):
+    norm_roll = wrap_closed_open_interval(roll_angles, -180, 180)
+    azimuth_angles = np.where(norm_roll < 0, plane_offset + 90, plane_offset - 90)
+    elevation_angles = np.where(norm_roll < 0, norm_roll + 90, 90 - norm_roll)
+    try:
+        return tuple(azimuth_angles), tuple(elevation_angles)
+    except TypeError:
+        return (azimuth_angles.item(),), (elevation_angles.item(),)
+
+
+def lateral_vertical_from_yaw(yaw_angles, plane_offset=0):
+    norm_yaw = wrap_closed_open_interval(yaw_angles, -90, 270)
+    lateral_angles = np.where(norm_yaw < 90, norm_yaw, 180 - norm_yaw)
+    vertical_angles = np.where(norm_yaw < 90, plane_offset, plane_offset - 180)
+    try:
+        return tuple(lateral_angles), tuple(vertical_angles)
+    except TypeError:
+        return (lateral_angles.item(),), (vertical_angles.item(),)
+
+
+def lateral_vertical_from_pitch(pitch_angles, plane_offset=0):
+    norm_pitch = wrap_closed_open_interval(pitch_angles, -180, 180)
+    try:
+        return (plane_offset,) * len(norm_pitch), tuple(norm_pitch)
+    except TypeError:
+        return (plane_offset,), (norm_pitch,)
+
+def lateral_vertical_from_roll(roll_angles, plane_offset=0):
+    norm_roll = wrap_closed_open_interval(roll_angles, -90, 270)
+    lateral_angles = np.where(norm_roll < 90, -norm_roll, norm_roll - 180)
+    vertical_angles = np.where(norm_roll < 90, plane_offset + 90, plane_offset - 90)
+    try:
+        return tuple(lateral_angles), tuple(vertical_angles)
+    except TypeError:
+        return (lateral_angles.item(),), (vertical_angles.item(),)

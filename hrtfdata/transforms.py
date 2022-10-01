@@ -32,6 +32,9 @@ class PlaneTransform(ABC):
 
     @abstractmethod
     def __call__(self, single_plane):
+        if single_plane.ndim > 1:
+            squeeze_dims = tuple(np.flatnonzero(np.array(single_plane.shape) == 1)[:2])
+            single_plane = np.squeeze(single_plane, axis=squeeze_dims)
         try:
             if single_plane.mask.any():
                 if single_plane.ndim > 1:
@@ -96,7 +99,7 @@ class InterauralPlaneTransform(PlaneTransform):
             if len(vertical_angles) > 1:
                 # both half planes present
                 back_yaw_angles = 180-lateral_angles
-                front_yaw_angles = np.ma.array(column_angles, mask=selection_mask[0])
+                front_yaw_angles = np.ma.array(column_angles, mask=selection_mask[1])
                 input_angles = [back_yaw_angles, front_yaw_angles]
                 self._left_pole_overlap = np.isclose(front_yaw_angles, 90).any() and np.isclose(back_yaw_angles, 90).any()
                 self._right_pole_overlap = np.isclose(front_yaw_angles, -90).any() and np.isclose(back_yaw_angles, 270).any()

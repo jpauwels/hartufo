@@ -264,7 +264,7 @@ class SofaDataReader(DataReader):
                 raise ValueError(f'Unknown domain "{domain}" for HRIR')
         if domain == 'complex' and not issubclass(self.dtype, np.complexfloating):
             raise ValueError(f'An HRTF in the complex domain requires the dtype to be set to a complex type (currently {self.dtype})')
-        hrir = np.squeeze(hrir.astype(self.dtype))
+        hrir = hrir.astype(self.dtype)
         if side.startswith('mirrored'):
             return self._mirror_hrirs(hrir, selected_row_angles)
         return hrir
