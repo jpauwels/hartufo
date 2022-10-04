@@ -1,4 +1,5 @@
 from ..datareader import DataReader, SofaSphericalDataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, ThreeDThreeADataReader, SonicomDataReader
+from copy import deepcopy
 import warnings
 from pathlib import Path
 from numbers import Number
@@ -15,7 +16,7 @@ def _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_s
     spec_list = [spec for spec in (feature_spec, target_spec, group_spec) if spec is not None]
     hrir_spec = {k: v for d in spec_list for k, v in d.items()}.get('hrirs', {})
     return hrir_spec.get('samplerate'), hrir_spec.get('length'), hrir_spec.get('min_phase', False)
-    
+
 
 class HRTFDataset(TorchDataset):
 
@@ -174,6 +175,35 @@ class HRTFDataset(TorchDataset):
         ear_ids = self._query.specification_based_ids(self._specification, exclude_subjects=self._exclude_ids)
         subject_ids, _ = zip(*ear_ids)
         return tuple(np.unique(subject_ids))
+
+
+def split_by_angles(dataset: HRTFDataset):
+    angle_datasets = []
+    for row_idx, row_angle in enumerate(dataset.row_angles):
+        for column_idx, column_angle in enumerate(dataset.column_angles):
+            for radius_idx, radius in enumerate(dataset.radii):
+                if not dataset._selection_mask[row_idx, column_idx, radius_idx].item():
+                    angle_dataset = deepcopy(dataset)
+                    angle_dataset.row_angles = np.array([row_angle])
+                    angle_dataset.column_angles = np.array([column_angle])
+                    angle_dataset.radii = np.array([radius])
+                    angle_dataset._selection_mask = np.array([False])
+                    try:
+                        # Trigger recalculation of plane angles in planar datasets
+                        angle_dataset.positive_angles = dataset.positive_angles
+                    except AttributeError:
+                        pass
+                    characteristics = []
+                    if 'hrirs' in angle_dataset._features[0]:
+                        characteristics = angle_dataset._features
+                    elif 'hrirs' in angle_dataset._targets[0]:
+                        characteristics = angle_dataset._targets
+                    elif 'hrirs' in angle_dataset._groups[0]:
+                        characteristics = angle_dataset._groups
+                    for example in characteristics:
+                        example['hrirs'] = example['hrirs'][row_idx:row_idx+1, column_idx:column_idx+1, radius_idx:radius_idx+1]
+                    angle_datasets.append(angle_dataset)
+    return angle_datasets
 
 
 class CIPIC(HRTFDataset):
