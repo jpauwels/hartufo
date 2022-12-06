@@ -1,14 +1,11 @@
 from ..datareader import DataReader, SofaSphericalDataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, ThreeDThreeADataReader, SonicomDataReader
 from copy import deepcopy
-import warnings
 from pathlib import Path
 from numbers import Number
-from typing import Any, Callable, List, Iterable, Optional, TypeVar, Dict, IO, Tuple, Iterator
+from typing import Any, Dict, Iterable, List, Optional
 import numpy as np
-from PIL.Image import Image, LANCZOS
+from PIL.Image import LANCZOS
 from torch.utils.data import Dataset as TorchDataset
-from torchvision.transforms import ToTensor
-# from torchvision.datasets.utils import check_integrity, download_and_extract_archive
 import numpy as np
 
 
@@ -29,15 +26,9 @@ class HRTFDataset(TorchDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        image_transform: Optional[Callable] = ToTensor(),
-        measurement_transform: Optional[Callable] = None,
-        hrir_transform: Optional[Callable] = None,
         # download: bool = True,
     ) -> None:
-        super().__init__()#root, transform=transform, target_transform=target_transform) # torchvision dataset
-        self._image_transform = image_transform
-        self._measurement_transform = measurement_transform
-        self._hrir_transform = hrir_transform
+        super().__init__()
         self._query = datareader.query
         # Allow specifying ids that are excluded by default without explicitly overriding `exclude_ids``
         if subject_ids is not None and not isinstance(subject_ids, str) and exclude_ids is None:
@@ -93,9 +84,9 @@ class HRTFDataset(TorchDataset):
         self.hrir_length = datareader.hrir_length(self.subject_ids[0])
         self.hrtf_frequencies = datareader.hrtf_frequencies(self.subject_ids[0])
 
-        self._features: Any = []
-        self._targets: Any = []
-        self._groups: Any = []
+        self._features: List[Any] = []
+        self._targets: List[Any] = []
+        self._groups: List[Any] = []
         for subject, side in ear_ids:
             for spec, store in (feature_spec, self._features), (target_spec, self._targets), (group_spec, self._groups):
                 subject_data = {}
@@ -129,14 +120,14 @@ class HRTFDataset(TorchDataset):
             if 'images' in characteristics:
                 width, height = characteristics['images'].size
                 resized_im = characteristics['images'].resize((32, 32), resample=LANCZOS, box=(width//2-128, height//2-128, width//2+128, height//2+128)).convert('L')
-                if self._image_transform:
-                    resized_im = self._image_transform(resized_im)
+                if self._specification['images'].get('transform') is not None:
+                    resized_im = self._specification['images']['transform'](resized_im)
                 # resized_im = resized_im.transpose((1, 2, 0))  # convert to HWC
                 characteristics['images'] = resized_im
-            if 'anthropometry' in characteristics and self._measurement_transform:
-                characteristics['anthropometry'] = self._measurement_transform(characteristics['anthropometry'])
-            if 'hrirs' in characteristics and self._hrir_transform:
-                characteristics['hrirs'] = self._hrir_transform(characteristics['hrirs'])
+            if 'anthropometry' in characteristics and self._specification['anthropometry'].get('transform') is not None:
+                characteristics['anthropometry'] = self._specification['anthropometry']['transform'](characteristics['anthropometry'])
+            if 'hrirs' in characteristics and self._specification['hrirs'].get('transform') is not None:
+                characteristics['hrirs'] = self._specification['hrirs']['transform'](characteristics['hrirs'])
 
             def shape_data(keys):
                 if len(keys) == 0:
@@ -218,8 +209,6 @@ class CIPIC(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        measurement_transform: Optional[Callable] = None,
-        hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
@@ -232,7 +221,7 @@ class CIPIC(HRTFDataset):
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
         )
-        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, measurement_transform, hrir_transform)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
 class ARI(HRTFDataset):
@@ -247,8 +236,6 @@ class ARI(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        measurement_transform: Optional[Callable] = None,
-        hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
@@ -261,7 +248,7 @@ class ARI(HRTFDataset):
             hrir_min_phase=hrir_min_phase,
             dtype=dtype,
         )
-        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, measurement_transform, hrir_transform)
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
 class Listen(HRTFDataset):
@@ -276,14 +263,20 @@ class Listen(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrir_transform: Optional[Callable] = None,
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
-        datareader = ListenDataReader(sofa_directory_path=Path(root)/'sofa', hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase, dtype=dtype)
-        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = ListenDataReader(
+            sofa_directory_path=Path(root)/'sofa',
+            hrtf_type=hrtf_type,
+            hrir_samplerate=hrir_samplerate,
+            hrir_length=hrir_length,
+            hrir_min_phase=hrir_min_phase,
+            dtype=dtype,
+        )
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
 class BiLi(HRTFDataset):
@@ -298,14 +291,20 @@ class BiLi(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrir_transform: Optional[Callable] = None,
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
-        datareader = BiLiDataReader(sofa_directory_path=Path(root)/'sofa', hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase, dtype=dtype)
-        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = BiLiDataReader(
+            sofa_directory_path=Path(root)/'sofa',
+            hrtf_type=hrtf_type,
+            hrir_samplerate=hrir_samplerate,
+            hrir_length=hrir_length,
+            hrir_min_phase=hrir_min_phase,
+            dtype=dtype,
+        )
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
 class ITA(HRTFDataset):
@@ -320,13 +319,18 @@ class ITA(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
-        datareader = ItaDataReader(sofa_directory_path=Path(root)/'sofa', hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase, dtype=dtype)
-        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = ItaDataReader(
+            sofa_directory_path=Path(root)/'sofa',
+            hrir_samplerate=hrir_samplerate,
+            hrir_length=hrir_length,
+            hrir_min_phase=hrir_min_phase,
+            dtype=dtype,
+        )
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
 class HUTUBS(HRTFDataset):
@@ -341,14 +345,20 @@ class HUTUBS(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrir_transform: Optional[Callable] = None,
         measured_hrtf: bool = True,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
-        datareader = HutubsDataReader(sofa_directory_path=Path(root)/'sofa', measured_hrtf=measured_hrtf, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase, dtype=dtype)
-        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = HutubsDataReader(
+            sofa_directory_path=Path(root)/'sofa',
+            measured_hrtf=measured_hrtf,
+            hrir_samplerate=hrir_samplerate,
+            hrir_length=hrir_length,
+            hrir_min_phase=hrir_min_phase,
+            dtype=dtype,
+            )
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
 class RIEC(HRTFDataset):
@@ -363,13 +373,18 @@ class RIEC(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
-        datareader = RiecDataReader(sofa_directory_path=Path(root)/'sofa', hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase, dtype=dtype)
-        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = RiecDataReader(
+            sofa_directory_path=Path(root)/'sofa',
+            hrir_samplerate=hrir_samplerate,
+            hrir_length=hrir_length,
+            hrir_min_phase=hrir_min_phase,
+            dtype=dtype,
+        )
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
 class CHEDAR(HRTFDataset):
@@ -384,14 +399,20 @@ class CHEDAR(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrir_transform: Optional[Callable] = None,
         radius: float = 1,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
-        datareader = ChedarDataReader(sofa_directory_path=Path(root)/'sofa', radius=radius, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase, dtype=dtype)
-        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = ChedarDataReader(
+            sofa_directory_path=Path(root)/'sofa',
+            radius=radius,
+            hrir_samplerate=hrir_samplerate,
+            hrir_length=hrir_length,
+            hrir_min_phase=hrir_min_phase,
+            dtype=dtype,
+        )
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
 class Widespread(HRTFDataset):
@@ -406,15 +427,22 @@ class Widespread(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrir_transform: Optional[Callable] = None,
         radius: float = 1,
         grid: str = 'UV',
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
-        datareader = WidespreadDataReader(sofa_directory_path=Path(root)/'sofa', radius=radius, grid=grid, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase, dtype=dtype)
-        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = WidespreadDataReader(
+            sofa_directory_path=Path(root)/'sofa',
+            radius=radius,
+            grid=grid,
+            hrir_samplerate=hrir_samplerate,
+            hrir_length=hrir_length,
+            hrir_min_phase=hrir_min_phase,
+            dtype=dtype,
+        )
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
 class SADIE2(HRTFDataset):
@@ -429,13 +457,18 @@ class SADIE2(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrir_transform: Optional[Callable] = None,
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
-        datareader = Sadie2DataReader(sofa_directory_path=Path(root)/'Database-Master_V1-4', hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase, dtype=dtype)
-        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = Sadie2DataReader(
+            sofa_directory_path=Path(root)/'Database-Master_V1-4',
+            hrir_samplerate=hrir_samplerate,
+            hrir_length=hrir_length,
+            hrir_min_phase=hrir_min_phase,
+            dtype=dtype,
+        )
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
 class ThreeDThreeA(HRTFDataset):
@@ -450,15 +483,22 @@ class ThreeDThreeA(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrir_transform: Optional[Callable] = None,
         hrtf_method: str = 'measured',
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
-        datareader = ThreeDThreeADataReader(sofa_directory_path=Path(root)/'HRTFs', hrtf_method=hrtf_method, hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase, dtype=dtype)
-        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = ThreeDThreeADataReader(
+            sofa_directory_path=Path(root)/'HRTFs',
+            hrtf_method=hrtf_method,
+            hrtf_type=hrtf_type,
+            hrir_samplerate=hrir_samplerate,
+            hrir_length=hrir_length,
+            hrir_min_phase=hrir_min_phase,
+            dtype=dtype,
+        )
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
 class SONICOM(HRTFDataset):
@@ -473,11 +513,17 @@ class SONICOM(HRTFDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrir_transform: Optional[Callable] = None,
         hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
         hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
-        datareader = SonicomDataReader(sofa_directory_path=Path(root), hrtf_type=hrtf_type, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase, dtype=dtype)
-        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, None, None, hrir_transform)
+        datareader = SonicomDataReader(
+            sofa_directory_path=Path(root),
+            hrtf_type=hrtf_type,
+            hrir_samplerate=hrir_samplerate,
+            hrir_length=hrir_length,
+            hrir_min_phase=hrir_min_phase,
+            dtype=dtype,
+        )
+        super().__init__(datareader, feature_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)

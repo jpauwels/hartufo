@@ -69,12 +69,12 @@ class DataQuery:
             if unknown_keys:
                 raise ValueError(f'Unknown specifier{"s" if len(unknown_keys) > 1 else ""} "{", ".join(unknown_keys)}" in {key if key else "specification"}')
         validate_dict(spec, self.allowed_keys)
-        validate_dict(spec, ('side', 'domain', 'row_angles', 'column_angles', 'samplerate', 'length', 'min_phase', 'exclude'), 'hrirs')
+        validate_dict(spec, ('side', 'domain', 'row_angles', 'column_angles', 'samplerate', 'length', 'min_phase', 'exclude', 'transform'), 'hrirs')
         validate_dict(spec, (), 'subject')
         validate_dict(spec, (), 'side')
         validate_dict(spec, (), 'collection')
-        validate_dict(spec, ('side',), 'images')
-        validate_dict(spec, ('side',), 'images')
+        validate_dict(spec, ('side', 'transform'), 'images')
+        validate_dict(spec, ('side', 'tranform'), 'anthropometry')
 
 
     def specification_based_ids(self, specification, include_subjects=None, exclude_subjects=None):

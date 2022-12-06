@@ -25,30 +25,30 @@ class PlaneMixin:
         self._plane = plane
         self._plane_offset = plane_offset
         self._domain = domain
-        feature_spec = {'hrirs': {'row_angles': row_angles, 'column_angles': column_angles, 'side': side, 'domain': domain, 'samplerate': hrir_samplerate, 'length': hrir_length, 'min_phase': hrir_min_phase}}
-        super().__init__(feature_spec=feature_spec, hrir_transform=planar_transform, **kwargs)
-        self.plane_angles = self._hrir_transform.calc_plane_angles(self.row_angles, self.column_angles, self._selection_mask)
+        feature_spec = {'hrirs': {'row_angles': row_angles, 'column_angles': column_angles, 'side': side, 'domain': domain, 'samplerate': hrir_samplerate, 'length': hrir_length, 'min_phase': hrir_min_phase, 'transform': planar_transform}}
+        super().__init__(feature_spec=feature_spec, **kwargs)
+        self.plane_angles = self._specification['hrirs']['transform'].calc_plane_angles(self.row_angles, self.column_angles, self._selection_mask)
 
 
     @property
     def positive_angles(self):
-        return self._hrir_transform.positive_angles
+        return self._specification['hrirs']['transform'].positive_angles
 
 
     @positive_angles.setter
     def positive_angles(self, value):
-        self._hrir_transform.positive_angles = value
-        self.plane_angles = self._hrir_transform.calc_plane_angles(self.row_angles, self.column_angles, self._selection_mask)
+        self._specification['hrirs']['transform'].positive_angles = value
+        self.plane_angles = self._specification['hrirs']['transform'].calc_plane_angles(self.row_angles, self.column_angles, self._selection_mask)
 
 
     @property
     def min_angle(self):
-        return self._hrir_transform.min_angle
+        return self._specification['hrirs']['transform'].min_angle
 
 
     @property
     def max_angle(self):
-        return self._hrir_transform.max_angle
+        return self._specification['hrirs']['transform'].max_angle
 
 
     def plot_plane(self, idx, ax=None, vmin=None, vmax=None, title=None, lineplot=False, cmap='viridis', continuous=False, colorbar=True, log_freq=False):
