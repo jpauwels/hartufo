@@ -1,9 +1,9 @@
 from typing import Dict, Iterable, Optional
 import numpy as np
 from .full import CIPIC, ARI, Listen, BiLi, ITA, HUTUBS, RIEC, CHEDAR, Widespread, SADIE2, ThreeDThreeA, SONICOM
-from ..display import plot_hrir_plane, plot_hrtf_plane, plot_plane_angles, plot_hrir_lines, plot_hrtf_lines
-from ..transforms.hrirs import PlaneTransform, InterauralPlaneTransform, SphericalPlaneTransform
-from ..util import lateral_vertical_from_yaw, lateral_vertical_from_pitch, lateral_vertical_from_roll, azimuth_elevation_from_yaw, azimuth_elevation_from_pitch, azimuth_elevation_from_roll
+from .display import plot_hrir_plane, plot_hrtf_plane, plot_plane_angles, plot_hrir_lines, plot_hrtf_lines
+from .transforms.hrirs import PlaneTransform, InterauralPlaneTransform, SphericalPlaneTransform
+from .util import lateral_vertical_from_yaw, lateral_vertical_from_pitch, lateral_vertical_from_roll, azimuth_elevation_from_yaw, azimuth_elevation_from_pitch, azimuth_elevation_from_roll
 
 
 class PlaneMixin:

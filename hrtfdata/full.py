@@ -1,11 +1,10 @@
-from ..datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, ThreeDThreeADataReader, SonicomDataReader
+from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, ThreeDThreeADataReader, SonicomDataReader
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from numbers import Integral, Number
 from typing import Any, Dict, Iterable, List, Optional
 import numpy as np
-from torch.utils.data import Dataset as TorchDataset
 import numpy as np
 
 
@@ -15,7 +14,7 @@ def _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_s
     return hrir_spec.get('samplerate'), hrir_spec.get('length'), hrir_spec.get('min_phase', False)
 
 
-class HRTFDataset(TorchDataset):
+class HRTFDataset:
 
     def __init__(
         self,
