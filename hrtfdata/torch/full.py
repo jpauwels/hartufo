@@ -1,10 +1,10 @@
-from ..datareader import DataReader, SofaSphericalDataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, ThreeDThreeADataReader, SonicomDataReader
+from ..datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, ThreeDThreeADataReader, SonicomDataReader
+from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from numbers import Number
+from numbers import Integral, Number
 from typing import Any, Dict, Iterable, List, Optional
 import numpy as np
-from PIL.Image import LANCZOS
 from torch.utils.data import Dataset as TorchDataset
 import numpy as np
 
@@ -26,14 +26,17 @@ class HRTFDataset(TorchDataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
+        dict_format = True,
         # download: bool = True,
     ) -> None:
         super().__init__()
         self._query = datareader.query
+        self.dtype = datareader.dtype
         # Allow specifying ids that are excluded by default without explicitly overriding `exclude_ids``
         if subject_ids is not None and not isinstance(subject_ids, str) and exclude_ids is None:
             exclude_ids = ()
         self._exclude_ids = exclude_ids
+        self._dict_format = dict_format
 
         if target_spec is None:
             target_spec = {}
@@ -43,6 +46,10 @@ class HRTFDataset(TorchDataset):
         self._specification = {**feature_spec, **target_spec, **group_spec}
         if not self._specification:
             raise ValueError('At least one specification should not be empty')
+        self._feature_keys = tuple(feature_spec.keys())
+        self._target_keys = tuple(target_spec.keys())
+        self._group_keys = tuple(group_spec.keys())
+
         if subject_requirements is not None:
             self._specification = {**self._specification, **subject_requirements}
         ear_ids = self._query.specification_based_ids(self._specification, include_subjects=subject_ids, exclude_subjects=exclude_ids)
@@ -50,17 +57,17 @@ class HRTFDataset(TorchDataset):
         if len(ear_ids) == 0:
             if len(self._query.specification_based_ids(self._specification)) == 0:
                 raise ValueError('Empty dataset. Check if its configuration and paths are correct.')
+            if subject_ids:
+                raise ValueError('None of the explicitly requested subject IDs are available.')
             self.subject_ids = tuple()
             self.hrir_samplerate = None
             self.hrir_length = None
             self.hrtf_frequencies = None
-            self._features = []
-            self._targets = []
-            self._groups = []
             self.row_angles = np.array([])
             self.column_angles = np.array([])
             self.radii = np.array([])
             self._selection_mask = None
+            self._data = {}
             return
 
         self.subject_ids, self.sides = zip(*ear_ids)
@@ -84,81 +91,102 @@ class HRTFDataset(TorchDataset):
         self.hrir_length = datareader.hrir_length(self.subject_ids[0])
         self.hrtf_frequencies = datareader.hrtf_frequencies(self.subject_ids[0])
 
-        self._features: List[Any] = []
-        self._targets: List[Any] = []
-        self._groups: List[Any] = []
+        numeric_keys = [k for k in self._specification.keys() if isinstance(k, Number)]
+        self._data = defaultdict(list)
         for subject, side in ear_ids:
-            for spec, store in (feature_spec, self._features), (target_spec, self._targets), (group_spec, self._groups):
-                subject_data = {}
-                if 'images' in spec.keys():
-                    subject_data['images'] = datareader.pinna_image(subject, side=side, rear=spec['images'].get('rear', False))
-                if 'anthropometry' in spec.keys():
-                    subject_data['anthropometry'] = datareader.anthropomorphic_data(subject, side=side, select=spec['anthropometry'].get('select', None))
-                if 'hrirs' in spec.keys():
-                    subject_data['hrirs'] = datareader.hrir(subject, side=side, domain=spec['hrirs'].get('domain', 'time'), row_angles=spec['hrirs'].get('row_angles'), column_angles=spec['hrirs'].get('column_angles'))
-                if 'subject' in spec.keys():
-                    subject_data['subject'] = subject
-                if 'side' in spec.keys():
-                    subject_data['side'] = side
-                if 'collection' in spec.keys():
-                    subject_data['collection'] = datareader.query.collection_id
-                numeric_keys = [k for k in spec.keys() if isinstance(k, Number)]
-                for n in numeric_keys:
-                    subject_data[n] = n
-                store.append(subject_data)
+            if 'images' in self._specification.keys():
+                self._data['images'].append(datareader.pinna_image(subject, side=side, rear=self._specification['images'].get('rear', False)))
+            if 'anthropometry' in self._specification.keys():
+                self._data['anthropometry'].append(datareader.anthropomorphic_data(subject, side=side, select=self._specification['anthropometry'].get('select', None)))
+            if 'hrirs' in self._specification.keys():
+                self._data['hrirs'].append(datareader.hrir(subject, side=side, domain=self._specification['hrirs'].get('domain', 'time'), row_angles=self._specification['hrirs'].get('row_angles'), column_angles=self._specification['hrirs'].get('column_angles')))
+            if 'subject' in self._specification.keys():
+                self._data['subject'].append(subject)
+            if 'side' in self._specification.keys():
+                self._data['side'].append(side)
+            if 'collection' in self._specification.keys():
+                self._data['collection'].append(datareader.query.collection_id)
+            for num_key in numeric_keys:
+                self._data[num_key].append(num_key)
+
+        for k in self._specification.keys():
+            preprocess_callable = self._specification[k].get('preprocess')
+            if preprocess_callable is not None:
+                self._data[k] = list(map(preprocess_callable, self._data[k]))
 
 
     def __len__(self):
-        return len(self._features)
+        try:
+            return len(tuple(self._data.values())[0])
+        except IndexError:
+            return 0
 
 
-    def __getitem__(self, idx):
-        def get_single_item(features, target, group):
-            # unify all dicts to simpify on-demand transforms
-            characteristics = {**features, **target, **group}
+    def _shape_data(self, keys, data):
+        if len(keys) == 0:
+            return np.array([], dtype=self.dtype)
+        if len(keys) == 1:
+            return data[list(keys)[0]]
+        return tuple(data[k] for k in keys)
 
-            if 'images' in characteristics:
-                width, height = characteristics['images'].size
-                resized_im = characteristics['images'].resize((32, 32), resample=LANCZOS, box=(width//2-128, height//2-128, width//2+128, height//2+128)).convert('L')
-                if self._specification['images'].get('transform') is not None:
-                    resized_im = self._specification['images']['transform'](resized_im)
-                # resized_im = resized_im.transpose((1, 2, 0))  # convert to HWC
-                characteristics['images'] = resized_im
-            if 'anthropometry' in characteristics and self._specification['anthropometry'].get('transform') is not None:
-                characteristics['anthropometry'] = self._specification['anthropometry']['transform'](characteristics['anthropometry'])
-            if 'hrirs' in characteristics and self._specification['hrirs'].get('transform') is not None:
-                characteristics['hrirs'] = self._specification['hrirs']['transform'](characteristics['hrirs'])
 
-            def shape_data(keys):
-                if len(keys) == 0:
-                    return np.array([])
-                if len(keys) == 1:
-                    return characteristics[list(keys)[0]]
-                return tuple(characteristics[k] for k in keys)
-
-            return {
-                'features': shape_data(features.keys()),
-                'target': shape_data(target.keys()),
-                'group': shape_data(group.keys()),
-            }
-
-        if isinstance(idx, Number):
+    def _transform_data(self, keys, idx):
+        transformed_data = {}
+        for k in keys:
             try:
-                return get_single_item(self._features[idx], self._targets[idx], self._groups[idx])
+                transformed_data[k] = self._data[k][idx]
             except IndexError:
                 raise IndexError('Dataset index out of range') from None
-        items = []
-        for features, target, group in zip(self._features[idx], self._targets[idx], self._groups[idx]):
-            items.append(get_single_item(features, target, group))
-        try:
-            return {k: np.stack([d[k] for d in items]) for k in items[0].keys()}
-        except ValueError:
-            raise ValueError('Not all data points have the same shape') from None
+            transform_callable = self._specification[k].get('transform')
+            if isinstance(idx, Integral):
+                if transform_callable is not None:
+                    transformed_data[k] = transform_callable(transformed_data[k])
+            else:
+                if transform_callable is not None:
+                    transformed_data[k] = tuple(map(transform_callable, transformed_data[k]))
+                try:
+                    if isinstance(transformed_data[k][0], np.ma.MaskedArray):
+                        transformed_data[k] = np.ma.stack(transformed_data[k])
+                    else:
+                        transformed_data[k] = np.stack(transformed_data[k])
+                except ValueError:
+                    raise ValueError('Not all data points have the same shape') from None
+        return transformed_data
 
 
     @property
-    def target_shape(self):
-        return np.hstack(tuple(self._targets[0].values())).shape
+    def features(self):
+        transformed_data = self._transform_data(self._feature_keys, slice(None))
+        return self._shape_data(self._feature_keys, transformed_data)
+
+
+    @property
+    def target(self):
+        transformed_data = self._transform_data(self._target_keys, slice(None))
+        return self._shape_data(self._target_keys, transformed_data)
+
+
+    @property
+    def group(self):
+        transformed_data = self._transform_data(self._group_keys, slice(None))
+        return self._shape_data(self._group_keys, transformed_data)
+
+
+    def __getitem__(self, idx):
+        # Apply dynamic transform to selected data
+        transformed_data = self._transform_data(self._specification.keys(), idx)
+
+        # Assemble features, targets and groups from transformed data
+        features = self._shape_data(self._feature_keys, transformed_data)
+        target = self._shape_data(self._target_keys, transformed_data)
+        group = self._shape_data(self._group_keys, transformed_data)
+
+        if self._dict_format:
+            return {'features': features, 'target': target, 'group': group}
+        elif group.size == 0:
+            return (features, target)
+        else:
+            return (features, target, group)
 
 
     @property
@@ -184,15 +212,8 @@ def split_by_angles(dataset: HRTFDataset):
                         angle_dataset.positive_angles = dataset.positive_angles
                     except AttributeError:
                         pass
-                    characteristics = []
-                    if 'hrirs' in angle_dataset._features[0]:
-                        characteristics = angle_dataset._features
-                    elif 'hrirs' in angle_dataset._targets[0]:
-                        characteristics = angle_dataset._targets
-                    elif 'hrirs' in angle_dataset._groups[0]:
-                        characteristics = angle_dataset._groups
-                    for example in characteristics:
-                        example['hrirs'] = example['hrirs'][row_idx:row_idx+1, column_idx:column_idx+1, radius_idx:radius_idx+1]
+                    for ex_idx in range(len(angle_dataset._data['hrirs'])):
+                        angle_dataset._data['hrirs'][ex_idx] = angle_dataset._data['hrirs'][ex_idx][row_idx:row_idx+1, column_idx:column_idx+1, radius_idx:radius_idx+1]
                     angle_datasets.append(angle_dataset)
     return angle_datasets
 

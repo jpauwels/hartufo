@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
-from .util import wrap_closed_open_interval
+from ..util import wrap_closed_open_interval
 
 
 class PlaneTransform(ABC):

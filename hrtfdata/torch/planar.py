@@ -2,7 +2,7 @@ from typing import Dict, Iterable, Optional
 import numpy as np
 from .full import CIPIC, ARI, Listen, BiLi, ITA, HUTUBS, RIEC, CHEDAR, Widespread, SADIE2, ThreeDThreeA, SONICOM
 from ..display import plot_hrir_plane, plot_hrtf_plane, plot_plane_angles, plot_hrir_lines, plot_hrtf_lines
-from ..transforms import PlaneTransform, InterauralPlaneTransform, SphericalPlaneTransform
+from ..transforms.hrirs import PlaneTransform, InterauralPlaneTransform, SphericalPlaneTransform
 from ..util import lateral_vertical_from_yaw, lateral_vertical_from_pitch, lateral_vertical_from_roll, azimuth_elevation_from_yaw, azimuth_elevation_from_pitch, azimuth_elevation_from_roll
 
 
@@ -59,13 +59,12 @@ class PlaneMixin:
         else: # frontal plane
             angles_label = 'roll [°]'
         if vmin is None or vmax is None:
-            all_features = self[:]['features']
+            all_features = self.features
             if vmin is None:
                 vmin = all_features.min()
             if vmax is None:
                 vmax = all_features.max()
-        item = self[idx]
-        data = item['features']
+        data = self[idx]['features']
 
         if self._domain == 'time':
             if lineplot:
