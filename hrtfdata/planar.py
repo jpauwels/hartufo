@@ -51,13 +51,17 @@ class PlaneMixin:
         return self._specification['hrirs']['transform'].max_angle
 
 
-    def plot_plane(self, idx, ax=None, vmin=None, vmax=None, title=None, lineplot=False, cmap='viridis', continuous=False, colorbar=True, log_freq=False):
+    @property
+    def plane_angle_name(self):
         if self._plane in ('horizontal', 'interaural'):
-            angles_label = 'yaw [°]'
+            return 'yaw [°]'
         elif self._plane in ('median', 'vertical'):
-            angles_label = 'pitch [°]'
+            return 'pitch [°]'
         else: # frontal plane
-            angles_label = 'roll [°]'
+            return 'roll [°]'
+
+
+    def plot_plane(self, idx, ax=None, vmin=None, vmax=None, title=None, lineplot=False, cmap='viridis', continuous=False, colorbar=True, log_freq=False):
         if vmin is None or vmax is None:
             all_features = self.features
             if vmin is None:
@@ -68,14 +72,14 @@ class PlaneMixin:
 
         if self._domain == 'time':
             if lineplot:
-                ax = plot_hrir_lines(data, self.plane_angles, angles_label, self.hrir_samplerate, ax=ax, vmin=vmin, vmax=vmax)
+                ax = plot_hrir_lines(data, self.plane_angles, self.plane_angle_name, self.hrir_samplerate, ax=ax, vmin=vmin, vmax=vmax)
             else:
-                ax = plot_hrir_plane(data, self.plane_angles, angles_label, self.hrir_samplerate, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, continuous=continuous, colorbar=colorbar)
+                ax = plot_hrir_plane(data, self.plane_angles, self.plane_angle_name, self.hrir_samplerate, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, continuous=continuous, colorbar=colorbar)
         else:
             if lineplot:
-                ax = plot_hrtf_lines(data, self.plane_angles, angles_label, self.hrtf_frequencies, log_freq=log_freq, ax=ax, vmin=vmin, vmax=vmax)
+                ax = plot_hrtf_lines(data, self.plane_angles, self.plane_angle_name, self.hrtf_frequencies, log_freq=log_freq, ax=ax, vmin=vmin, vmax=vmax)
             else:
-                ax = plot_hrtf_plane(data, self.plane_angles, angles_label, self.hrtf_frequencies, log_freq=log_freq, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, continuous=continuous, colorbar=colorbar)
+                ax = plot_hrtf_plane(data, self.plane_angles, self.plane_angle_name, self.hrtf_frequencies, log_freq=log_freq, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, continuous=continuous, colorbar=colorbar)
 
         if title is None:
             title = "{} Plane{} of Subject {}'s {} Ear".format(self._plane.title(),

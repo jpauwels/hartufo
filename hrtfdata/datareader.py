@@ -53,6 +53,18 @@ class SofaDataReader(DataReader):
         self._min_phase = min_phase
 
 
+    @property
+    @abstractmethod
+    def row_angle_name(self):
+        pass
+
+
+    @property
+    @abstractmethod
+    def column_angle_name(self):
+        pass
+
+
     @abstractmethod
     def _sofa_path(self, subject_id):
         pass
@@ -268,6 +280,16 @@ class SofaDataReader(DataReader):
 
 class SofaSphericalDataReader(SofaDataReader):
 
+    @property
+    def row_angle_name(self):
+        return 'azimuth [°]'
+
+
+    @property
+    def column_angle_name(self):
+        return 'elevation [°]'
+
+
     def hrir_positions(self, subject_id, row_angles=None, column_angles=None, coordinate_system='spherical'):
         return super().hrir_positions(subject_id, coordinate_system, row_angles, column_angles)
 
@@ -308,6 +330,16 @@ class SofaSphericalDataReader(SofaDataReader):
 
 
 class SofaInterauralDataReader(SofaDataReader):
+
+    @property
+    def row_angle_name(self):
+        return 'vertical [°]'
+
+
+    @property
+    def column_angle_name(self):
+        return 'lateral [°]'
+
 
     def hrir_positions(self, subject_id, row_angles=None, column_angles=None, coordinate_system='interaural'):
         return super().hrir_positions(subject_id, coordinate_system, row_angles, column_angles)

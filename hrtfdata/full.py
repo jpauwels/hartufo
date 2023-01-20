@@ -31,6 +31,8 @@ class HRTFDataset:
         super().__init__()
         self._query = datareader.query
         self.dtype = datareader.dtype
+        self.row_angle_name = datareader.row_angle_name
+        self.column_angle_name = datareader.column_angle_name
         # Allow specifying ids that are excluded by default without explicitly overriding `exclude_ids``
         if subject_ids is not None and not isinstance(subject_ids, str) and exclude_ids is None:
             exclude_ids = ()
