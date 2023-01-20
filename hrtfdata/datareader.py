@@ -522,7 +522,7 @@ class ListenDataReader(SofaSphericalDataReader):
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / 'IRC_{:04d}_{}_44100.sofa'.format(subject_id, self.query._hrtf_type_str))
+        return str(self.query.sofa_directory_path / self.query._variant_key / 'IRC_{:04d}_{}_44100.sofa'.format(subject_id, self.query._hrtf_type_char))
 
 
 class BiLiDataReader(SofaSphericalDataReader):
@@ -541,7 +541,7 @@ class BiLiDataReader(SofaSphericalDataReader):
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / 'IRC_{:04d}_{}_HRIR_{}.sofa'.format(subject_id, self.query._hrtf_type_str, self.query._samplerate))
+        return str(self.query.sofa_directory_path / self.query._variant_key / 'IRC_{:04d}_{}_HRIR_{}.sofa'.format(subject_id, self.query._hrtf_type_char, self.query._samplerate))
 
 
 class ItaDataReader(SofaSphericalDataReader):

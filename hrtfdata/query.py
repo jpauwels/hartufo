@@ -184,37 +184,37 @@ class ListenDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path, hrtf_type='compensated'):
         if hrtf_type == 'raw':
-            self._hrtf_type_str = 'R'
+            self._hrtf_type_char = 'R'
         elif hrtf_type == 'compensated':
-            self._hrtf_type_str = 'C'
+            self._hrtf_type_char = 'C'
         else:
             raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
-        super().__init__('listen', str(Path(sofa_directory_path) / hrtf_type / '44100'), variant_key=hrtf_type)
+        super().__init__('listen', sofa_directory_path, variant_key=f'{hrtf_type}/44100')
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'IRC_????_{self._hrtf_type_str}_44100.sofa')])
+        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._variant_key).glob(f'IRC_????_{self._hrtf_type_char}_44100.sofa')])
 
 
 class BiLiDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path, samplerate=96000, hrtf_type='compensated'):
         if hrtf_type == 'raw':
-            self._hrtf_type_str = 'R'
+            self._hrtf_type_char = 'R'
         elif hrtf_type == 'compensated':
-            self._hrtf_type_str = 'C'
+            self._hrtf_type_char = 'C'
         elif hrtf_type == 'compensated-interpolated':
-            self._hrtf_type_str = 'I'
+            self._hrtf_type_char = 'I'
         else:
             raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
         if samplerate not in (44100, 48000, 96000) or hrtf_type != 'compensated-interpolated':
             samplerate = 96000
         self._samplerate = samplerate
-        super().__init__('bili', str(Path(sofa_directory_path) / hrtf_type / str(samplerate)), variant_key=f'{hrtf_type}-{samplerate}')
+        super().__init__('bili', sofa_directory_path, variant_key=f'{hrtf_type}/{samplerate}')
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'IRC_????_{self._hrtf_type_str}_HRIR_{self._samplerate}.sofa')])
+        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._variant_key).glob(f'IRC_????_{self._hrtf_type_char}_HRIR_{self._samplerate}.sofa')])
 
 
 class ItaDataQuery(DataQuery):
