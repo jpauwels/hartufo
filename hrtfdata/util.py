@@ -132,6 +132,7 @@ def lateral_vertical_from_pitch(pitch_angles, plane_offset=0):
     except TypeError:
         return (plane_offset,), (norm_pitch,)
 
+
 def lateral_vertical_from_roll(roll_angles, plane_offset=0):
     norm_roll = wrap_closed_open_interval(roll_angles, -90, 270)
     lateral_angles = np.where(norm_roll < 90, -norm_roll, norm_roll - 180)

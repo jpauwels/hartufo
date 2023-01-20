@@ -32,9 +32,6 @@ class PlaneTransform(ABC):
 
     @abstractmethod
     def __call__(self, single_plane):
-        if single_plane.ndim > 1:
-            squeeze_dims = tuple(np.flatnonzero(np.array(single_plane.shape) == 1)[:2])
-            single_plane = np.squeeze(single_plane, axis=squeeze_dims)
         try:
             if single_plane.mask.any():
                 if single_plane.ndim > 1:
@@ -105,30 +102,28 @@ class InterauralPlaneTransform(PlaneTransform):
                 self._right_pole_overlap = np.isclose(front_yaw_angles, -90).any() and np.isclose(back_yaw_angles, 270).any()
                 self._pos_sphere_present = True
                 self._neg_sphere_present = True
-                if self.plane == 'frontal':
-                    # reverse angular direction
-                    input_angles = [-x for x in input_angles]
             else:
                 # floating point safe version of check below
                 # if vertical_angles <= 90 and vertical_angles > -90:
                 rtol = 1e-5
                 atol = 1e-8
-                upper_lim = vertical_angles - 90
-                lower_lim = vertical_angles + 90
+                upper_lim = vertical_angles[0] - 90
+                lower_lim = vertical_angles[0] + 90
                 if (upper_lim <= rtol*np.abs(upper_lim)+atol and lower_lim > rtol*np.abs(lower_lim)+atol).item():
                     # only front half plane is present
                     self._pos_sphere_present = True
                     self._neg_sphere_present = False
-                    input_angles = lateral_angles
+                    input_angles = [lateral_angles]
                 else:
                     # only back half plane is present
                     self._pos_sphere_present = False
                     self._neg_sphere_present = True
-                    input_angles = 180-lateral_angles
+                    input_angles = [180 - lateral_angles]
                 self._left_pole_overlap = False
                 self._right_pole_overlap = False
-                if self.plane == 'frontal':
-                    input_angles = -input_angles # reverse angular direction
+            if self.plane == 'frontal':
+                # reverse angular direction
+                input_angles = [-x for x in input_angles]
 
         return super().calc_plane_angles(input_angles)
 
@@ -141,6 +136,8 @@ class InterauralPlaneTransform(PlaneTransform):
             else:
                 back_down, rest = np.split(hrirs, [self._split_idx])
                 single_plane = np.ma.concatenate((rest, back_down))
+            if single_plane.ndim > 1:
+                single_plane = np.squeeze(single_plane, axis=(1, 2))
         else:
             if self._left_pole_overlap:
                 left_pole_mask = np.full_like(hrirs[1], False, dtype=bool)
@@ -163,7 +160,7 @@ class InterauralPlaneTransform(PlaneTransform):
                         single_plane = np.ma.concatenate((left_down, up_left_right, right_down))
                 elif self._pos_sphere_present:
                     # only up half plane present
-                    up_left_right = np.flip(hrirs, axis=0)
+                    up_left_right = np.flip(hrirs[0], axis=0)
                     if self.positive_angles:
                         left_up, right_up = np.split(up_left_right, [-self._split_idx-1])
                         single_plane = np.ma.concatenate((right_up, left_up))
@@ -171,7 +168,7 @@ class InterauralPlaneTransform(PlaneTransform):
                         single_plane = up_left_right
                 else:
                     # only down half plane present
-                    down_right_left = hrirs
+                    down_right_left = hrirs[0]
                     if self.positive_angles:
                         single_plane = down_right_left
                     else:
@@ -190,7 +187,7 @@ class InterauralPlaneTransform(PlaneTransform):
                         single_plane = np.ma.concatenate((back_right, front_right_left, back_left))
                 elif self._pos_sphere_present:
                     # only front half plane present
-                    front_right_left = hrirs
+                    front_right_left = hrirs[0]
                     if self.positive_angles:
                         front_right, front_left = np.split(front_right_left, [self._split_idx])
                         single_plane = np.ma.concatenate((front_left, front_right))
@@ -198,13 +195,14 @@ class InterauralPlaneTransform(PlaneTransform):
                         single_plane = front_right_left
                 else:
                     # only back half plane present
-                    back_left_right = np.flip(hrirs, axis=0)
+                    back_left_right = np.flip(hrirs[0], axis=0)
                     if self.positive_angles:
                         single_plane = back_left_right
                     else:
                         back_left, back_right = np.split(back_left_right, [-self._split_idx-1])
                         single_plane = np.ma.concatenate((back_right, back_left))
-
+            if single_plane.ndim > 1:
+                single_plane = np.squeeze(single_plane, axis=1)
 
         return super().__call__(single_plane)
 
@@ -238,30 +236,28 @@ class SphericalPlaneTransform(PlaneTransform):
                 self._down_pole_overlap = np.isclose(front_pitch_angles, -90).any() and np.isclose(back_pitch_angles, 270).any()
                 self._pos_sphere_present = True
                 self._neg_sphere_present = True
-                if self.plane == 'frontal':
-                    # shift origin from Y to Z axis
-                    input_angles = [x - 90 for x in input_angles]
             else:
                 # floating point safe version of check below
                 # if azimuth_angles <= 90 and azimuth_angles > -90:
                 rtol = 1e-5
                 atol = 1e-8
-                upper_lim = azimuth_angles - 90
-                lower_lim = azimuth_angles + 90
+                upper_lim = azimuth_angles[0] - 90
+                lower_lim = azimuth_angles[0] + 90
                 if (upper_lim <= rtol*np.abs(upper_lim)+atol and lower_lim > rtol*np.abs(lower_lim)+atol).item():
                     # only front half plane is present
                     self._pos_sphere_present = True
                     self._neg_sphere_present = False
-                    input_angles = elevation_angles
+                    input_angles = [elevation_angles]
                 else:
                     # only back half plane is present
                     self._pos_sphere_present = False
                     self._neg_sphere_present = True
-                    input_angles = 180-elevation_angles
+                    input_angles = [180 - elevation_angles]
                 self._up_pole_overlap = False
                 self._down_pole_overlap = False
-                if self.plane == 'frontal':
-                    input_angles -= 90 # shift origin from Y to Z axis
+            if self.plane == 'frontal':
+                # shift origin from Y to Z axis
+                input_angles = [x - 90 for x in input_angles]
         
         return super().calc_plane_angles(input_angles)
 
@@ -273,6 +269,8 @@ class SphericalPlaneTransform(PlaneTransform):
                 single_plane = np.ma.concatenate((left, right))
             else:
                 single_plane = hrirs
+            if single_plane.ndim > 1:
+                single_plane = np.squeeze(single_plane, axis=(1, 2))
         else:
             if self._up_pole_overlap:
                 up_pole_mask = np.full_like(hrirs[1], False, dtype=bool)
@@ -293,11 +291,11 @@ class SphericalPlaneTransform(PlaneTransform):
                         single_plane = np.ma.concatenate((left_down_up, right_up_down))
                 elif self._pos_sphere_present:
                     # only left half plane present
-                    left_down_up = hrirs
+                    left_down_up = hrirs[0]
                     single_plane = left_down_up
                 else:
                     # only right half plane present
-                    right_up_down = np.flip(hrirs, axis=0)
+                    right_up_down = np.flip(hrirs[0], axis=0)
                     single_plane = right_up_down
             else:
                 if self._pos_sphere_present and self._neg_sphere_present:
@@ -311,7 +309,7 @@ class SphericalPlaneTransform(PlaneTransform):
                         single_plane = np.ma.concatenate((front_up, back_up_down, front_down))
                 elif self._pos_sphere_present:
                     # only front half plane present
-                    front_down_up = hrirs
+                    front_down_up = hrirs[0]
                     if self.positive_angles:
                         front_down, front_up = np.split(front_down_up, [self._split_idx])
                         single_plane = np.ma.concatenate((front_up, front_down))
@@ -319,7 +317,9 @@ class SphericalPlaneTransform(PlaneTransform):
                         single_plane = front_down_up
                 else:
                     # only back half plane present
-                    back_up_down = np.flip(hrirs, axis=0)
+                    back_up_down = np.flip(hrirs[0], axis=0)
                     single_plane = back_up_down
+            if single_plane.ndim > 1:
+                single_plane = np.squeeze(single_plane, axis=1)
 
         return super().__call__(single_plane)
