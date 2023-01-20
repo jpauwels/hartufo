@@ -148,6 +148,7 @@ class SofaDataReader(DataReader):
             row_angles = wrap_closed_open_interval(row_angles, -180, 180)
         if column_angles is not None:
             column_angles = wrap_closed_interval(column_angles, -90, 90)
+        radii = np.unique(quantised_positions[:, 2])
         if row_angles is None and column_angles is None:
             # Read all positions in file, without extra checks
             selected_file_indices = list(range(len(quantised_positions)))
@@ -164,37 +165,51 @@ class SofaDataReader(DataReader):
             for file_idx, (file_row_angle, file_column_angle, file_radius) in enumerate(quantised_positions):
                 if check(file_row_angle, file_column_angle):
                     selected_file_indices.append(file_idx)
-            if len(selected_file_indices) == 0:
-                raise ValueError('None of the specified angles are available in this dataset')
 
         selected_positions = quantised_positions[selected_file_indices]
-        selected_row_angles = np.unique(selected_positions[:, 0])
-        selected_column_angles = np.unique(selected_positions[:, 1])
-        selected_radii = np.unique(selected_positions[:, 2])
+        selected_row_angles = selected_positions[:, 0]
+        selected_column_angles = selected_positions[:, 1]
+        selected_radii = selected_positions[:, 2]
+
+        for pole_angle in (-90, 90):
+            # If value at pole requested
+            if column_angles is None or np.isclose(column_angles, pole_angle).any():
+                for radius in radii:
+                    pole_indices = np.flatnonzero(np.isclose(quantised_positions[:, 1], pole_angle) & (quantised_positions[:, 2] == radius))
+                    # If at least one value at pole present in file
+                    if len(pole_indices) > 0:
+                        # Make sure to include all requested row angles at pole
+                        if row_angles is not None and column_angles is not None:
+                            requested_row_angles_at_pole = row_angles[column_angles == pole_angle]
+                            selected_row_angles = np.concatenate((selected_row_angles, requested_row_angles_at_pole))
+                            selected_radii = np.concatenate((selected_radii, [radius]))
+                        # If pole angle not present in selection yet
+                        if len(selected_column_angles) == 0 or not np.isclose(selected_column_angles, pole_angle).any():
+                            # Add to column angles at appropriate extremum
+                            if pole_angle > 0 or len(selected_column_angles) == 0:
+                                selected_column_angles = np.append(selected_column_angles, pole_angle)
+                            else:
+                                selected_column_angles = np.insert(selected_column_angles, 0, pole_angle)
+
+        unique_row_angles = np.unique(selected_row_angles)
+        unique_column_angles = np.unique(selected_column_angles)
+        unique_radii = np.unique(selected_radii)
 
         additional_pole_indices = []
 
         def repeat_value_at_pole(pole_angle, pole_column_idx):
-            nonlocal selected_column_angles
             # If value at pole requested
             if column_angles is None or np.isclose(column_angles, pole_angle).any():
-                for radius_idx, radius in enumerate(selected_radii):
+                for radius_idx, radius in enumerate(radii):
                     pole_indices = np.flatnonzero(np.isclose(quantised_positions[:, 1], pole_angle) & (quantised_positions[:, 2] == radius))
-                    # Check if present in file
+                    # If at least one value at pole present in file
                     if len(pole_indices) > 0:
                         pole_idx = pole_indices[0]
-                        # Check if pole angle is already present in selection
-                        if not np.isclose(selected_column_angles[pole_column_idx], pole_angle):
-                            # Add to column angles appropriate extremum
-                            if pole_column_idx < 0:
-                                selected_column_angles = np.append(selected_column_angles, pole_angle)
-                            else:
-                                selected_column_angles = np.insert(selected_column_angles, pole_column_idx, pole_angle)
                         # Copy to those row angles that miss the value at the pole (if any)
                         radius_positions = selected_positions[selected_positions[:, 2] == radius]
                         present_row_angles = radius_positions[np.isclose(radius_positions[:, 1], pole_angle), 0]
-                        missing_row_angles = np.setdiff1d(selected_row_angles, present_row_angles)
-                        missing_row_indices = [np.argmax(angle == selected_row_angles) for angle in missing_row_angles]
+                        missing_row_angles = np.setdiff1d(unique_row_angles, present_row_angles)
+                        missing_row_indices = [np.argmax(angle == unique_row_angles) for angle in missing_row_angles]
                         selected_file_indices.extend([pole_idx] * len(missing_row_indices))
                         additional_pole_indices.extend([(row_idx, pole_column_idx, radius_idx) for row_idx in missing_row_indices])
 
@@ -203,14 +218,16 @@ class SofaDataReader(DataReader):
 
         selection_mask_indices = []
         for file_row_angle, file_column_angle, file_radius in selected_positions:
-            selection_mask_indices.append((np.argmax(file_row_angle == selected_row_angles), np.argmax(file_column_angle == selected_column_angles), np.argmax(file_radius == selected_radii)))
+            selection_mask_indices.append((np.argmax(file_row_angle == unique_row_angles), np.argmax(file_column_angle == unique_column_angles), np.argmax(file_radius == unique_radii)))
         selection_mask_indices.extend(additional_pole_indices)
+        if len(selection_mask_indices) == 0:
+            raise ValueError('None of the specified angles are available in this dataset')
 
         selection_mask_indices = tuple(np.array(selection_mask_indices).T)
-        selection_mask = np.full((len(selected_row_angles), len(selected_column_angles), len(selected_radii)), True)
+        selection_mask = np.full((len(unique_row_angles), len(unique_column_angles), len(unique_radii)), True)
         selection_mask[selection_mask_indices] = False
 
-        return selected_row_angles, selected_column_angles, selected_radii, selection_mask, selected_file_indices, selection_mask_indices
+        return unique_row_angles, unique_column_angles, unique_radii, selection_mask, selected_file_indices, selection_mask_indices
 
 
     def hrir_positions(self, subject_id, coordinate_system, row_angles=None, column_angles=None):
