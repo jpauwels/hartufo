@@ -8,10 +8,15 @@ import numpy as np
 import numpy as np
 
 
-def _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec):
+def _get_hrir_info_from_spec(feature_spec, target_spec, group_spec):
     spec_list = [spec for spec in (feature_spec, target_spec, group_spec) if spec is not None]
     hrir_spec = {k: v for d in spec_list for k, v in d.items()}.get('hrirs', {})
-    return hrir_spec.get('samplerate'), hrir_spec.get('length'), hrir_spec.get('min_phase', False)
+    return (
+        hrir_spec.get('scaling_factor', 1),
+        hrir_spec.get('samplerate'),
+        hrir_spec.get('length'),
+        hrir_spec.get('min_phase', False),
+    )
 
 
 class HRTFDataset:
@@ -234,10 +239,11 @@ class CIPIC(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
+        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(feature_spec, target_spec, group_spec)
         datareader = CipicDataReader(
             anthropomorphy_matfile_path=Path(root)/'CIPIC_hrtf_database/anthropometry/anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
+            hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
@@ -261,10 +267,11 @@ class ARI(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
+        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(feature_spec, target_spec, group_spec)
         datareader = AriDataReader(
             anthropomorphy_matfile_path=Path(root)/'anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
+            hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
@@ -289,10 +296,11 @@ class Listen(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
+        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(feature_spec, target_spec, group_spec)
         datareader = ListenDataReader(
             sofa_directory_path=Path(root)/'sofa',
             hrtf_type=hrtf_type,
+            hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
@@ -317,10 +325,11 @@ class BiLi(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
+        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(feature_spec, target_spec, group_spec)
         datareader = BiLiDataReader(
             sofa_directory_path=Path(root)/'sofa',
             hrtf_type=hrtf_type,
+            hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
@@ -344,9 +353,10 @@ class ITA(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
+        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(feature_spec, target_spec, group_spec)
         datareader = ItaDataReader(
             sofa_directory_path=Path(root)/'sofa',
+            hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
@@ -371,10 +381,11 @@ class HUTUBS(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
+        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(feature_spec, target_spec, group_spec)
         datareader = HutubsDataReader(
             sofa_directory_path=Path(root)/'sofa',
             measured_hrtf=measured_hrtf,
+            hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
@@ -398,9 +409,10 @@ class RIEC(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
+        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(feature_spec, target_spec, group_spec)
         datareader = RiecDataReader(
             sofa_directory_path=Path(root)/'sofa',
+            hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
@@ -425,10 +437,11 @@ class CHEDAR(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
+        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(feature_spec, target_spec, group_spec)
         datareader = ChedarDataReader(
             sofa_directory_path=Path(root)/'sofa',
             radius=radius,
+            hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
@@ -454,11 +467,12 @@ class Widespread(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
+        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(feature_spec, target_spec, group_spec)
         datareader = WidespreadDataReader(
             sofa_directory_path=Path(root)/'sofa',
             radius=radius,
             grid=grid,
+            hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
@@ -482,9 +496,10 @@ class SADIE2(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
+        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(feature_spec, target_spec, group_spec)
         datareader = Sadie2DataReader(
             sofa_directory_path=Path(root)/'Database-Master_V1-4',
+            hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
@@ -510,11 +525,12 @@ class ThreeDThreeA(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
+        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(feature_spec, target_spec, group_spec)
         datareader = ThreeDThreeADataReader(
             sofa_directory_path=Path(root)/'HRTFs',
             hrtf_method=hrtf_method,
             hrtf_type=hrtf_type,
+            hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,
@@ -539,10 +555,11 @@ class SONICOM(HRTFDataset):
         dtype: type = np.float32,
         # download: bool = True,
     ) -> None:
-        hrir_samplerate, hrir_length, hrir_min_phase = _get_samplerate_length_minphase_from_spec(feature_spec, target_spec, group_spec)
+        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(feature_spec, target_spec, group_spec)
         datareader = SonicomDataReader(
             sofa_directory_path=Path(root),
             hrtf_type=hrtf_type,
+            hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
             hrir_min_phase=hrir_min_phase,

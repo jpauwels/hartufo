@@ -39,8 +39,9 @@ class SofaDataReader(DataReader):
     _quantisation: int = 3
 
 
-    def __init__(self, 
+    def __init__(self,
         query: DataQuery,
+        scale_factor: float = 1,
         resample_rate: Optional[float] = None, 
         truncate_length: Optional[int] = None,
         min_phase: bool = False,
@@ -48,6 +49,7 @@ class SofaDataReader(DataReader):
         dtype: npt.DTypeLike = np.float32,
     ):
         super().__init__(query, verbose, dtype)
+        self._scale_factor = scale_factor
         self._resample_rate = resample_rate
         self._truncate_length = truncate_length
         self._min_phase = min_phase
@@ -257,6 +259,8 @@ class SofaDataReader(DataReader):
         hrir_matrix = np.empty(selection_mask.shape + (hrirs.shape[1],))
         hrir_matrix[selection_mask_indices] = hrirs[selected_file_indices]
 
+        if self._scale_factor != 1:
+            hrir_matrix *= self._scale_factor
         if self._min_phase:
             hrtf_matrix = fft(hrir_matrix, int(samplerate))
             magnitudes = np.abs(hrtf_matrix)
@@ -470,6 +474,7 @@ class CipicDataReader(SofaInterauralDataReader, ImageDataReader, MatFileAnthropo
         sofa_directory_path: str = None,
         image_directory_path: str = None,
         anthropomorphy_matfile_path: str = None,
+        hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
         hrir_min_phase: bool = False,
@@ -477,7 +482,7 @@ class CipicDataReader(SofaInterauralDataReader, ImageDataReader, MatFileAnthropo
         dtype: npt.DTypeLike = np.float32,
     ):
         query = CipicDataQuery(sofa_directory_path, image_directory_path, anthropomorphy_matfile_path)
-        super().__init__(query, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
+        super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -489,6 +494,7 @@ class AriDataReader(SofaSphericalDataReader, MatFileAnthropometryDataReader):
     def __init__(self,
         sofa_directory_path: str = None,
         anthropomorphy_matfile_path: str = None,
+        hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
         hrir_min_phase: bool = False,
@@ -496,7 +502,7 @@ class AriDataReader(SofaSphericalDataReader, MatFileAnthropometryDataReader):
         dtype: npt.DTypeLike = np.float32,
     ):
         query = AriDataQuery(sofa_directory_path, anthropomorphy_matfile_path)
-        super().__init__(query, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
+        super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -511,6 +517,7 @@ class ListenDataReader(SofaSphericalDataReader):
     def __init__(self,
         sofa_directory_path: str = None,
         hrtf_type: str = 'compensated',
+        hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
         hrir_min_phase: bool = False,
@@ -518,7 +525,7 @@ class ListenDataReader(SofaSphericalDataReader):
         dtype: npt.DTypeLike = np.float32,
     ):
         query = ListenDataQuery(sofa_directory_path, hrtf_type)
-        super().__init__(query, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
+        super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -530,6 +537,7 @@ class BiLiDataReader(SofaSphericalDataReader):
     def __init__(self,
         sofa_directory_path: str = None,
         hrtf_type: str = 'compensated',
+        hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
         hrir_min_phase: bool = False,
@@ -537,7 +545,7 @@ class BiLiDataReader(SofaSphericalDataReader):
         dtype: npt.DTypeLike = np.float32,
     ):
         query = BiLiDataQuery(sofa_directory_path, hrir_samplerate, hrtf_type)
-        super().__init__(query, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
+        super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -548,6 +556,7 @@ class ItaDataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
+        hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
         hrir_min_phase: bool = False,
@@ -555,7 +564,7 @@ class ItaDataReader(SofaSphericalDataReader):
         dtype: npt.DTypeLike = np.float32,
     ):
         query = ItaDataQuery(sofa_directory_path)
-        super().__init__(query, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
+        super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -567,6 +576,7 @@ class HutubsDataReader(SofaSphericalDataReader):
     def __init__(self,
         sofa_directory_path: str = None,
         measured_hrtf: bool = True,
+        hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
         hrir_min_phase: bool = False,
@@ -574,7 +584,7 @@ class HutubsDataReader(SofaSphericalDataReader):
         dtype: npt.DTypeLike = np.float32,
     ):
         query = HutubsDataQuery(sofa_directory_path, measured_hrtf)
-        super().__init__(query, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
+        super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -585,6 +595,7 @@ class RiecDataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = None,
+        hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
         hrir_min_phase: bool = False,
@@ -592,7 +603,7 @@ class RiecDataReader(SofaSphericalDataReader):
         dtype: npt.DTypeLike = np.float32,
     ):
         query = RiecDataQuery(sofa_directory_path)
-        super().__init__(query, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
+        super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -601,9 +612,13 @@ class RiecDataReader(SofaSphericalDataReader):
 
 class ChedarDataReader(SofaSphericalDataReader):
 
+    _quantisation: int = 1
+
+
     def __init__(self,
         sofa_directory_path: str = None,
         radius: float = 1,
+        hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
         hrir_min_phase: bool = False,
@@ -611,8 +626,7 @@ class ChedarDataReader(SofaSphericalDataReader):
         dtype: npt.DTypeLike = np.float32,
     ):
         query = ChedarDataQuery(sofa_directory_path, radius)
-        super().__init__(query, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
-        self._quantisation = 1
+        super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -621,10 +635,14 @@ class ChedarDataReader(SofaSphericalDataReader):
 
 class WidespreadDataReader(SofaSphericalDataReader):
 
+    _quantisation: int = 1
+
+
     def __init__(self,
         sofa_directory_path: str = None,
         radius: float = 1,
         grid: str = 'UV',
+        hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
         hrir_min_phase: bool = False,
@@ -632,8 +650,7 @@ class WidespreadDataReader(SofaSphericalDataReader):
         dtype: npt.DTypeLike = np.float32,
     ):
         query = WidespreadDataQuery(sofa_directory_path, radius, grid)
-        super().__init__(query, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
-        self._quantisation = 1
+        super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -645,6 +662,7 @@ class Sadie2DataReader(SofaSphericalDataReader, ImageDataReader):
     def __init__(self,
         sofa_directory_path: str = None,
         image_directory_path: str = None,
+        hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
         hrir_min_phase: bool = False,
@@ -652,7 +670,7 @@ class Sadie2DataReader(SofaSphericalDataReader, ImageDataReader):
         dtype: npt.DTypeLike = np.float32,
     ):
         query = Sadie2DataQuery(sofa_directory_path, image_directory_path, hrir_samplerate)
-        super().__init__(query, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
+        super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -669,6 +687,7 @@ class ThreeDThreeADataReader(SofaSphericalDataReader):
         sofa_directory_path: str = None,
         hrtf_method: str = 'measured',
         hrtf_type: str = 'compensated',
+        hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
         hrir_min_phase: bool = False,
@@ -676,7 +695,7 @@ class ThreeDThreeADataReader(SofaSphericalDataReader):
         dtype: npt.DTypeLike = np.float32,
     ):
         query = ThreeDThreeADataQuery(sofa_directory_path, hrtf_method, hrtf_type)
-        super().__init__(query, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
+        super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
@@ -688,6 +707,7 @@ class SonicomDataReader(SofaSphericalDataReader):
     def __init__(self,
         sofa_directory_path: str = None,
         hrtf_type: str = 'compensated',
+        hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
         hrir_min_phase: bool = False,
@@ -695,7 +715,7 @@ class SonicomDataReader(SofaSphericalDataReader):
         dtype: npt.DTypeLike = np.float32,
     ):
         query = SonicomDataQuery(sofa_directory_path, hrir_samplerate, hrtf_type)
-        super().__init__(query, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
+        super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
     def _sofa_path(self, subject_id):
