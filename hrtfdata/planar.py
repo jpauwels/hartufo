@@ -502,3 +502,118 @@ class SONICOMPlane(SphericalPlaneMixin, SONICOM):
     ):
         super().__init__(plane, domain, side, plane_angles, plane_offset, positive_angles, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase,
             root=root, target_spec=target_spec, group_spec=group_spec, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, hrtf_type=hrtf_type)
+
+
+class HRTFAllPlanesDataset(HRTFDataset):
+    def __init__(self,
+        datapoint: DataPoint,
+        orientation: str,
+        domain: str,
+        side: str,
+        row_angles: Iterable[float],
+        column_angles: Iterable[float],
+        planar_transform: PlaneTransform,
+        subject_ids: Optional[Iterable[int]] = None,
+    ):
+        self._orientation = orientation
+        if orientation not in ('vertical'):
+            raise ValueError('Unknown orientation "{}", needs to be "vertical".')
+        self._domain = domain
+        self._planar_transform = planar_transform
+
+        feature_spec = {'hrirs': {'row_angles': row_angles, 'column_angles': column_angles, 'side': side, 'domain': domain}}
+        target_spec = {'side': {}}
+        group_spec = {'subject': {}}
+        super().__init__(datapoint, feature_spec, target_spec, group_spec, subject_ids, hrir_transform=planar_transform)
+        self.positive_angles = planar_transform.positive_angles
+
+
+    @property
+    def positive_angles(self):
+        return self._planar_transform.positive_angles
+
+
+    @positive_angles.setter
+    def positive_angles(self, value):
+        self._planar_transform.positive_angles = value
+        self.plane_angles = self._planar_transform.calc_plane_angles(self._selected_angles)
+        self.min_angle = self._planar_transform.min_angle
+        self.max_angle = self._planar_transform.max_angle
+        self.closed_open_angles = self._planar_transform.closed_open_angles
+
+
+    def plot_planes(self, idx, ax=None, cmap='viridis', continuous=False, vmin=None, vmax=None, title=None, colorbar=True, log_freq=False):
+        if self._plane == 'horizontal':
+            angles_label = 'yaw [°]'
+        elif self._plane == 'median':
+            angles_label = 'pitch [°]'
+        else: # frontal plane
+            angles_label = 'roll [°]'
+        if vmin is None or vmax is None:
+            all_features = self[:]['features']
+            if vmin is None:
+                vmin = all_features.min()
+            if vmax is None:
+                vmax = all_features.max()
+        item = self[idx]
+        data = item['features'].T
+
+        if self._domain == 'time':
+            ax = plot_hrir_plane(data, self.plane_angles, angles_label, self.hrir_samplerate, ax=ax, cmap=cmap, continuous=continuous, vmin=vmin, vmax=vmax, colorbar=colorbar)
+        else:
+            ax = plot_hrtf_plane(data, self.plane_angles, angles_label, self.hrtf_frequencies, log_freq=log_freq, ax=ax, cmap=cmap, continuous=continuous, vmin=vmin, vmax=vmax, colorbar=colorbar)
+
+        if title is None:
+            title = "{} Plane{} of Subject {}'s {} Ear".format(self._plane.title(),
+                ' With Offset {}°'.format(self._plane_offset) if self._plane_offset != 0 else '',
+                item['group'],
+                item['target'].replace('-', ' ').title(),
+            )
+        ax.set_title(title)
+        return ax
+
+
+    def plot_angles(self, ax=None, title=None):
+        if self._plane == 'horizontal':
+            zero_location = 'N'
+        else:
+            zero_location = 'E'
+        ax = plot_plane_angles(self.plane_angles, self.min_angle, self.max_angle, self.closed_open_angles, 1, zero_location, ax) # TODO use actual radius
+        if title is None:
+            title = 'Angles in the {} Plane{}'.format(self._plane.title(), ' With Offset {}°'.format(self._plane_offset) if self._plane_offset != 0 else '')
+        ax.set_title(title)
+        return ax
+
+
+class SphericalAllPlanesDataset(HRTFAllPlanesDataset):
+    def __init__(self,
+        datapoint: DataPoint,
+        orientation: str,
+        domain: str = 'magnitude_db',
+        side: str = 'both-left',
+        plane_angles: Optional[Iterable[float]] = None,
+        plane_offset: float = 0.,
+        positive_angles: bool = False,
+        subject_ids: Optional[Iterable[int]] = None,
+    ):
+        if orientation == 'vertical':
+            azimuth_angles = None
+            elevation_angles = plane_angles
+
+        plane_transform = SphericalPlaneTransform(plane, plane_offset, positive_angles)
+        super().__init__(datapoint, plane, domain, side, plane_offset, azimuth_angles, elevation_angles, plane_transform, subject_ids)
+
+
+class SONICOMAllPlanes(SphericalAllPlanesDataset):
+    def __init__(
+        self,
+        root: str,
+        orientation: str,
+        domain: str = 'magnitude_db',
+        side: str = 'both-left',
+        plane_angles: Optional[Iterable[float]] = None,
+        positive_angles: bool = False,
+        subject_ids: Optional[Iterable[int]] = None,
+    ):
+        datapoint = SonicomDataPoint(sofa_directory_path=Path(root))
+        super().__init__(datapoint, orientation, domain, side, plane_angles, positive_angles, subject_ids)
