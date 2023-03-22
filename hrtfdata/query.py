@@ -73,14 +73,14 @@ class DataQuery:
         validate_dict(spec, (), 'subject')
         validate_dict(spec, (), 'side')
         validate_dict(spec, (), 'collection')
-        validate_dict(spec, ('side', 'preprocess', 'transform'), 'images')
+        validate_dict(spec, ('side', 'rear', 'preprocess', 'transform'), 'image')
         validate_dict(spec, ('side', 'preprocess', 'tranform'), 'anthropometry')
 
 
     def specification_based_ids(self, specification, include_subjects=None, exclude_subjects=None):
         self.validate_specification(specification)
         all_sides = {}
-        for key in ('hrirs', 'images', 'anthropometry'):
+        for key in ('hrirs', 'image', 'anthropometry'):
             side = specification.get(key, {}).get('side')
             if side is not None:
                 all_sides[key] = side
@@ -92,12 +92,15 @@ class DataQuery:
             return []
 
         separate_ids = []
-        if 'images' in specification.keys():
-            separate_ids.append(set(self.image_ids(**{'exclude': exclude_subjects, **specification['images']})))
+        if 'image' in specification.keys():
+            side = specification['image'].get('side', list(all_sides.values())[0])
+            rear = specification['image'].get('rear')
+            exclude = specification['image'].get('exclude', exclude_subjects)
+            separate_ids.append(set(self.image_ids(side, rear, exclude)))
         if 'anthropometry' in specification.keys():
             separate_ids.append(set(self.measurements_ids(**{'exclude': exclude_subjects, **specification['anthropometry']})))
         if 'hrirs' in specification.keys():
-            side = specification['hrirs'].get('side')
+            side = specification['hrirs'].get('side', list(all_sides.values())[0])
             exclude = specification['hrirs'].get('exclude', exclude_subjects)
             separate_ids.append(set(self.hrir_ids(side, exclude)))
 
@@ -115,10 +118,10 @@ class DataQuery:
 
     @staticmethod
     def _id_helper(side, id_fn, exclude, default_exclude):
-        if side in ['both', 'both-left', 'both-right', None]:
+        if side in ['both', 'both-left', 'both-right', 'any']:
             left_ids = id_fn('left')
             right_ids = id_fn('right')
-            if side is not None:
+            if side != 'any':
                 both_ids = sorted(set(left_ids).intersection(right_ids))
                 if side == 'both-left':
                     sides = ('left', 'mirrored-right')
@@ -138,15 +141,11 @@ class DataQuery:
         return [(i, s) for i, s in ids if i not in exclude]
 
 
-    def hrir_ids(self, side=None, exclude=None):
+    def hrir_ids(self, side, exclude=None):
         return self._id_helper(side, self._all_hrir_ids, exclude, self._default_hrirs_exclude)
 
 
-    def image_ids(self, side=None, rear=False, exclude=None):
-        if side is None and rear:
-            if exclude is None:
-                exclude = self._default_images_exclude
-            return [(i, s) for i in self._all_image_ids(None, True) for s in ('left', 'right') if i not in exclude]
+    def image_ids(self, side, rear=False, exclude=None):
         return self._id_helper(side, lambda s: self._all_image_ids(s, rear), exclude, self._default_images_exclude)
 
 
@@ -158,15 +157,24 @@ class CipicDataQuery(DataQuery):
 
     def __init__(self, sofa_directory_path=None, image_directory_path=None, anthropomorphy_matfile_path=None):
         super().__init__('cipic', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, anthropomorphy_matfile_path=anthropomorphy_matfile_path)
+        self._default_hrirs_exclude = (21, 165)
 
 
     def _all_hrir_ids(self, side):
         return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob('subject_*.sofa')])
     
 
+    def _all_image_ids(self, side, rear):
+        all_globs = (self.image_directory_path.rglob('*'+suffix) for suffix in self._image_suffix(side, rear))
+        return sorted(set([int(x.stem.split('_')[0]) for glob in all_globs for x in glob]))
+
+
     @staticmethod
-    def _image_suffix(side=None, rear=False):
-        return '{}_{}.jpg'.format('_'+side.split('-')[-1] if side else '', 'rear' if rear else 'side')
+    def _image_suffix(side, rear):
+        if rear:
+            return ('_{}_rear.jpg'.format(side.split('-')[-1]), '_back.jpg')
+        else:
+            return ('_{}_side.jpg'.format(side.split('-')[-1]),)
 
 
 class AriDataQuery(DataQuery):
@@ -312,8 +320,13 @@ class Sadie2DataQuery(DataQuery):
     def _all_image_ids(self, side, rear):
         if rear:
             raise ValueError('No rear pictures available in the SADIE II dataset')
-        side_str = 'L' if side == 'left' else 'R'
-        return sorted([int(x.stem.split('_')[0].split()[0][1:]) for x in self.image_directory_path.glob(f'[DH]*/[DH]*_Scans/[DH]*[_ ]({side_str}).png')])
+        side_str = self._image_side_str(side)
+        return sorted([int(x.stem.split('_')[0].split()[0][1:]) for x in self.image_directory_path.glob(f'[DH]*/[DH]*_Scans/[DH]*[_ ]{side_str}.png')])
+
+
+    @staticmethod
+    def _image_side_str(side):
+        return '({})'.format(side.split('-')[-1][0].upper())
 
 
 class ThreeDThreeADataQuery(DataQuery):

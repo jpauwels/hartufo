@@ -100,8 +100,8 @@ class HRTFDataset:
         numeric_keys = [k for k in self._specification.keys() if isinstance(k, Number)]
         self._data = defaultdict(list)
         for subject, side in ear_ids:
-            if 'images' in self._specification.keys():
-                self._data['images'].append(datareader.pinna_image(subject, side=side, rear=self._specification['images'].get('rear', False)))
+            if 'image' in self._specification.keys():
+                self._data['image'].append(datareader.image(subject, side=side, rear=self._specification['image'].get('rear', False)))
             if 'anthropometry' in self._specification.keys():
                 self._data['anthropometry'].append(datareader.anthropomorphic_data(subject, side=side, select=self._specification['anthropometry'].get('select', None)))
             if 'hrirs' in self._specification.keys():
@@ -243,6 +243,7 @@ class CIPIC(HRTFDataset):
         datareader = CipicDataReader(
             anthropomorphy_matfile_path=Path(root)/'CIPIC_hrtf_database/anthropometry/anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
+            image_directory_path=Path(root)/'binural-updates'/'ear_photos',
             hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
@@ -499,6 +500,7 @@ class SADIE2(HRTFDataset):
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = Sadie2DataReader(
             sofa_directory_path=Path(root)/'Database-Master_V1-4',
+            image_directory_path=Path(root)/'Database-Master_V1-4',
             hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,

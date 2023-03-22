@@ -457,13 +457,13 @@ class MatFileAnthropometryDataReader(DataReader):
 class ImageDataReader(DataReader):
 
     @abstractmethod
-    def _image_path(self, subject_id, side=None, rear=False):
+    def _image_path(self, subject_id, side, rear=False):
         pass
 
 
-    def image(self, subject_id, side=None, rear=False):
-        img = Image.open(self.pinna_image_path(subject_id, side, rear))
-        if side.startwith('mirrored-'):
+    def image(self, subject_id, side, rear=False):
+        img = Image.open(self._image_path(subject_id, side, rear))
+        if side.startswith('mirrored-'):
             return img.transpose(Image.FLIP_LEFT_RIGHT)
         return img
 
@@ -487,6 +487,15 @@ class CipicDataReader(SofaInterauralDataReader, ImageDataReader, MatFileAnthropo
 
     def _sofa_path(self, subject_id):
         return str(self.query.sofa_directory_path / 'subject_{:03d}.sofa'.format(subject_id))
+
+
+    def _image_path(self, subject_id, side, rear=False):
+        candidate_paths = [self.query.image_directory_path /  f'Subject_{subject_id:03d}' / f'{subject_id:03d}{suffix}' for suffix in self.query._image_suffix(side, rear)]
+
+        for image_path in candidate_paths:
+            if image_path.exists():
+                return image_path
+        raise ValueError(f'No {side} {"rear" if rear else "side"} image available for subject {subject_id}')
 
 
 class AriDataReader(SofaSphericalDataReader, MatFileAnthropometryDataReader):
@@ -679,6 +688,19 @@ class Sadie2DataReader(SofaSphericalDataReader, ImageDataReader):
         else:
             sadie2_id = f'H{subject_id}'
         return str(self.query.sofa_directory_path / f'{sadie2_id}/{sadie2_id}_HRIR_SOFA/{sadie2_id}_{self.query._samplerate_str}_FIR_SOFA.sofa')
+
+
+    def _image_path(self, subject_id, side, rear=False):
+        if rear:
+            raise ValueError('No rear pictures available in the SADIE II dataset')
+        side_str = self.query._image_side_str(side)
+        if subject_id < 3:
+            sadie2_id = f'D{subject_id}'
+            side_str = ' ' + side_str
+        else:
+            sadie2_id = f'H{subject_id}'
+            side_str = '_' + side_str
+        return str(self.query.image_directory_path / sadie2_id / f'{sadie2_id}_Scans' / f'{sadie2_id}{side_str}.png')
 
 
 class ThreeDThreeADataReader(SofaSphericalDataReader):
