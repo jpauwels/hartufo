@@ -404,55 +404,17 @@ class SofaInterauralDataReader(SofaDataReader):
             raise ValueError('Only datasets with symmetric lateral angles can mix mirrored and non-mirrored sides.')
 
 
-class MatFileAnthropometryDataReader(DataReader):
+class AnthropometryDataReader(DataReader):
 
-    def anthropomorphic_data(self, subject_id, side=None, select=None):
-        select_all = ('head-torso', 'pinna-size', 'pinna-angle', 'weight', 'age', 'sex')
-        if select is None:
-            select = select_all
-        elif isinstance(select, str):
-            select = (select,)
-        # if 'pinna-size' not in select and 'pinna-angle' not in select:
-        #     if side is not None:
-        #         print(f'Side "{side}" is irrelevant for this measurements selection "{", ".join(select)}"')
-        # el
-        if side not in ['left', 'right', 'both']: # and ('pinna-size' in select or 'pinna-angle' in select)
-            raise ValueError(f'Unknown side selector "{side}"')
-
-        unknown_select = sorted(set(select) - set(select_all))
-        if unknown_select:
-            raise ValueError(f'Unknown selection "{unknown_select}". Choose one or more from "{select_all}"')
-
-        subject_idx = np.squeeze(np.argwhere(np.squeeze(self.anth['id']) == subject_id))
+    def anthropometric_data(self, subject_id, side, select=None):
+        subject_idx = np.squeeze(np.argwhere(np.squeeze(self.query._anthropometric_ids) == subject_id))
         if subject_idx.size == 0:
-            raise ValueError(f'Subject id "{subject_id}" has no anthropomorphic measurements')
-
-        select_data = []
-
-        if 'head-torso' in select:
-            select_data.append(self.anth['X'][subject_idx])
-        if side == 'left' or side.startswith('both'):
-            if 'pinna-size' in select:
-                select_data.append(self.anth['D'][subject_idx, :8])
-            if 'pinna-angle' in select:
-                select_data.append(self.anth['theta'][subject_idx, :2])
-        if side == 'right' or side.startswith('both'):
-            if 'pinna-size' in select:
-                select_data.append(self.anth['D'][subject_idx, 8:])
-            if 'pinna-angle' in select:
-                select_data.append(self.anth['theta'][subject_idx, 2:])
-        if 'weight' in select:
-            select_data.append(self.anth['WeightKilograms'][subject_idx])
-        if 'age' in select:
-            select_data.append(self.anth['age'][subject_idx])
-        if 'sex' in select:
-            select_data.append(0 if self.anth['sex'][subject_idx] == 'M' else 1 if self.anth['sex'][subject_idx] == 'F' else np.nan)
-
-        selected_data = np.hstack(select_data).astype(self.dtype)
+            raise ValueError(f'Subject id "{subject_id}" has no anthropometric measurements')
+        selected_data = self.query._anthropometry_values(side, select)[subject_idx].astype(self.dtype)
         if np.all(np.isnan(selected_data), axis=-1):
-            raise ValueError(f'Subject id "{subject_id}" has no data available for selection "{", ".join(select)}"')
+            raise ValueError(f'Subject id "{subject_id}" has no data available for selection "{", ".join(select) if select is not None else "None"}"')
         return selected_data
-
+    
 
 class ImageDataReader(DataReader):
 
@@ -468,12 +430,12 @@ class ImageDataReader(DataReader):
         return img
 
 
-class CipicDataReader(SofaInterauralDataReader, ImageDataReader, MatFileAnthropometryDataReader):
+class CipicDataReader(SofaInterauralDataReader, AnthropometryDataReader, ImageDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = None,
-        image_directory_path: str = None,
-        anthropomorphy_matfile_path: str = None,
+        sofa_directory_path: str = '',
+        image_directory_path: str = '',
+        anthropometry_matfile_path: str = '',
         hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
@@ -481,7 +443,7 @@ class CipicDataReader(SofaInterauralDataReader, ImageDataReader, MatFileAnthropo
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
-        query = CipicDataQuery(sofa_directory_path, image_directory_path, anthropomorphy_matfile_path)
+        query = CipicDataQuery(sofa_directory_path, image_directory_path, anthropometry_matfile_path)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -498,11 +460,11 @@ class CipicDataReader(SofaInterauralDataReader, ImageDataReader, MatFileAnthropo
         raise ValueError(f'No {side} {"rear" if rear else "side"} image available for subject {subject_id}')
 
 
-class AriDataReader(SofaSphericalDataReader, MatFileAnthropometryDataReader):
+class AriDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = None,
-        anthropomorphy_matfile_path: str = None,
+        sofa_directory_path: str = '',
+        anthropometry_matfile_path: str = '',
         hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
@@ -510,7 +472,7 @@ class AriDataReader(SofaSphericalDataReader, MatFileAnthropometryDataReader):
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
-        query = AriDataQuery(sofa_directory_path, anthropomorphy_matfile_path)
+        query = AriDataQuery(sofa_directory_path, anthropometry_matfile_path)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -521,10 +483,11 @@ class AriDataReader(SofaSphericalDataReader, MatFileAnthropometryDataReader):
             raise ValueError(f'No subject with id "{subject_id}" exists in the collection')
 
 
-class ListenDataReader(SofaSphericalDataReader):
+class ListenDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = None,
+        sofa_directory_path: str = '',
+        anthropometry_directory_path: str = '',
         hrtf_type: str = 'compensated',
         hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
@@ -533,7 +496,7 @@ class ListenDataReader(SofaSphericalDataReader):
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
-        query = ListenDataQuery(sofa_directory_path, hrtf_type)
+        query = ListenDataQuery(sofa_directory_path, anthropometry_directory_path, hrtf_type)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -544,7 +507,7 @@ class ListenDataReader(SofaSphericalDataReader):
 class BiLiDataReader(SofaSphericalDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = None,
+        sofa_directory_path: str = '',
         hrtf_type: str = 'compensated',
         hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
@@ -561,10 +524,11 @@ class BiLiDataReader(SofaSphericalDataReader):
         return str(self.query.sofa_directory_path / self.query._variant_key / 'IRC_{:04d}_{}_HRIR_{}.sofa'.format(subject_id, self.query._hrtf_type_char, self.query._samplerate))
 
 
-class ItaDataReader(SofaSphericalDataReader):
+class ItaDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = None,
+        sofa_directory_path: str = '',
+        anthropometry_csvfile_path: str = '',
         hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
@@ -572,7 +536,7 @@ class ItaDataReader(SofaSphericalDataReader):
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
-        query = ItaDataQuery(sofa_directory_path)
+        query = ItaDataQuery(sofa_directory_path, anthropometry_csvfile_path)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -580,10 +544,11 @@ class ItaDataReader(SofaSphericalDataReader):
         return str(self.query.sofa_directory_path / 'MRT{:02d}.sofa'.format(subject_id))
 
 
-class HutubsDataReader(SofaSphericalDataReader):
+class HutubsDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = None,
+        sofa_directory_path: str = '',
+        anthropometry_csvfile_path: str = '',
         measured_hrtf: bool = True,
         hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
@@ -592,7 +557,7 @@ class HutubsDataReader(SofaSphericalDataReader):
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
-        query = HutubsDataQuery(sofa_directory_path, measured_hrtf)
+        query = HutubsDataQuery(sofa_directory_path, anthropometry_csvfile_path, measured_hrtf)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -603,7 +568,7 @@ class HutubsDataReader(SofaSphericalDataReader):
 class RiecDataReader(SofaSphericalDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = None,
+        sofa_directory_path: str = '',
         hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
@@ -619,13 +584,14 @@ class RiecDataReader(SofaSphericalDataReader):
         return str(self.query.sofa_directory_path / f'RIEC_hrir_subject_{subject_id:03d}.sofa')
 
 
-class ChedarDataReader(SofaSphericalDataReader):
+class ChedarDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     _quantisation: int = 1
 
 
     def __init__(self,
-        sofa_directory_path: str = None,
+        sofa_directory_path: str = '',
+        anthropometry_matfile_path: str = '',
         radius: float = 1,
         hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
@@ -634,7 +600,7 @@ class ChedarDataReader(SofaSphericalDataReader):
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
-        query = ChedarDataQuery(sofa_directory_path, radius)
+        query = ChedarDataQuery(sofa_directory_path, anthropometry_matfile_path, radius)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -648,7 +614,7 @@ class WidespreadDataReader(SofaSphericalDataReader):
 
 
     def __init__(self,
-        sofa_directory_path: str = None,
+        sofa_directory_path: str = '',
         radius: float = 1,
         grid: str = 'UV',
         hrir_scaling: float = 1,
@@ -669,8 +635,8 @@ class WidespreadDataReader(SofaSphericalDataReader):
 class Sadie2DataReader(SofaSphericalDataReader, ImageDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = None,
-        image_directory_path: str = None,
+        sofa_directory_path: str = '',
+        image_directory_path: str = '',
         hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,
         hrir_length: Optional[int] = None,
@@ -703,10 +669,11 @@ class Sadie2DataReader(SofaSphericalDataReader, ImageDataReader):
         return str(self.query.image_directory_path / sadie2_id / f'{sadie2_id}_Scans' / f'{sadie2_id}{side_str}.png')
 
 
-class ThreeDThreeADataReader(SofaSphericalDataReader):
+class ThreeDThreeADataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = None,
+        sofa_directory_path: str = '',
+        anthropometry_directory_path: str = '',
         hrtf_method: str = 'measured',
         hrtf_type: str = 'compensated',
         hrir_scaling: float = 1,
@@ -716,7 +683,7 @@ class ThreeDThreeADataReader(SofaSphericalDataReader):
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
-        query = ThreeDThreeADataQuery(sofa_directory_path, hrtf_method, hrtf_type)
+        query = ThreeDThreeADataQuery(sofa_directory_path, anthropometry_directory_path, hrtf_method, hrtf_type)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 
@@ -727,7 +694,7 @@ class ThreeDThreeADataReader(SofaSphericalDataReader):
 class SonicomDataReader(SofaSphericalDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = None,
+        sofa_directory_path: str = '',
         hrtf_type: str = 'compensated',
         hrir_scaling: float = 1,
         hrir_samplerate: Optional[float] = None,

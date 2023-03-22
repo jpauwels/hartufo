@@ -103,7 +103,7 @@ class HRTFDataset:
             if 'image' in self._specification.keys():
                 self._data['image'].append(datareader.image(subject, side=side, rear=self._specification['image'].get('rear', False)))
             if 'anthropometry' in self._specification.keys():
-                self._data['anthropometry'].append(datareader.anthropomorphic_data(subject, side=side, select=self._specification['anthropometry'].get('select', None)))
+                self._data['anthropometry'].append(datareader.anthropometric_data(subject, side=side, select=self._specification['anthropometry'].get('select', None)))
             if 'hrirs' in self._specification.keys():
                 self._data['hrirs'].append(datareader.hrir(subject, side=side, domain=self._specification['hrirs'].get('domain', 'time'), row_angles=self._specification['hrirs'].get('row_angles'), column_angles=self._specification['hrirs'].get('column_angles')))
             if 'subject' in self._specification.keys():
@@ -300,6 +300,7 @@ class Listen(HRTFDataset):
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = ListenDataReader(
             sofa_directory_path=Path(root)/'sofa',
+            anthropometry_directory_path=Path(root)/'morphology',
             hrtf_type=hrtf_type,
             hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
@@ -357,6 +358,7 @@ class ITA(HRTFDataset):
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = ItaDataReader(
             sofa_directory_path=Path(root)/'sofa',
+            anthropometry_csvfile_path=Path(root)/'Dimensions.csv',
             hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
             hrir_length=hrir_length,
@@ -385,6 +387,7 @@ class HUTUBS(HRTFDataset):
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = HutubsDataReader(
             sofa_directory_path=Path(root)/'sofa',
+            anthropometry_csvfile_path=Path(root)/'AntrhopometricMeasures.csv',
             measured_hrtf=measured_hrtf,
             hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
@@ -441,6 +444,7 @@ class CHEDAR(HRTFDataset):
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = ChedarDataReader(
             sofa_directory_path=Path(root)/'sofa',
+            anthropometry_matfile_path=Path(root)/'measurements.mat',
             radius=radius,
             hrir_scaling=hrir_scaling,
             hrir_samplerate=hrir_samplerate,
@@ -530,6 +534,7 @@ class ThreeDThreeA(HRTFDataset):
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = ThreeDThreeADataReader(
             sofa_directory_path=Path(root)/'HRTFs',
+            anthropometry_directory_path=Path(root)/'Anthropometric-Data',
             hrtf_method=hrtf_method,
             hrtf_type=hrtf_type,
             hrir_scaling=hrir_scaling,
