@@ -307,7 +307,9 @@ class CipicDataQuery(HrirDataQuery, AnthropometryDataQuery, ImageDataQuery):
 
     def __init__(self, sofa_directory_path=None, image_directory_path=None, anthropometry_matfile_path=None):
         super().__init__(collection_id='cipic', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, anthropometry_path=anthropometry_matfile_path)
-        self._default_hrirs_exclude = (21, 165)
+        self._default_hrirs_exclude = (21, 165) # KEMAR dummy
+        self._default_images_exclude = (21,) # KEMAR dummy
+        self._default_anthropometry_exclude = (21, 165) # KEMAR dummy
 
 
     def _all_hrir_ids(self, side):
@@ -350,7 +352,7 @@ class AriDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
     def __init__(self, sofa_directory_path=None, anthropometry_matfile_path=None):
         super().__init__(collection_id='ari', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_matfile_path)
-        self._default_hrirs_exclude = (10, 22, 826)
+        self._default_hrirs_exclude = (10, 22, 826) # missing 1, 2, and 2 measurement positions
 
 
     def _all_hrir_ids(self, side):
@@ -445,6 +447,7 @@ class BiLiDataQuery(HrirDataQuery):
             samplerate = 96000
         self._samplerate = samplerate
         super().__init__(collection_id='bili', sofa_directory_path=sofa_directory_path, variant_key=f'{hrtf_type}/{samplerate}')
+        self._default_hrirs_exclude = () # TODO: Neumann KU100 and Brüel & Kjaer type 4100D with and without pinna dummies
 
 
     def _all_hrir_ids(self, side):
@@ -455,7 +458,7 @@ class ItaDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
     def __init__(self, sofa_directory_path=None, anthropometry_csvfile_path=None):
         super().__init__(collection_id='ita', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_csvfile_path)
-        self._default_hrirs_exclude = (2, 14)
+        self._default_hrirs_exclude = (2, 14) # lower resolution of measurement grid
 
 
     def _all_hrir_ids(self, side):
@@ -489,6 +492,9 @@ class HutubsDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
     def __init__(self, sofa_directory_path=None, anthropometry_csvfile_path=None, measured_hrtf=True):
         super().__init__(collection_id='hutubs', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_csvfile_path, variant_key='measured' if measured_hrtf else 'simulated')
+        self._default_hrirs_exclude = (1, 96) # FABIAN dummy
+        self._default_anthropometry_exclude = (1, 96) # FABIAN dummy
+        self._default_mesh_exclude = (1, 96) # FABIAN dummy
 
 
     def _all_hrir_ids(self, side):
@@ -526,6 +532,8 @@ class RiecDataQuery(HrirDataQuery):
 
     def __init__(self, sofa_directory_path):
         super().__init__(collection_id='riec', sofa_directory_path=sofa_directory_path)
+        self._default_hrirs_exclude = (46, 80) # SAMRAI & KEMAR dummy
+        self._default_mesh_exclude = (46,) # SAMRAI dummy
 
 
     def _all_hrir_ids(self, side):
@@ -607,7 +615,7 @@ class Sadie2DataQuery(HrirDataQuery, ImageDataQuery):
             self._samplerate_str = '96K_24bit_512tap'
         super().__init__(collection_id='sadie2', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, variant_key=f'{samplerate}')
         self._default_hrirs_exclude = (1, 2, 3, 4, 5, 6, 7, 8, 9) # higher spatial resolution
-        self._default_images_exclude = (3, 16) # empty images
+        self._default_images_exclude = (1, 2, 3, 16) # dummies (1, 2) & empty images (3, 16)
 
 
     def _all_hrir_ids(self, side):
@@ -655,6 +663,8 @@ class ThreeDThreeADataQuery(HrirDataQuery, AnthropometryDataQuery):
             else:
                 raise ValueError(f'Unknown HRTF method "{hrtf_method}"')
         super().__init__(collection_id='3d3a', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, variant_key=f'{hrtf_method}-{hrtf_type}')
+        self._default_hrirs_exclude = (37, 44) # Neumann KU100 and Brüel & Kjaer HATS 4128C dummy
+        self._default_anthropometry_exclude = (37, 44) # Neumann KU100 and Brüel & Kjaer HATS 4128C dummy
 
 
     def _all_hrir_ids(self, side):
