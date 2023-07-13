@@ -80,9 +80,9 @@ class DataQuery:
                 raise ValueError(f'Unknown specifier{"s" if len(unknown_keys) > 1 else ""} "{", ".join(unknown_keys)}" in {key if key else "specification"}')
         validate_dict(spec, self.allowed_keys)
         validate_dict(spec, ('side', 'domain', 'row_angles', 'column_angles', 'scale_factor', 'samplerate', 'length', 'min_phase', 'exclude', 'preprocess', 'transform'), 'hrirs')
-        validate_dict(spec, (), 'subject')
-        validate_dict(spec, (), 'side')
-        validate_dict(spec, (), 'collection')
+        validate_dict(spec, ('preprocess', 'transform'), 'subject')
+        validate_dict(spec, ('preprocess', 'transform'), 'side')
+        validate_dict(spec, ('preprocess', 'transform'), 'collection')
         validate_dict(spec, ('side', 'rear', 'preprocess', 'transform'), 'image')
         validate_dict(spec, ('side', 'select', 'partial', 'preprocess', 'transform'), 'anthropometry')
 
