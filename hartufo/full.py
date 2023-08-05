@@ -1,4 +1,4 @@
-from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, SonicomDataReader
+from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader
 from .transforms.hrirs import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform
 from collections import defaultdict
 from copy import deepcopy
@@ -542,6 +542,31 @@ class Princeton3D3A(Dataset):
             anthropometry_directory_path=Path(root)/'Anthropometric-Data',
             hrtf_method=hrtf_method,
             hrtf_type=hrtf_type,
+            download=download,
+            verify=verify,
+        )
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
+
+
+class Scut(Dataset):
+    """SCUT HRTF Dataset
+    """
+    def __init__(
+        self,
+        root: str,
+        features_spec: Dict,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = False,
+    ) -> None:
+        datareader = ScutDataReader(
+            sofa_directory_path=Path(root)/'sofa',
+            anthropometry_csvfile_path=Path(root)/'AnthropometricParameters.csv',
             download=download,
             verify=verify,
         )
