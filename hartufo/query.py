@@ -901,6 +901,47 @@ class Princeton3D3ADataQuery(HrirDataQuery, AnthropometryDataQuery):
         }
 
 
+class ScutDataQuery(HrirDataQuery, AnthropometryDataQuery):
+
+    HRIR_DOWNLOAD = {'base_url': 'https://sofacoustics.org/data/database/scut/'}
+    ANTHROPOMETRY_DOWNLOAD = {'file_url': 'https://sofacoustics.org/data/database/scut/AnthropometricParameters.csv'}
+
+
+    def __init__(self, sofa_directory_path='', anthropometry_csvfile_path='', download=False, verify=False):
+        super().__init__(collection_id='scut', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_csvfile_path, download=download, verify=verify)
+
+
+    def _all_hrir_ids(self, side):
+        return sorted([int(x.stem.split('_')[2].split('subject')[1]) for x in self.sofa_directory_path.glob('SCUT_NF_subject00??_measured.sofa')])
+
+
+    def _load_anthropometry(self, anthropometry_path):
+        # mm & deg
+        self._anthropometry = {'head-torso': [], 'pinna-size': {'left': [], 'right': []}, 'pinna-angle': {'left': [], 'right': []}}
+        anthropometry_ids = []
+        with open(anthropometry_path, 'r') as f:
+            f.readline()
+            f.readline()
+            csv_file = csv.reader(f, quoting=csv.QUOTE_NONNUMERIC)
+            for row in csv_file:
+                anthropometry_ids.append(int(row[0]))
+                self._anthropometry['head-torso'].append(row[1:10])
+                self._anthropometry['pinna-size']['left'].append(row[10:21])
+                self._anthropometry['pinna-angle']['left'].append(row[21:25])
+                self._anthropometry['pinna-size']['right'].append(row[25:36])
+                self._anthropometry['pinna-angle']['right'].append(row[36:40])
+        self._anthropometric_ids = np.array(anthropometry_ids)
+
+
+    @property
+    def _anthropometry_names(self):
+        return {
+            'head-torso': _CIPIC_ANTHROPOMETRY_NAMES['head-torso'][:5] + ('bitragion frontal arc', 'bitragion back arc', 'pronasale-opisthocranion distance', 'bitragion width'),
+            'pinna-size': _CIPIC_ANTHROPOMETRY_NAMES['pinna-size'] + ('physiognomic pinna length', 'pinna flare distance', 'pinna posterior to tragus distance'),
+            'pinna-angle': _CIPIC_ANTHROPOMETRY_NAMES['pinna-angle'] + ('pinna deflection angle', 'cavum concha angle'),
+        }
+
+
 class SonicomDataQuery(HrirDataQuery):
 
     HRIR_DOWNLOAD = {'base_url': 'https://www.axdesign.co.uk/tools-and-devices/sonicom-hrtf-dataset'}

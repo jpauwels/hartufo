@@ -1,4 +1,4 @@
-from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, Princeton3D3ADataQuery, SonicomDataQuery
+from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, Princeton3D3ADataQuery, ScutDataQuery, SonicomDataQuery
 from .util import wrap_closed_open_interval, wrap_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian
 from abc import abstractmethod
 from typing import Optional, Union
@@ -591,6 +591,25 @@ class Princeton3D3ADataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def _sofa_path(self, subject_id):
         return str(self.query.sofa_directory_path / f'{self.query._method_str}/Subject{subject_id}/Subject{subject_id}_{self.query._hrtf_type_str}.sofa')
+
+
+
+class ScutDataReader(SofaSphericalDataReader, AnthropometryDataReader):
+
+    def __init__(self,
+        sofa_directory_path: str = '',
+        anthropometry_csvfile_path: str = '',
+        hrtf_type: str = 'compensated',
+        hrir_samplerate: Optional[float] = None,
+        download: bool = False,
+        verify: bool = True,
+    ):
+        query = ScutDataQuery(sofa_directory_path, anthropometry_csvfile_path, download, verify)
+        super().__init__(query)
+
+
+    def _sofa_path(self, subject_id):
+        return str(self.query.sofa_directory_path / f'SCUT_NF_subject{subject_id:04d}_measured.sofa')
 
 
 class SonicomDataReader(SofaSphericalDataReader):

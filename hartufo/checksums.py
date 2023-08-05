@@ -12600,6 +12600,20 @@ HRIR_CHECKSUMS = {
             ('BEM/Head-Ears-and-Torso/Reference-Grade/Subject44/Subject44_HRIRs_dfeq.sofa', 'f1b9fe69a572d36f5528eef466652c26'),
         ],
     },
+    'scut': {
+        '': [
+            ('SCUT_NF_subject0001_measured.sofa', '0e6bd0a790daee54886a31caeb7952d4'),
+            ('SCUT_NF_subject0002_measured.sofa', '9189f98398e9fb539c1be9fbdb8f39df'),
+            ('SCUT_NF_subject0003_measured.sofa', '3a789b30641cf1de5a0273d2064d28a2'),
+            ('SCUT_NF_subject0004_measured.sofa', 'ab9744d0d59a767bc7930026f45427fd'),
+            ('SCUT_NF_subject0005_measured.sofa', 'f99924114ef22736ed4bd0c2af6c80cf'),
+            ('SCUT_NF_subject0006_measured.sofa', '267afbdd8831df17fc788bbb63763cef'),
+            ('SCUT_NF_subject0007_measured.sofa', 'b0db33dfbf60ffa364a23411426d5492'),
+            ('SCUT_NF_subject0008_measured.sofa', 'f2fdf0cb5f6912459c4226347df7f7d1'),
+            ('SCUT_NF_subject0009_measured.sofa', '8fa53c1dfea9b30d761cd290c28e1777'),
+            ('SCUT_NF_subject0010_measured.sofa', '2d42f96089b822a11139b6cac2757f3d'),
+        ],
+    },
     'sonicom': {
         'raw-44100': [
             ('P0001/HRTF/HRTF/44kHz/P0001_Raw_44kHz.sofa', 'be682e9404703fee558126edcdb59cea'),
@@ -17546,6 +17560,7 @@ ANTHROPOMETRY_CHECKSUMS = {
         ('Subject42.mat', 'e940976d2e0d6aa0e042dc29659d6b3e'),
         ('Subject44.mat', '250e55869cfdde225bb423432101c36e'),
     ],
+    'scut': [('AnthropometricParameters.csv', 'ae859ac27fc6d3fad382cc3e6dcad8a1')],
 }
 
 
