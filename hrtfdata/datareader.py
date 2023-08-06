@@ -30,9 +30,9 @@ class SofaDataReader(DataReader):
     column represents a plane parallel to the fundamental plane, i.e. each row represents a single angle in the
     fundamental plane. The poles (if present) are therefore stored in the first and last column.
 
-    row_angle: angle in the fundamental plane with range  [-180, 180)
+    fundamental_angle: angle in the fundamental plane with range  [-180, 180)
     (azimuth for spherical coordinates, vertical angle for interaural coordinates)
-    column_angle: angle between fundamental plane and directional vector with range [-90, 90]
+    orthogonal_angle: angle between fundamental plane and directional vector with range [-90, 90]
     (elevation for spherical coordinates, lateral angle for interaural coordinates)
     """
 
@@ -57,13 +57,13 @@ class SofaDataReader(DataReader):
 
     @property
     @abstractmethod
-    def row_angle_name(self):
+    def fundamental_angle_name(self):
         pass
 
 
     @property
     @abstractmethod
-    def column_angle_name(self):
+    def orthogonal_angle_name(self):
         pass
 
 
@@ -80,19 +80,19 @@ class SofaDataReader(DataReader):
 
     @staticmethod
     @abstractmethod
-    def _coordinate_transform(coordinate_system, selected_row_angles, selected_column_angles, selected_radii):
+    def _coordinate_transform(coordinate_system, selected_fundamental_angles, selected_orthogonal_angles, selected_radii):
         pass
 
 
     @staticmethod
     @abstractmethod
-    def _mirror_hrirs(hrirs, selected_row_angles):
+    def _mirror_hrirs(hrirs, selected_fundamental_angles):
         pass
 
 
     @staticmethod
     @abstractmethod
-    def _verify_angle_symmetry(row_angles, column_angles):
+    def _verify_angle_symmetry(fundamental_angles, orthogonal_angles):
         pass
 
 
@@ -129,9 +129,9 @@ class SofaDataReader(DataReader):
         return rfftfreq(num_samples, 1/self.hrir_samplerate(subject_id))
 
 
-    def _map_sofa_position_order_to_matrix(self, subject_id, row_angles, column_angles):
-        if row_angles is not None and column_angles is not None and len(row_angles) != len(column_angles):
-            raise ValueError(f'The number of row angles ({len(row_angles)}) differs from the number of column angles ({len(column_angles)})')
+    def _map_sofa_position_order_to_matrix(self, subject_id, fundamental_angles, orthogonal_angles):
+        if fundamental_angles is not None and orthogonal_angles is not None and len(fundamental_angles) != len(orthogonal_angles):
+            raise ValueError(f'The number of fundamental angles ({len(fundamental_angles)}) differs from the number of orthogonal angles ({len(orthogonal_angles)})')
         sofa_path = self._sofa_path(subject_id)
         hrir_file = ncdf.Dataset(sofa_path)
         try:
@@ -146,62 +146,62 @@ class SofaDataReader(DataReader):
         quantised_positions = np.round(positions, self._quantisation)
         quantised_positions[:, 0] = wrap_closed_open_interval(quantised_positions[:, 0], -180, 180)
 
-        if row_angles is not None:
-            row_angles = wrap_closed_open_interval(row_angles, -180, 180)
-        if column_angles is not None:
-            column_angles = wrap_closed_interval(column_angles, -90, 90)
+        if fundamental_angles is not None:
+            fundamental_angles = wrap_closed_open_interval(fundamental_angles, -180, 180)
+        if orthogonal_angles is not None:
+            orthogonal_angles = wrap_closed_interval(orthogonal_angles, -90, 90)
         radii = np.unique(quantised_positions[:, 2])
-        if row_angles is None and column_angles is None:
+        if fundamental_angles is None and orthogonal_angles is None:
             # Read all positions in file, without extra checks
             selected_file_indices = list(range(len(quantised_positions)))
         else:
             # Check if file positions are part of requested positions
             selected_file_indices = []
-            if row_angles is not None:
-                if column_angles is not None:
-                    check = lambda file_row_angle, file_column_angle: (np.isclose(file_row_angle, row_angles) & np.isclose(file_column_angle, column_angles)).any()
+            if fundamental_angles is not None:
+                if orthogonal_angles is not None:
+                    check = lambda file_fundamental_angle, file_orthogonal_angle: (np.isclose(file_fundamental_angle, fundamental_angles) & np.isclose(file_orthogonal_angle, orthogonal_angles)).any()
                 else:
-                    check = lambda file_row_angle, _: np.isclose(file_row_angle, row_angles).any()
-            elif column_angles is not None:
-                check = lambda _, file_column_angle: np.isclose(file_column_angle, column_angles).any()
-            for file_idx, (file_row_angle, file_column_angle, file_radius) in enumerate(quantised_positions):
-                if check(file_row_angle, file_column_angle):
+                    check = lambda file_fundamental_angle, _: np.isclose(file_fundamental_angle, fundamental_angles).any()
+            elif orthogonal_angles is not None:
+                check = lambda _, file_orthogonal_angle: np.isclose(file_orthogonal_angle, orthogonal_angles).any()
+            for file_idx, (file_fundamental_angle, file_orthogonal_angle, file_radius) in enumerate(quantised_positions):
+                if check(file_fundamental_angle, file_orthogonal_angle):
                     selected_file_indices.append(file_idx)
 
         selected_positions = quantised_positions[selected_file_indices]
-        selected_row_angles = selected_positions[:, 0]
-        selected_column_angles = selected_positions[:, 1]
+        selected_fundamental_angles = selected_positions[:, 0]
+        selected_orthogonal_angles = selected_positions[:, 1]
         selected_radii = selected_positions[:, 2]
 
         for pole_angle in (-90, 90):
             # If value at pole requested
-            if column_angles is None or np.isclose(column_angles, pole_angle).any():
+            if orthogonal_angles is None or np.isclose(orthogonal_angles, pole_angle).any():
                 for radius in radii:
                     pole_indices = np.flatnonzero(np.isclose(quantised_positions[:, 1], pole_angle) & (quantised_positions[:, 2] == radius))
                     # If at least one value at pole present in file
                     if len(pole_indices) > 0:
                         # Make sure to include all requested row angles at pole
-                        if row_angles is not None and column_angles is not None:
-                            requested_row_angles_at_pole = row_angles[column_angles == pole_angle]
-                            selected_row_angles = np.concatenate((selected_row_angles, requested_row_angles_at_pole))
+                        if fundamental_angles is not None and orthogonal_angles is not None:
+                            requested_fundamental_angles_at_pole = fundamental_angles[orthogonal_angles == pole_angle]
+                            selected_fundamental_angles = np.concatenate((selected_fundamental_angles, requested_fundamental_angles_at_pole))
                             selected_radii = np.concatenate((selected_radii, [radius]))
                         # If pole angle not present in selection yet
-                        if len(selected_column_angles) == 0 or not np.isclose(selected_column_angles, pole_angle).any():
+                        if len(selected_orthogonal_angles) == 0 or not np.isclose(selected_orthogonal_angles, pole_angle).any():
                             # Add to column angles at appropriate extremum
-                            if pole_angle > 0 or len(selected_column_angles) == 0:
-                                selected_column_angles = np.append(selected_column_angles, pole_angle)
+                            if pole_angle > 0 or len(selected_orthogonal_angles) == 0:
+                                selected_orthogonal_angles = np.append(selected_orthogonal_angles, pole_angle)
                             else:
-                                selected_column_angles = np.insert(selected_column_angles, 0, pole_angle)
+                                selected_orthogonal_angles = np.insert(selected_orthogonal_angles, 0, pole_angle)
 
-        unique_row_angles = np.unique(selected_row_angles)
-        unique_column_angles = np.unique(selected_column_angles)
+        unique_fundamental_angles = np.unique(selected_fundamental_angles)
+        unique_orthogonal_angles = np.unique(selected_orthogonal_angles)
         unique_radii = np.unique(selected_radii)
 
         additional_pole_indices = []
 
         def repeat_value_at_pole(pole_angle, pole_column_idx):
             # If value at pole requested
-            if column_angles is None or np.isclose(column_angles, pole_angle).any():
+            if orthogonal_angles is None or np.isclose(orthogonal_angles, pole_angle).any():
                 for radius_idx, radius in enumerate(radii):
                     pole_indices = np.flatnonzero(np.isclose(quantised_positions[:, 1], pole_angle) & (quantised_positions[:, 2] == radius))
                     # If at least one value at pole present in file
@@ -209,9 +209,9 @@ class SofaDataReader(DataReader):
                         pole_idx = pole_indices[0]
                         # Copy to those row angles that miss the value at the pole (if any)
                         radius_positions = selected_positions[selected_positions[:, 2] == radius]
-                        present_row_angles = radius_positions[np.isclose(radius_positions[:, 1], pole_angle), 0]
-                        missing_row_angles = np.setdiff1d(unique_row_angles, present_row_angles)
-                        missing_row_indices = [np.argmax(angle == unique_row_angles) for angle in missing_row_angles]
+                        present_fundamental_angles = radius_positions[np.isclose(radius_positions[:, 1], pole_angle), 0]
+                        missing_fundamental_angles = np.setdiff1d(unique_fundamental_angles, present_fundamental_angles)
+                        missing_row_indices = [np.argmax(angle == unique_fundamental_angles) for angle in missing_fundamental_angles]
                         selected_file_indices.extend([pole_idx] * len(missing_row_indices))
                         additional_pole_indices.extend([(row_idx, pole_column_idx, radius_idx) for row_idx in missing_row_indices])
 
@@ -219,23 +219,23 @@ class SofaDataReader(DataReader):
         repeat_value_at_pole(90, -1)
 
         selection_mask_indices = []
-        for file_row_angle, file_column_angle, file_radius in selected_positions:
-            selection_mask_indices.append((np.argmax(file_row_angle == unique_row_angles), np.argmax(file_column_angle == unique_column_angles), np.argmax(file_radius == unique_radii)))
+        for file_fundamental_angle, file_orthogonal_angle, file_radius in selected_positions:
+            selection_mask_indices.append((np.argmax(file_fundamental_angle == unique_fundamental_angles), np.argmax(file_orthogonal_angle == unique_orthogonal_angles), np.argmax(file_radius == unique_radii)))
         selection_mask_indices.extend(additional_pole_indices)
         if len(selection_mask_indices) == 0:
             raise ValueError('None of the specified angles are available in this dataset')
 
         selection_mask_indices = tuple(np.array(selection_mask_indices).T)
-        selection_mask = np.full((len(unique_row_angles), len(unique_column_angles), len(unique_radii)), True)
+        selection_mask = np.full((len(unique_fundamental_angles), len(unique_orthogonal_angles), len(unique_radii)), True)
         selection_mask[selection_mask_indices] = False
 
-        return unique_row_angles, unique_column_angles, unique_radii, selection_mask, selected_file_indices, selection_mask_indices
+        return unique_fundamental_angles, unique_orthogonal_angles, unique_radii, selection_mask, selected_file_indices, selection_mask_indices
 
 
-    def hrir_positions(self, subject_id, coordinate_system, row_angles=None, column_angles=None):
-        selected_row_angles, selected_column_angles, selected_radii, selection_mask, *_ = self._map_sofa_position_order_to_matrix(subject_id, row_angles, column_angles)
+    def hrir_positions(self, subject_id, coordinate_system, fundamental_angles=None, orthogonal_angles=None):
+        selected_fundamental_angles, selected_orthogonal_angles, selected_radii, selection_mask, *_ = self._map_sofa_position_order_to_matrix(subject_id, fundamental_angles, orthogonal_angles)
 
-        coordinates = self._coordinate_transform(coordinate_system, selected_row_angles, selected_column_angles, selected_radii)
+        coordinates = self._coordinate_transform(coordinate_system, selected_fundamental_angles, selected_orthogonal_angles, selected_radii)
 
         position_grid = np.stack(np.meshgrid(*coordinates, indexing='ij'), axis=-1)
         if selection_mask.any(): # sparse grid
@@ -245,7 +245,7 @@ class SofaDataReader(DataReader):
         return position_grid
 
 
-    def hrir(self, subject_id, side, domain='time', row_angles=None, column_angles=None):
+    def hrir(self, subject_id, side, domain='time', fundamental_angles=None, orthogonal_angles=None):
         sofa_path = self._sofa_path(subject_id)
         hrir_file = ncdf.Dataset(sofa_path)
         try:
@@ -255,7 +255,7 @@ class SofaDataReader(DataReader):
             raise ValueError(f'Error reading file "{sofa_path}"') from exc
         finally:
             hrir_file.close()
-        selected_row_angles, _, _, selection_mask, selected_file_indices, selection_mask_indices = self._map_sofa_position_order_to_matrix(subject_id, row_angles, column_angles)
+        selected_fundamental_angles, _, _, selection_mask, selected_file_indices, selection_mask_indices = self._map_sofa_position_order_to_matrix(subject_id, fundamental_angles, orthogonal_angles)
         hrir_matrix = np.empty(selection_mask.shape + (hrirs.shape[1],))
         hrir_matrix[selection_mask_indices] = hrirs[selected_file_indices]
 
@@ -295,24 +295,24 @@ class SofaDataReader(DataReader):
             raise ValueError(f'An HRTF in the complex domain requires the dtype to be set to a complex type (currently {self.dtype})')
         hrir = hrir.astype(self.dtype)
         if side.startswith('mirrored'):
-            return self._mirror_hrirs(hrir, selected_row_angles)
+            return self._mirror_hrirs(hrir, selected_fundamental_angles)
         return hrir
 
 
 class SofaSphericalDataReader(SofaDataReader):
 
     @property
-    def row_angle_name(self):
+    def fundamental_angle_name(self):
         return 'azimuth [°]'
 
 
     @property
-    def column_angle_name(self):
+    def orthogonal_angle_name(self):
         return 'elevation [°]'
 
 
-    def hrir_positions(self, subject_id, row_angles=None, column_angles=None, coordinate_system='spherical'):
-        return super().hrir_positions(subject_id, coordinate_system, row_angles, column_angles)
+    def hrir_positions(self, subject_id, fundamental_angles=None, orthogonal_angles=None, coordinate_system='spherical'):
+        return super().hrir_positions(subject_id, coordinate_system, fundamental_angles, orthogonal_angles)
 
 
     @staticmethod
@@ -323,47 +323,47 @@ class SofaSphericalDataReader(SofaDataReader):
 
 
     @staticmethod
-    def _coordinate_transform(coordinate_system, selected_row_angles, selected_column_angles, selected_radii):
+    def _coordinate_transform(coordinate_system, selected_fundamental_angles, selected_orthogonal_angles, selected_radii):
         if coordinate_system == 'spherical':
-            return selected_row_angles, selected_column_angles, selected_radii
+            return selected_fundamental_angles, selected_orthogonal_angles, selected_radii
         if coordinate_system == 'interaural':
-            return spherical2interaural(selected_row_angles, selected_column_angles, selected_radii)
+            return spherical2interaural(selected_fundamental_angles, selected_orthogonal_angles, selected_radii)
         if coordinate_system == 'cartesian':
-            return spherical2cartesian(selected_row_angles, selected_column_angles, selected_radii)
+            return spherical2cartesian(selected_fundamental_angles, selected_orthogonal_angles, selected_radii)
         raise ValueError(f'Unknown coordinate system "{coordinate_system}"')
 
 
     @staticmethod
-    def _mirror_hrirs(hrirs, selected_row_angles):
+    def _mirror_hrirs(hrirs, selected_fundamental_angles):
         # flip azimuths (in rows)
-        if np.isclose(selected_row_angles[0], -180):
+        if np.isclose(selected_fundamental_angles[0], -180):
             return np.ma.row_stack((hrirs[0:1], np.flipud(hrirs[1:])))
         else:
             return np.flipud(hrirs)
 
 
     @staticmethod
-    def _verify_angle_symmetry(row_angles, _):
+    def _verify_angle_symmetry(fundamental_angles, _):
         # mirror azimuths/rows
-        start_idx = 1 if np.isclose(row_angles[0], -180) else 0
-        if not np.allclose(row_angles[start_idx:], -np.flip(row_angles[start_idx:])):
+        start_idx = 1 if np.isclose(fundamental_angles[0], -180) else 0
+        if not np.allclose(fundamental_angles[start_idx:], -np.flip(fundamental_angles[start_idx:])):
             raise ValueError('Only datasets with symmetric azimuths can mix mirrored and non-mirrored sides.')
 
 
 class SofaInterauralDataReader(SofaDataReader):
 
     @property
-    def row_angle_name(self):
+    def fundamental_angle_name(self):
         return 'vertical [°]'
 
 
     @property
-    def column_angle_name(self):
+    def orthogonal_angle_name(self):
         return 'lateral [°]'
 
 
-    def hrir_positions(self, subject_id, row_angles=None, column_angles=None, coordinate_system='interaural'):
-        return super().hrir_positions(subject_id, coordinate_system, row_angles, column_angles)
+    def hrir_positions(self, subject_id, fundamental_angles=None, orthogonal_angles=None, coordinate_system='interaural'):
+        return super().hrir_positions(subject_id, coordinate_system, fundamental_angles, orthogonal_angles)
 
 
     @staticmethod
@@ -377,14 +377,14 @@ class SofaInterauralDataReader(SofaDataReader):
 
 
     @staticmethod
-    def _coordinate_transform(coordinate_system, selected_row_angles, selected_column_angles, selected_radii):
+    def _coordinate_transform(coordinate_system, selected_fundamental_angles, selected_orthogonal_angles, selected_radii):
         if coordinate_system == 'interaural':
-            coordinates = selected_row_angles, selected_column_angles, selected_radii
+            coordinates = selected_fundamental_angles, selected_orthogonal_angles, selected_radii
         elif coordinate_system == 'spherical':
-            coordinates = interaural2spherical(selected_column_angles, selected_row_angles, selected_radii)
+            coordinates = interaural2spherical(selected_orthogonal_angles, selected_fundamental_angles, selected_radii)
             coordinates[0], coordinates[1] = coordinates[1], coordinates[0]
         elif coordinate_system == 'cartesian':
-            coordinates = interaural2cartesian(selected_row_angles, selected_row_angles, selected_radii)
+            coordinates = interaural2cartesian(selected_fundamental_angles, selected_fundamental_angles, selected_radii)
             coordinates[0], coordinates[1] = coordinates[1], coordinates[0]
         else:
             raise ValueError(f'Unknown coordinate system "{coordinate_system}"')
@@ -398,9 +398,9 @@ class SofaInterauralDataReader(SofaDataReader):
 
 
     @staticmethod
-    def _verify_angle_symmetry(_, column_angles):
+    def _verify_angle_symmetry(_, orthogonal_angles):
         # mirror laterals/columns
-        if not np.allclose(column_angles, -np.flip(column_angles)):
+        if not np.allclose(orthogonal_angles, -np.flip(orthogonal_angles)):
             raise ValueError('Only datasets with symmetric lateral angles can mix mirrored and non-mirrored sides.')
 
 
