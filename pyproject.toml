@@ -1,5 +1,5 @@
 [project]
-name = "hrtfdata"
+name = "hartufo"
 authors = [{name = "Johan Pauwels", email = "johan.pauwels@gmail.com"}]
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.urls]
-Home = "https://github.com/jpauwels/hrtfdata"
+Home = "https://github.com/jpauwels/hartufo"
 
 [build-system]
 requires = ["flit_core >=3.2,<4"]

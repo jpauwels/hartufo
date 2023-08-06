@@ -1,4 +1,4 @@
-"""HRTF data management focussed on deep learning"""
+"""A Python toolkit for data-driven HRTF research"""
 
 __version__ = '0.5.0'
 
