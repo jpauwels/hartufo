@@ -1,4 +1,4 @@
-from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, ThreeDThreeADataReader, SonicomDataReader
+from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, SonicomDataReader
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
@@ -19,7 +19,7 @@ def _get_hrir_info_from_spec(features_spec, target_spec, group_spec):
     )
 
 
-class HRTFDataset:
+class Dataset:
 
     def __init__(
         self,
@@ -202,7 +202,7 @@ class HRTFDataset:
         return tuple(np.unique(subject_ids))
 
 
-def split_by_angles(dataset: HRTFDataset):
+def split_by_angles(dataset: Dataset):
     angle_datasets = []
     for row_idx, fundamental_angle in enumerate(dataset.fundamental_angles):
         for column_idx, orthogonal_angle in enumerate(dataset.orthogonal_angles):
@@ -224,7 +224,7 @@ def split_by_angles(dataset: HRTFDataset):
     return angle_datasets
 
 
-class CIPIC(HRTFDataset):
+class Cipic(Dataset):
     """CIPIC HRTF Dataset
     """
     def __init__(
@@ -253,7 +253,7 @@ class CIPIC(HRTFDataset):
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
-class ARI(HRTFDataset):
+class Ari(Dataset):
     """ARI HRTF Dataset
     """
     def __init__(
@@ -281,7 +281,7 @@ class ARI(HRTFDataset):
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
-class Listen(HRTFDataset):
+class Listen(Dataset):
     """Listen HRTF Dataset
     """
     def __init__(
@@ -311,7 +311,7 @@ class Listen(HRTFDataset):
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
-class BiLi(HRTFDataset):
+class BiLi(Dataset):
     """BiLi HRTF Dataset
     """
     def __init__(
@@ -340,7 +340,7 @@ class BiLi(HRTFDataset):
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
-class ITA(HRTFDataset):
+class Ita(Dataset):
     """ITA HRTF Dataset
     """
     def __init__(
@@ -368,7 +368,7 @@ class ITA(HRTFDataset):
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
-class HUTUBS(HRTFDataset):
+class Hutubs(Dataset):
     """HUTUBS HRTF Dataset
     """
     def __init__(
@@ -398,7 +398,7 @@ class HUTUBS(HRTFDataset):
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
-class RIEC(HRTFDataset):
+class Riec(Dataset):
     """RIEC HRTF Dataset
     """
     def __init__(
@@ -425,7 +425,7 @@ class RIEC(HRTFDataset):
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
-class CHEDAR(HRTFDataset):
+class Chedar(Dataset):
     """CHEDAR HRTF Dataset
     """
     def __init__(
@@ -455,7 +455,7 @@ class CHEDAR(HRTFDataset):
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
-class Widespread(HRTFDataset):
+class Widespread(Dataset):
     """Widespread HRTF Dataset
     """
     def __init__(
@@ -486,7 +486,7 @@ class Widespread(HRTFDataset):
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
-class SADIE2(HRTFDataset):
+class Sadie2(Dataset):
     """SADIE II HRTF Dataset
     """
     def __init__(
@@ -514,7 +514,7 @@ class SADIE2(HRTFDataset):
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
-class ThreeDThreeA(HRTFDataset):
+class Princeton3D3A(Dataset):
     """3D3A HRTF Dataset
     """
     def __init__(
@@ -532,7 +532,7 @@ class ThreeDThreeA(HRTFDataset):
         # download: bool = True,
     ) -> None:
         hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
-        datareader = ThreeDThreeADataReader(
+        datareader = Princeton3D3ADataReader(
             sofa_directory_path=Path(root)/'HRTFs',
             anthropometry_directory_path=Path(root)/'Anthropometric-Data',
             hrtf_method=hrtf_method,
@@ -546,7 +546,7 @@ class ThreeDThreeA(HRTFDataset):
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
 
 
-class SONICOM(HRTFDataset):
+class Sonicom(Dataset):
     """SONICOM HRTF Dataset
     """
     def __init__(
