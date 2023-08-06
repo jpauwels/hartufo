@@ -12,8 +12,8 @@ class PlaneMixin:
         domain: str,
         side: str,
         plane_offset: float,
-        row_angles: Iterable[float],
-        column_angles: Iterable[float],
+        fundamental_angles: Iterable[float],
+        orthogonal_angles: Iterable[float],
         planar_transform: PlaneTransform,
         hrir_scaling: float,
         hrir_samplerate: Optional[float],
@@ -28,7 +28,7 @@ class PlaneMixin:
         self._plane = plane
         self._plane_offset = plane_offset
         self._domain = domain
-        hrirs_spec = {'hrirs': {'row_angles': row_angles, 'column_angles': column_angles, 'side': side, 'domain': domain, 'scale_factor': hrir_scaling, 'samplerate': hrir_samplerate, 'length': hrir_length, 'min_phase': hrir_min_phase, 'transform': planar_transform}}
+        hrirs_spec = {'hrirs': {'fundamental_angles': fundamental_angles, 'orthogonal_angles': orthogonal_angles, 'side': side, 'domain': domain, 'scale_factor': hrir_scaling, 'samplerate': hrir_samplerate, 'length': hrir_length, 'min_phase': hrir_min_phase, 'transform': planar_transform}}
         if other_specs is None:
             other_specs = {}
         for spec_name in other_specs.keys():
@@ -36,7 +36,7 @@ class PlaneMixin:
                 raise ValueError(f'No {spec_name} should be given since that role is already taken by the HRIRs')
         specs = {hrir_role+'_spec': hrirs_spec, **other_specs}
         super().__init__(**specs, **kwargs)
-        self.plane_angles = self._specification['hrirs']['transform'].calc_plane_angles(self.row_angles, self.column_angles, self._selection_mask)
+        self.plane_angles = self._specification['hrirs']['transform'].calc_plane_angles(self.fundamental_angles, self.orthogonal_angles, self._selection_mask)
 
 
     @property
@@ -47,7 +47,7 @@ class PlaneMixin:
     @positive_angles.setter
     def positive_angles(self, value):
         self._specification['hrirs']['transform'].positive_angles = value
-        self.plane_angles = self._specification['hrirs']['transform'].calc_plane_angles(self.row_angles, self.column_angles, self._selection_mask)
+        self.plane_angles = self._specification['hrirs']['transform'].calc_plane_angles(self.fundamental_angles, self.orthogonal_angles, self._selection_mask)
 
 
     @property

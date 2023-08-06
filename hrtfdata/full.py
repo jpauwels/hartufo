@@ -36,8 +36,8 @@ class HRTFDataset:
         super().__init__()
         self._query = datareader.query
         self.dtype = datareader.dtype
-        self.row_angle_name = datareader.row_angle_name
-        self.column_angle_name = datareader.column_angle_name
+        self.fundamental_angle_name = datareader.fundamental_angle_name
+        self.orthogonal_angle_name = datareader.orthogonal_angle_name
         # Allow specifying ids that are excluded by default without explicitly overriding `exclude_ids``
         if subject_ids is not None and not isinstance(subject_ids, str) and exclude_ids is None:
             exclude_ids = ()
@@ -69,8 +69,8 @@ class HRTFDataset:
             self.hrir_samplerate = None
             self.hrir_length = None
             self.hrtf_frequencies = None
-            self.row_angles = np.array([])
-            self.column_angles = np.array([])
+            self.fundamental_angles = np.array([])
+            self.orthogonal_angles = np.array([])
             self.radii = np.array([])
             self._selection_mask = None
             self._data = {}
@@ -79,17 +79,17 @@ class HRTFDataset:
         self.subject_ids, self.sides = zip(*ear_ids)
 
         if 'hrirs' in self._specification.keys():
-            self.row_angles, self.column_angles, self.radii, self._selection_mask, *_ = datareader._map_sofa_position_order_to_matrix(
+            self.fundamental_angles, self.orthogonal_angles, self.radii, self._selection_mask, *_ = datareader._map_sofa_position_order_to_matrix(
                 self.subject_ids[0],
-                self._specification['hrirs'].get('row_angles'),
-                self._specification['hrirs'].get('column_angles')
+                self._specification['hrirs'].get('fundamental_angles'),
+                self._specification['hrirs'].get('orthogonal_angles')
             )
             side = self._specification['hrirs'].get('side', '')
             if side.startswith('both-'):
-                datareader._verify_angle_symmetry(self.row_angles, self.column_angles)
+                datareader._verify_angle_symmetry(self.fundamental_angles, self.orthogonal_angles)
         else:
-            self.row_angles = np.array([])
-            self.column_angles = np.array([])
+            self.fundamental_angles = np.array([])
+            self.orthogonal_angles = np.array([])
             self.radii = np.array([])
             self._selection_mask = None
 
@@ -105,7 +105,7 @@ class HRTFDataset:
             if 'anthropometry' in self._specification.keys():
                 self._data['anthropometry'].append(datareader.anthropometric_data(subject, side=side, select=self._specification['anthropometry'].get('select', None)))
             if 'hrirs' in self._specification.keys():
-                self._data['hrirs'].append(datareader.hrir(subject, side=side, domain=self._specification['hrirs'].get('domain', 'time'), row_angles=self._specification['hrirs'].get('row_angles'), column_angles=self._specification['hrirs'].get('column_angles')))
+                self._data['hrirs'].append(datareader.hrir(subject, side=side, domain=self._specification['hrirs'].get('domain', 'time'), fundamental_angles=self._specification['hrirs'].get('fundamental_angles'), orthogonal_angles=self._specification['hrirs'].get('orthogonal_angles')))
             if 'subject' in self._specification.keys():
                 self._data['subject'].append(subject)
             if 'side' in self._specification.keys():
@@ -204,13 +204,13 @@ class HRTFDataset:
 
 def split_by_angles(dataset: HRTFDataset):
     angle_datasets = []
-    for row_idx, row_angle in enumerate(dataset.row_angles):
-        for column_idx, column_angle in enumerate(dataset.column_angles):
+    for row_idx, fundamental_angle in enumerate(dataset.fundamental_angles):
+        for column_idx, orthogonal_angle in enumerate(dataset.orthogonal_angles):
             for radius_idx, radius in enumerate(dataset.radii):
                 if not dataset._selection_mask[row_idx, column_idx, radius_idx].item():
                     angle_dataset = deepcopy(dataset)
-                    angle_dataset.row_angles = np.array([row_angle])
-                    angle_dataset.column_angles = np.array([column_angle])
+                    angle_dataset.fundamental_angles = np.array([fundamental_angle])
+                    angle_dataset.orthogonal_angles = np.array([orthogonal_angle])
                     angle_dataset.radii = np.array([radius])
                     angle_dataset._selection_mask = np.array([False])
                     try:
