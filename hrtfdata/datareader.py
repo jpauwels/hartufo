@@ -1,4 +1,4 @@
-from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, ThreeDThreeADataQuery, SonicomDataQuery
+from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, Princeton3D3ADataQuery, SonicomDataQuery
 from .util import wrap_closed_open_interval, wrap_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian
 from abc import abstractmethod
 from typing import Optional
@@ -669,7 +669,7 @@ class Sadie2DataReader(SofaSphericalDataReader, ImageDataReader):
         return str(self.query.image_directory_path / sadie2_id / f'{sadie2_id}_Scans' / f'{sadie2_id}{side_str}.png')
 
 
-class ThreeDThreeADataReader(SofaSphericalDataReader, AnthropometryDataReader):
+class Princeton3D3ADataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def __init__(self,
         sofa_directory_path: str = '',
@@ -683,7 +683,7 @@ class ThreeDThreeADataReader(SofaSphericalDataReader, AnthropometryDataReader):
         verbose: bool = False,
         dtype: npt.DTypeLike = np.float32,
     ):
-        query = ThreeDThreeADataQuery(sofa_directory_path, anthropometry_directory_path, hrtf_method, hrtf_type)
+        query = Princeton3D3ADataQuery(sofa_directory_path, anthropometry_directory_path, hrtf_method, hrtf_type)
         super().__init__(query, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase, verbose, dtype)
 
 

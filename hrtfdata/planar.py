@@ -1,6 +1,6 @@
 from typing import Dict, Iterable, Optional
 import numpy as np
-from .full import CIPIC, ARI, Listen, BiLi, ITA, HUTUBS, RIEC, CHEDAR, Widespread, SADIE2, ThreeDThreeA, SONICOM
+from .full import Cipic, Ari, Listen, BiLi, Ita, Hutubs, Riec, Chedar, Widespread, Sadie2, Princeton3D3A, Sonicom
 from .display import plot_hrir_plane, plot_hrtf_plane, plot_plane_angles, plot_hrir_lines, plot_hrtf_lines
 from .transforms.hrirs import PlaneTransform, InterauralPlaneTransform, SphericalPlaneTransform
 from .util import lateral_vertical_from_yaw, lateral_vertical_from_pitch, lateral_vertical_from_roll, azimuth_elevation_from_yaw, azimuth_elevation_from_pitch, azimuth_elevation_from_roll
@@ -218,7 +218,7 @@ class SphericalPlaneMixin(PlaneMixin):
         return azimuth_elevation_from_roll(roll_angles, plane_offset)
 
 
-class CIPICPlane(InterauralPlaneMixin, CIPIC):
+class CipicPlane(InterauralPlaneMixin, Cipic):
     def __init__(self,
         root: str,
         plane: str,
@@ -244,7 +244,7 @@ class CIPICPlane(InterauralPlaneMixin, CIPIC):
         )
 
 
-class ARIPlane(SphericalPlaneMixin, ARI):
+class AriPlane(SphericalPlaneMixin, Ari):
     def __init__(self,
         root: str,
         plane: str,
@@ -326,7 +326,7 @@ class BiLiPlane(SphericalPlaneMixin, BiLi):
         )
 
 
-class ITAPlane(SphericalPlaneMixin, ITA):
+class ItaPlane(SphericalPlaneMixin, Ita):
     def __init__(self,
         root: str,
         plane: str,
@@ -352,7 +352,7 @@ class ITAPlane(SphericalPlaneMixin, ITA):
         )
 
 
-class HUTUBSPlane(SphericalPlaneMixin, HUTUBS):
+class HutubsPlane(SphericalPlaneMixin, Hutubs):
     def __init__(self,
         root: str,
         plane: str,
@@ -379,7 +379,7 @@ class HUTUBSPlane(SphericalPlaneMixin, HUTUBS):
         )
 
 
-class RIECPlane(SphericalPlaneMixin, RIEC):
+class RiecPlane(SphericalPlaneMixin, Riec):
     def __init__(self,
         root: str,
         plane: str,
@@ -405,7 +405,7 @@ class RIECPlane(SphericalPlaneMixin, RIEC):
         )
 
 
-class CHEDARPlane(SphericalPlaneMixin, CHEDAR):
+class ChedarPlane(SphericalPlaneMixin, Chedar):
     def __init__(self,
         root: str,
         plane: str,
@@ -460,7 +460,7 @@ class WidespreadPlane(SphericalPlaneMixin, Widespread):
         )
 
 
-class SADIE2Plane(SphericalPlaneMixin, SADIE2):
+class Sadie2Plane(SphericalPlaneMixin, Sadie2):
     def __init__(self,
         root: str,
         plane: str,
@@ -485,7 +485,7 @@ class SADIE2Plane(SphericalPlaneMixin, SADIE2):
         )
 
 
-class ThreeDThreeAPlane(SphericalPlaneMixin, ThreeDThreeA):
+class Princeton3D3APlane(SphericalPlaneMixin, Princeton3D3A):
     def __init__(self,
         root: str,
         plane: str,
@@ -513,7 +513,7 @@ class ThreeDThreeAPlane(SphericalPlaneMixin, ThreeDThreeA):
         )
 
 
-class SONICOMPlane(SphericalPlaneMixin, SONICOM):
+class SonicomPlane(SphericalPlaneMixin, Sonicom):
     def __init__(self,
         root: str,
         plane: str,

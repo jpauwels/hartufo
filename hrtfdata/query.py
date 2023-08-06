@@ -634,7 +634,7 @@ class Sadie2DataQuery(HrirDataQuery, ImageDataQuery):
         return '({})'.format(side.split('-')[-1][0].upper())
 
 
-class ThreeDThreeADataQuery(HrirDataQuery, AnthropometryDataQuery):
+class Princeton3D3ADataQuery(HrirDataQuery, AnthropometryDataQuery):
 
     def __init__(self, sofa_directory_path='', anthropometry_directory_path='', hrtf_method='measured', hrtf_type='compensated'):
         if hrtf_type == 'raw':
