@@ -1,6 +1,124 @@
-from abc import ABC, abstractmethod
-import numpy as np
 from ..util import wrap_closed_open_interval
+from abc import ABC, abstractmethod
+from typing import Optional
+import numpy as np
+import numpy.typing as npt
+from scipy.fft import rfft, fft, ifft
+from scipy.signal import hilbert
+from samplerate import resample
+
+
+def _to_dense(sparse_array: np.ma.MaskedArray):
+    ''' Converts an N-D np.ma.MaskedArray to a 2-D dense np.array which flattens all dimensions except the last into one while keeping the last 
+        dimension intact.'''
+    return sparse_array.compressed().reshape(-1, sparse_array.shape[-1])
+
+
+def _to_sparse(dense_array: np.array, prototype: np.ma.MaskedArray):
+    ''' Converts a 2-D dense np.array into a N-D np.ma.MaskedArray whose dimensions and sparsity mask is taken from the given prototypical 
+        sparse array, except for the final dimension which is taken from the dense array itself.'''
+    sparse_mask = np.tile(np.ma.getmaskarray(prototype)[..., :1], (*np.ones(prototype.ndim-1, dtype=int), dense_array.shape[-1]))
+    sparse_array = np.ma.array(np.empty((*prototype.shape[:-1], dense_array.shape[-1])), dtype=dense_array.dtype, mask=sparse_mask)
+    sparse_array[~sparse_mask] = dense_array.ravel()
+    return sparse_array
+
+
+class ScaleTransform:
+    def __init__(self, scale_factor: float):
+        self.scale_factor = scale_factor
+
+
+    def __call__(self, hrirs: np.ma.MaskedArray):
+        return hrirs * self.scale_factor
+
+
+    def inverse(self, hrirs: np.ma.MaskedArray):
+        return hrirs / self.scale_factor
+
+
+class MinPhaseTransform:
+    def __init__(self, samplerate: int):
+        self.samplerate = int(samplerate)
+
+
+    def __call__(self, hrirs: np.ma.MaskedArray):
+        dense_hrirs = _to_dense(hrirs)
+        hrtf = fft(dense_hrirs, self.samplerate)
+        magnitudes = np.abs(hrtf)
+        min_phases = -np.imag(hilbert(np.log(np.clip(magnitudes, 1e-320, None))))
+        min_phase_hrtf = magnitudes * np.exp(1j * min_phases)
+        min_phase_hrirs = np.real(ifft(min_phase_hrtf, self.samplerate)[..., :hrirs.shape[-1]])
+        return _to_sparse(min_phase_hrirs, hrirs)
+
+
+class ResampleTransform:
+    def __init__(self, resample_factor: float):
+        self.resample_factor = resample_factor
+
+
+    def __call__(self, hrirs: np.ma.MaskedArray):
+        if self.resample_factor == 1:
+            return hrirs
+        dense_hrirs = _to_dense(hrirs)
+        # process in chunks of 128 HRIRs (channels) because that's the maximum supported by resample
+        resampled_hrirs = np.row_stack([resample(dense_hrirs[ch_idx:ch_idx+128].T, self.resample_factor).T for ch_idx in range(0, len(dense_hrirs), 128)])
+        return _to_sparse(resampled_hrirs, hrirs)
+
+
+class TruncateTransform:
+    def __init__(self, truncate_length: int):
+        self.truncate_length = truncate_length
+
+    
+    def __call__(self, hrirs: np.ma.MaskedArray):
+        return hrirs[..., :self.truncate_length]
+
+
+class DecibelTransform:
+    def __call__(self, hrtf: np.ma.MaskedArray):
+        # limit dB range to what is representable by data type
+        min_value = np.max(hrtf) * np.finfo(hrtf.dtype).resolution
+        return 20 * np.log10(np.clip(hrtf, min_value, None))
+
+
+    def inverse(self, hrtf):
+        return 10 ** (hrtf / 20)
+
+
+class DomainTransform:
+    def __init__(self, domain: str, dtype: Optional[npt.DTypeLike]=None):
+        if domain not in ('time', 'complex', 'magnitude', 'magnitude_db', 'phase'):
+            raise ValueError(f'Unknown domain "{domain}" for HRIRs')
+        if domain == 'complex' and not issubclass(dtype, np.complexfloating):
+            raise ValueError(f'An HRTF in the complex domain requires the dtype to be set to a complex type (currently {dtype})')
+        if domain.endswith('_db'):
+            self._db_transformer = DecibelTransform()
+        self.domain = domain
+        self.dtype = dtype
+
+
+    def __call__(self, hrirs: np.ma.MaskedArray):
+        if self.domain == 'time':
+            transformed_hrirs = hrirs
+        else:
+            dense_hrirs = _to_dense(hrirs)
+            dense_hrtf = rfft(dense_hrirs)
+            hrtf = _to_sparse(dense_hrtf, hrirs)
+            if self.domain == 'complex':
+                transformed_hrirs = hrtf
+            elif self.domain.startswith('magnitude'):
+                # workaround to avoid spurious warning triggered by np.abs in NumPy v1.23.5
+                hrtf._fill_value = hrirs.fill_value
+                magnitudes = np.abs(hrtf)
+                if self.domain.endswith('_db'):
+                    transformed_hrirs = self._db_transformer(magnitudes)
+                else:
+                    transformed_hrirs = magnitudes
+            elif self.domain == 'phase':
+                transformed_hrirs = np.angle(hrtf)
+        if self.dtype is None:
+            return transformed_hrirs
+        return transformed_hrirs.astype(self.dtype)
 
 
 class PlaneTransform(ABC):
@@ -31,7 +149,7 @@ class PlaneTransform(ABC):
 
 
     @abstractmethod
-    def __call__(self, single_plane):
+    def __call__(self, single_plane: np.ma.MaskedArray):
         try:
             if single_plane.mask.any():
                 if single_plane.ndim > 1:
@@ -128,7 +246,7 @@ class InterauralPlaneTransform(PlaneTransform):
         return super().calc_plane_angles(input_angles)
 
 
-    def __call__(self, hrirs):
+    def __call__(self, hrirs: np.ma.MaskedArray):
         if self.plane == 'median':
             if self.positive_angles:
                 down, up = np.split(hrirs, [self._split_idx])
@@ -262,7 +380,7 @@ class SphericalPlaneTransform(PlaneTransform):
         return super().calc_plane_angles(input_angles)
 
 
-    def __call__(self, hrirs):
+    def __call__(self, hrirs: np.ma.MaskedArray):
         if self.plane == 'horizontal':
             if self.positive_angles:
                 right, left = np.split(hrirs, [self._split_idx])

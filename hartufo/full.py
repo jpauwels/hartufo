@@ -1,22 +1,13 @@
 from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, SonicomDataReader
+from .transforms.hrirs import ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from numbers import Integral, Number
 from typing import Any, Dict, Iterable, List, Optional
 import numpy as np
-import numpy as np
-
-
-def _get_hrir_info_from_spec(features_spec, target_spec, group_spec):
-    spec_list = [spec for spec in (features_spec, target_spec, group_spec) if spec is not None]
-    hrir_spec = {k: v for d in spec_list for k, v in d.items()}.get('hrirs', {})
-    return (
-        hrir_spec.get('scaling_factor', 1),
-        hrir_spec.get('samplerate'),
-        hrir_spec.get('length'),
-        hrir_spec.get('min_phase', False),
-    )
+import numpy.typing as npt
+from scipy.fft import rfftfreq
 
 
 class Dataset:
@@ -30,11 +21,11 @@ class Dataset:
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
+        dtype: npt.DTypeLike = np.float32,
         dict_format = True,
     ) -> None:
         super().__init__()
         self._query = datareader.query
-        self.dtype = datareader.dtype
         self.fundamental_angle_name = datareader.fundamental_angle_name
         self.orthogonal_angle_name = datareader.orthogonal_angle_name
         # Allow specifying ids that are excluded by default without explicitly overriding `exclude_ids``
@@ -42,6 +33,7 @@ class Dataset:
             exclude_ids = ()
         self._exclude_ids = exclude_ids
         self._dict_format = dict_format
+        self.dtype = dtype
 
         if target_spec is None:
             target_spec = {}
@@ -78,41 +70,52 @@ class Dataset:
         self.subject_ids, self.sides = zip(*ear_ids)
 
         if 'hrirs' in self._specification.keys():
+            # Verify angle symmetry before reading complete dataset
             self.fundamental_angles, self.orthogonal_angles, self.radii, self._selection_mask, *_ = datareader._map_sofa_position_order_to_matrix(
                 self.subject_ids[0],
                 self._specification['hrirs'].get('fundamental_angles'),
-                self._specification['hrirs'].get('orthogonal_angles')
+                self._specification['hrirs'].get('orthogonal_angles'),
             )
-            side = self._specification['hrirs'].get('side', '')
-            if side.startswith('both-'):
+            if self._specification['hrirs'].get('side', '').startswith('both-'):
                 datareader._verify_angle_symmetry(self.fundamental_angles, self.orthogonal_angles)
-        else:
-            self.fundamental_angles = np.array([])
-            self.orthogonal_angles = np.array([])
-            self.radii = np.array([])
-            self._selection_mask = None
+            # Construct HRIR processing pipeline
+            self.hrir_pipeline = []
+            recorded_hrir_length = datareader.hrir_length(self.subject_ids[0])
+            recorded_samplerate = datareader.hrir_samplerate(self.subject_ids[0])
+            if self._specification['hrirs'].get('scale_factor') is not None:
+                self.hrir_pipeline.append(ScaleTransform(self._specification['hrirs']['scale_factor']))
+            if self._specification['hrirs'].get('min_phase', False):
+                self.hrir_pipeline.append(MinPhaseTransform(recorded_hrir_length))
+            if self._specification['hrirs'].get('samplerate') is None:
+                self.hrir_samplerate = recorded_samplerate
+            else:
+                self.hrir_samplerate = self._specification['hrirs']['samplerate']
+                self.hrir_pipeline.append(ResampleTransform(self.hrir_samplerate / recorded_samplerate))
+            if self._specification['hrirs'].get('length') is None:
+                self.hrir_length = recorded_hrir_length
+            else:
+                self.hrir_length = self._specification['hrirs']['length']
+                self.hrir_pipeline.append(TruncateTransform(self.hrir_length))
+            self.hrir_pipeline.append(DomainTransform(self._specification['hrirs'].get('domain', 'time'), self.dtype))
+            self.hrtf_frequencies = rfftfreq(self.hrir_length, 1/self.hrir_samplerate)
 
-        self.hrir_samplerate = datareader.hrir_samplerate(self.subject_ids[0])
-        self.hrir_length = datareader.hrir_length(self.subject_ids[0])
-        self.hrtf_frequencies = datareader.hrtf_frequencies(self.subject_ids[0])
-
-        numeric_keys = [k for k in self._specification.keys() if isinstance(k, Number)]
         self._data = defaultdict(list)
         for subject, side in ear_ids:
             if 'image' in self._specification.keys():
                 self._data['image'].append(datareader.image(subject, side=side, rear=self._specification['image'].get('rear', False)))
             if 'anthropometry' in self._specification.keys():
-                self._data['anthropometry'].append(datareader.anthropometric_data(subject, side=side, select=self._specification['anthropometry'].get('select', None)))
+                self._data['anthropometry'].append(datareader.anthropometric_data(subject, side=side, select=self._specification['anthropometry'].get('select')).astype(self.dtype))
             if 'hrirs' in self._specification.keys():
-                self._data['hrirs'].append(datareader.hrir(subject, side=side, domain=self._specification['hrirs'].get('domain', 'time'), fundamental_angles=self._specification['hrirs'].get('fundamental_angles'), orthogonal_angles=self._specification['hrirs'].get('orthogonal_angles')))
+                hrirs = datareader.hrir(subject, side=side, fundamental_angles=self._specification['hrirs'].get('fundamental_angles'), orthogonal_angles=self._specification['hrirs'].get('orthogonal_angles'))
+                for transform in self.hrir_pipeline:
+                    hrirs = transform(hrirs)
+                self._data['hrirs'].append(hrirs)
             if 'subject' in self._specification.keys():
                 self._data['subject'].append(subject)
             if 'side' in self._specification.keys():
                 self._data['side'].append(side)
             if 'collection' in self._specification.keys():
                 self._data['collection'].append(datareader.query.collection_id)
-            for num_key in numeric_keys:
-                self._data[num_key].append(num_key)
 
         for k in self._specification.keys():
             preprocess_callable = self._specification[k].get('preprocess')
@@ -223,6 +226,12 @@ def split_by_angles(dataset: Dataset):
     return angle_datasets
 
 
+def _get_hrir_samplerate_from_spec(features_spec, target_spec, group_spec):
+    spec_list = [spec for spec in (features_spec, target_spec, group_spec) if spec is not None]
+    hrir_spec = {k: v for d in spec_list for k, v in d.items()}.get('hrirs', {})
+    return hrir_spec.get('samplerate')
+
+
 class Cipic(Dataset):
     """CIPIC HRTF Dataset
     """
@@ -239,20 +248,14 @@ class Cipic(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
-        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = CipicDataReader(
             anthropometry_matfile_path=Path(root)/'anthropometry/anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
             image_directory_path=Path(root)/'ear_photos',
-            hrir_scaling=hrir_scaling,
-            hrir_samplerate=hrir_samplerate,
-            hrir_length=hrir_length,
-            hrir_min_phase=hrir_min_phase,
-            dtype=dtype,
             download=download,
             verify=verify,
         )
-        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
 
 
 class Ari(Dataset):
@@ -271,19 +274,13 @@ class Ari(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
-        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = AriDataReader(
             anthropometry_matfile_path=Path(root)/'anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
-            hrir_scaling=hrir_scaling,
-            hrir_samplerate=hrir_samplerate,
-            hrir_length=hrir_length,
-            hrir_min_phase=hrir_min_phase,
-            dtype=dtype,
             download=download,
             verify=verify,
         )
-        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
 
 
 class Listen(Dataset):
@@ -303,20 +300,14 @@ class Listen(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
-        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = ListenDataReader(
             sofa_directory_path=Path(root)/'sofa',
             anthropometry_directory_path=Path(root)/'anthropometry',
             hrtf_type=hrtf_type,
-            hrir_scaling=hrir_scaling,
-            hrir_samplerate=hrir_samplerate,
-            hrir_length=hrir_length,
-            hrir_min_phase=hrir_min_phase,
-            dtype=dtype,
             download=download,
             verify=verify,
         )
-        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
 
 
 class BiLi(Dataset):
@@ -336,19 +327,14 @@ class BiLi(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
-        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = BiLiDataReader(
             sofa_directory_path=Path(root)/'sofa',
             hrtf_type=hrtf_type,
-            hrir_scaling=hrir_scaling,
-            hrir_samplerate=hrir_samplerate,
-            hrir_length=hrir_length,
-            hrir_min_phase=hrir_min_phase,
-            dtype=dtype,
+            hrir_samplerate=_get_hrir_samplerate_from_spec(features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
         )
-        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
 
 
 class Ita(Dataset):
@@ -367,19 +353,13 @@ class Ita(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
-        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = ItaDataReader(
             sofa_directory_path=Path(root)/'sofa',
             anthropometry_csvfile_path=Path(root)/'Dimensions.xlsx',
-            hrir_scaling=hrir_scaling,
-            hrir_samplerate=hrir_samplerate,
-            hrir_length=hrir_length,
-            hrir_min_phase=hrir_min_phase,
-            dtype=dtype,
             download=download,
             verify=verify,
         )
-        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
 
 
 class Hutubs(Dataset):
@@ -399,20 +379,14 @@ class Hutubs(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
-        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = HutubsDataReader(
             sofa_directory_path=Path(root)/'sofa',
             anthropometry_csvfile_path=Path(root)/'AntrhopometricMeasures.csv',
             measured_hrtf=measured_hrtf,
-            hrir_scaling=hrir_scaling,
-            hrir_samplerate=hrir_samplerate,
-            hrir_length=hrir_length,
-            hrir_min_phase=hrir_min_phase,
-            dtype=dtype,
             download=download,
             verify=verify,
             )
-        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
 
 
 class Riec(Dataset):
@@ -431,18 +405,12 @@ class Riec(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
-        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = RiecDataReader(
             sofa_directory_path=Path(root)/'sofa',
-            hrir_scaling=hrir_scaling,
-            hrir_samplerate=hrir_samplerate,
-            hrir_length=hrir_length,
-            hrir_min_phase=hrir_min_phase,
-            dtype=dtype,
             download=download,
             verify=verify,
         )
-        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
 
 
 class Chedar(Dataset):
@@ -462,20 +430,14 @@ class Chedar(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
-        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = ChedarDataReader(
             sofa_directory_path=Path(root)/'sofa',
             anthropometry_matfile_path=Path(root)/'measurements.mat',
             radius=radius,
-            hrir_scaling=hrir_scaling,
-            hrir_samplerate=hrir_samplerate,
-            hrir_length=hrir_length,
-            hrir_min_phase=hrir_min_phase,
-            dtype=dtype,
             download=download,
             verify=verify,
         )
-        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
 
 
 class Widespread(Dataset):
@@ -496,20 +458,14 @@ class Widespread(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
-        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = WidespreadDataReader(
             sofa_directory_path=Path(root)/'sofa',
             radius=radius,
             grid=grid,
-            hrir_scaling=hrir_scaling,
-            hrir_samplerate=hrir_samplerate,
-            hrir_length=hrir_length,
-            hrir_min_phase=hrir_min_phase,
-            dtype=dtype,
             download=download,
             verify=verify,
         )
-        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
 
 
 class Sadie2(Dataset):
@@ -528,19 +484,14 @@ class Sadie2(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
-        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = Sadie2DataReader(
             sofa_directory_path=Path(root)/'Database-Master_V1-4',
             image_directory_path=Path(root)/'Database-Master_V1-4',
-            hrir_scaling=hrir_scaling,
-            hrir_samplerate=hrir_samplerate,
-            hrir_length=hrir_length,
-            hrir_min_phase=hrir_min_phase,
-            dtype=dtype,
+            hrir_samplerate=_get_hrir_samplerate_from_spec(features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
         )
-        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
 
 
 class Princeton3D3A(Dataset):
@@ -561,21 +512,15 @@ class Princeton3D3A(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
-        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = Princeton3D3ADataReader(
             sofa_directory_path=Path(root)/'HRTFs',
             anthropometry_directory_path=Path(root)/'Anthropometric-Data',
             hrtf_method=hrtf_method,
             hrtf_type=hrtf_type,
-            hrir_scaling=hrir_scaling,
-            hrir_samplerate=hrir_samplerate,
-            hrir_length=hrir_length,
-            hrir_min_phase=hrir_min_phase,
-            dtype=dtype,
             download=download,
             verify=verify,
         )
-        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
 
 
 class Sonicom(Dataset):
@@ -595,16 +540,11 @@ class Sonicom(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
-        hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase = _get_hrir_info_from_spec(features_spec, target_spec, group_spec)
         datareader = SonicomDataReader(
             sofa_directory_path=Path(root),
             hrtf_type=hrtf_type,
-            hrir_scaling=hrir_scaling,
-            hrir_samplerate=hrir_samplerate,
-            hrir_length=hrir_length,
-            hrir_min_phase=hrir_min_phase,
-            dtype=dtype,
+            hrir_samplerate=_get_hrir_samplerate_from_spec(features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
         )
-        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids)
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
