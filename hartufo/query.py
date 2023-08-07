@@ -137,9 +137,9 @@ class DataQuery:
                     given_dict = given_dict[key]
                 except KeyError:
                     return
-            unknown_keys = sorted([x for x in set(given_dict.keys()).difference(allowed_keys) if not isinstance(x, Number)])
+            unknown_keys = sorted([x for x in set(given_dict.keys()).difference(allowed_keys)])
             if unknown_keys:
-                raise ValueError(f'Unknown specifier{"s" if len(unknown_keys) > 1 else ""} "{", ".join(unknown_keys)}" in {key if key else "specification"}')
+                raise ValueError(f'Unknown specifier{"s" if len(unknown_keys) > 1 else ""} "{", ".join([str(k) for k in unknown_keys])}" in {key if key else "specification"}')
         validate_dict(spec, self.allowed_keys)
         validate_dict(spec, ('side', 'domain', 'fundamental_angles', 'orthogonal_angles', 'scale_factor', 'samplerate', 'length', 'min_phase', 'exclude', 'preprocess', 'transform'), 'hrirs')
         validate_dict(spec, ('preprocess', 'transform'), 'subject')
