@@ -82,8 +82,8 @@ class Dataset:
             self.hrir_pipeline = []
             recorded_hrir_length = datareader.hrir_length(self.subject_ids[0])
             recorded_samplerate = datareader.hrir_samplerate(self.subject_ids[0])
-            if self._specification['hrirs'].get('scale_factor') is not None:
-                self.hrir_pipeline.append(ScaleTransform(self._specification['hrirs']['scale_factor']))
+            if self._specification['hrirs'].get('additive_scale_factor') is not None or self._specification['hrirs'].get('multiplicative_scale_factor'):
+                self.hrir_pipeline.append(ScaleTransform(self._specification['hrirs'].get('additive_scale_factor'), self._specification['hrirs'].get('multiplicative_scale_factor')))
             if self._specification['hrirs'].get('min_phase', False):
                 self.hrir_pipeline.append(MinPhaseTransform(recorded_hrir_length))
             if self._specification['hrirs'].get('samplerate') is None:
