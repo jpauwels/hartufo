@@ -24,16 +24,27 @@ def _to_sparse(dense_array: np.array, prototype: np.ma.MaskedArray):
 
 
 class ScaleTransform:
-    def __init__(self, scale_factor: float):
-        self.scale_factor = scale_factor
+    def __init__(self, additive_factor: float = 0, multiplicative_factor = 1):
+        self.additive_factor = additive_factor
+        self.multiplicative_factor = multiplicative_factor
 
 
-    def __call__(self, hrirs: np.ma.MaskedArray):
-        return hrirs * self.scale_factor
+    def __call__(self, values: np.ma.MaskedArray):
+        scaled_values = values
+        if self.additive_factor != 0:
+            scaled_values = scaled_values + self.additive_factor
+        if self.multiplicative_factor != 1:
+            scaled_values = scaled_values * self.multiplicative_factor
+        return scaled_values
 
 
-    def inverse(self, hrirs: np.ma.MaskedArray):
-        return hrirs / self.scale_factor
+    def inverse(self, scaled_values: np.ma.MaskedArray):
+        values = scaled_values
+        if self.additive_factor != 0:
+            values = values - self.additive_factor
+        if self.multiplicative_factor != 1:
+            values = values / self.multiplicative_factor
+        return values
 
 
 class MinPhaseTransform:
