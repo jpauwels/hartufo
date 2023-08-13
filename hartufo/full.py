@@ -1,6 +1,6 @@
 from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, CrossModDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader
 from .specifications import Spec, HrirSpec, sanitise_specs, sanitise_multiple_specs
-from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, InterauralPlaneTransform, SphericalPlaneTransform
+from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, InterauralPlaneTransform, SphericalPlaneTransform
 from collections import defaultdict
 from copy import deepcopy
 from itertools import chain
@@ -61,7 +61,6 @@ class Dataset:
             self.subject_ids = tuple()
             self.hrir_samplerate = None
             self.hrir_length = None
-            self.hrtf_frequencies = None
             self.fundamental_angles = np.array([])
             self.orthogonal_angles = np.array([])
             self.radii = np.array([])
@@ -106,10 +105,14 @@ class Dataset:
             else:
                 self.hrir_length = hrir_spec['length']
                 hrir_pipeline.append(TruncateTransform(self.hrir_length))
+            self._hrtf_frequencies = rfftfreq(self.hrir_length, 1/self.hrir_samplerate)
             if hrir_spec['domain'] is not None or self.dtype is not None:
                 hrir_pipeline.append(DomainTransform(hrir_spec['domain'], self.dtype))
+            if (hrir_spec['domain'] is not None or hrir_spec['domain'] != 'time') and hrir_spec.get('min_freq') is not None or hrir_spec.get('max_freq') is not None:
+                min_freq = hrir_spec['min_freq'] if hrir_spec.get('min_freq') is not None else 0
+                max_freq = hrir_spec['max_freq'] if hrir_spec.get('max_freq') is not None else np.inf
+                hrir_pipeline.append(SelectValueRangeTransform(self._hrtf_frequencies, min_freq, max_freq))
             hrir_spec['preprocess'] = hrir_pipeline + hrir_spec['preprocess']
-            self.hrtf_frequencies = rfftfreq(self.hrir_length, 1/self.hrir_samplerate)
 
         self._data = defaultdict(list)
         for subject, side in tqdm(ear_ids, desc=f'Loading data from disk', leave=None):
@@ -227,6 +230,17 @@ class Dataset:
 
     def delete_transform(self, spec_type, index):
         self._specification[spec_type.name]['transform'].pop(index)
+
+
+    @property
+    def hrtf_frequencies(self):
+        if self._specification['hrirs'].get('domain', 'time') == 'time':
+            return self._hrtf_frequencies
+        all_transforms = self._specification['hrirs']['preprocess'] + self._specification['hrirs']['transform']
+        region_selector = [t for t in all_transforms if isinstance(t, SelectValueRangeTransform)]
+        if not region_selector:
+            return self._hrtf_frequencies
+        return self._hrtf_frequencies[region_selector[0]._selection]
 
 
 def split_by_angles(dataset: Dataset):
