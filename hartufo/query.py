@@ -79,20 +79,29 @@ class DataQuery:
         if download:
             self._download()
 
-        if verify and not self._check_integrity():
-            raise RuntimeError('Collection not found or corrupted. You can use download=True to download it')
+        if verify:
+            self._check_integrity()
 
 
     @staticmethod
     def _integrity_helper(checksum_info, target_path) -> bool:
         if target_path.is_dir():
-            return all([check_integrity(target_path / filename, md5) for filename, md5 in checksum_info])
+            all_checks = np.array([check_integrity(target_path / filename, md5) for filename, md5 in checksum_info])
+            if not all(all_checks):
+                error_files = [str(target_path / x[0]) for x in np.array(checksum_info)[~all_checks]]
+                raise OSError('The files \n\t{}\nare missing or corrupt. Delete them if they exist and use download=True to download them again.'.format('\n\t'.join(error_files)))
+        elif target_path.is_file():
+            if not check_integrity(target_path, checksum_info[0][1]):
+                raise OSError(f'The file "{target_path}" is missing or corrupt. Delete it if it exists and use download=True to download it again.')
         else:
-            return check_integrity(target_path, checksum_info[0][1])
+            if len(checksum_info) > 1:
+                raise FileNotFoundError('The files \n\t{}\nare missing.  Use download=True to download them.'.format('\n\t'.join([str(target_path / x[0]) for x in checksum_info])))
+            else:
+                raise FileNotFoundError(f'The file "{target_path}" is missing. Use download=True to download it.')
 
 
     def _check_integrity(self) -> bool:
-        return True
+        return
 
 
     @staticmethod
@@ -246,10 +255,9 @@ class HrirDataQuery(DataQuery):
 
 
     def _check_integrity(self) -> bool:
-        check = super()._check_integrity()
+        super()._check_integrity()
         if 'hrirs' in self.allowed_keys:
-            return check and self._integrity_helper(HRIR_CHECKSUMS[self.collection_id][self._variant_key], self.sofa_directory_path)
-        return check
+            self._integrity_helper(HRIR_CHECKSUMS[self.collection_id][self._variant_key], self.sofa_directory_path)
 
 
     def _download(self) -> None:
@@ -337,10 +345,9 @@ class AnthropometryDataQuery(DataQuery):
 
 
     def _check_integrity(self) -> bool:
-        check = super()._check_integrity()
+        super()._check_integrity()
         if 'anthropometry' in self.allowed_keys:
-            return check and self._integrity_helper(ANTHROPOMETRY_CHECKSUMS[self.collection_id], self.anthropometry_path)
-        return check
+            self._integrity_helper(ANTHROPOMETRY_CHECKSUMS[self.collection_id], self.anthropometry_path)
 
 
     def _download(self) -> None:
@@ -376,10 +383,9 @@ class ImageDataQuery(DataQuery):
 
 
     def _check_integrity(self) -> bool:
-        check = super()._check_integrity()
+        super()._check_integrity()
         if 'image' in self.allowed_keys:
-            return check and self._integrity_helper(IMAGE_CHECKSUMS[self.collection_id], self.image_directory_path)
-        return check
+            self._integrity_helper(IMAGE_CHECKSUMS[self.collection_id], self.image_directory_path)
 
 
     def _download(self) -> None:
@@ -415,10 +421,9 @@ class MeshDataQuery(DataQuery):
 
 
     def _check_integrity(self) -> bool:
-        check = super()._check_integrity()
+        super()._check_integrity()
         if '3d-model' in self.allowed_keys:
-            return check and self._integrity_helper(MESH_CHECKSUMS[self.collection_id], self.mesh_directory_path)
-        return check
+            self._integrity_helper(MESH_CHECKSUMS[self.collection_id], self.mesh_directory_path)
 
 
     def _download(self) -> None:
