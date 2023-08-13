@@ -95,6 +95,8 @@ class HrirSpec(Spec):
         samplerate: Optional[float] = None,
         length: Optional[float] = None,
         min_phase: bool = False,
+        min_freq: Optional[float] = None,
+        max_freq: Optional[float] = None,
         exclude: Optional[Iterable[int]] = None,
         preprocess: Optional[Union[Callable, Iterable[Callable]]] = None,
         transform: Optional[Union[Callable, Iterable[Callable]]] = None,
@@ -112,6 +114,8 @@ class HrirSpec(Spec):
         self.add('samplerate', samplerate)
         self.add('length', length)
         self.add('min_phase', min_phase)
+        self.add('min_freq', min_freq)
+        self.add('max_freq', max_freq)
         self.add('exclude', exclude)
 
 
@@ -132,13 +136,15 @@ class HrirPlaneSpec(HrirSpec):
         samplerate: Optional[float] = None,
         length: Optional[float] = None,
         min_phase: bool = False,
+        min_freq: Optional[float] = None,
+        max_freq: Optional[float] = None,
         exclude: Optional[Iterable[int]] = None,
         preprocess: Optional[Union[Callable, Iterable[Callable]]] = None,
         transform: Optional[Union[Callable, Iterable[Callable]]] = None,
     ):
         if plane not in ('horizontal', 'median', 'frontal', 'vertical', 'interaural'):
             raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal", "vertical" or "interaural".')
-        super().__init__(domain, side, None, None, distance, method, variant, additive_scale_factor, multiplicative_scale_factor, samplerate, length, min_phase, exclude, preprocess, transform)
+        super().__init__(domain, side, None, None, distance, method, variant, additive_scale_factor, multiplicative_scale_factor, samplerate, length, min_phase, exclude, min_freq, max_freq, preprocess, transform)
         self.add('plane', plane)
         self.add('plane_angles', plane_angles)
         self.add('plane_offset', plane_offset)

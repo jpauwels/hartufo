@@ -77,13 +77,19 @@ class ResampleTransform(BatchTransform):
         return _to_sparse(resampled_hrirs, hrirs)
 
 
-class TruncateTransform(BatchTransform):
-    def __init__(self, truncate_length: int):
-        self.truncate_length = truncate_length
+class SelectIndicesTransform(BatchTransform):
 
-    
-    def __call__(self, hrirs: np.ma.MaskedArray):
-        return hrirs[..., :self.truncate_length]
+    def __init__(self, indices):
+        self._selection = indices
+
+
+    def __call__(self, values: np.ma.MaskedArray):
+        return values[..., self._selection]
+
+
+class TruncateTransform(SelectIndicesTransform):
+    def __init__(self, truncate_length: int):
+        super().__init__(slice(None, truncate_length))
 
 
 class DecibelTransform(BatchTransform):
@@ -131,6 +137,12 @@ class DomainTransform(BatchTransform):
         if self.dtype is None:
             return transformed_hrirs
         return transformed_hrirs.astype(self.dtype)
+
+
+class SelectValueRangeTransform(SelectIndicesTransform):
+
+    def __init__(self, value_legend, lower_limit, upper_limit):
+        super().__init__((value_legend >= lower_limit) & (value_legend < upper_limit))
 
 
 class PlaneTransform(ABC):
