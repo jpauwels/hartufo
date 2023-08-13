@@ -1,3 +1,4 @@
+from ..transforms import BatchTransform
 from ..util import wrap_closed_open_interval
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -23,7 +24,7 @@ def _to_sparse(dense_array: np.array, prototype: np.ma.MaskedArray):
     return sparse_array
 
 
-class ScaleTransform:
+class ScaleTransform(BatchTransform):
     def __init__(self, additive_factor: float = 0, multiplicative_factor = 1):
         self.additive_factor = additive_factor
         self.multiplicative_factor = multiplicative_factor
@@ -47,7 +48,7 @@ class ScaleTransform:
         return values
 
 
-class MinPhaseTransform:
+class MinPhaseTransform(BatchTransform):
     def __init__(self, samplerate: int):
         self.samplerate = int(samplerate)
 
@@ -56,13 +57,13 @@ class MinPhaseTransform:
         dense_hrirs = _to_dense(hrirs)
         hrtf = fft(dense_hrirs, self.samplerate)
         magnitudes = np.abs(hrtf)
-        min_phases = -np.imag(hilbert(np.log(np.clip(magnitudes, 1e-320, None))))
+        min_phases = -np.imag(hilbert(np.log(np.maximum(magnitudes, 1e-320))))
         min_phase_hrtf = magnitudes * np.exp(1j * min_phases)
         min_phase_hrirs = np.real(ifft(min_phase_hrtf, self.samplerate)[..., :hrirs.shape[-1]])
         return _to_sparse(min_phase_hrirs, hrirs)
 
 
-class ResampleTransform:
+class ResampleTransform(BatchTransform):
     def __init__(self, resample_factor: float):
         self.resample_factor = resample_factor
 
@@ -76,7 +77,7 @@ class ResampleTransform:
         return _to_sparse(resampled_hrirs, hrirs)
 
 
-class TruncateTransform:
+class TruncateTransform(BatchTransform):
     def __init__(self, truncate_length: int):
         self.truncate_length = truncate_length
 
@@ -85,18 +86,18 @@ class TruncateTransform:
         return hrirs[..., :self.truncate_length]
 
 
-class DecibelTransform:
+class DecibelTransform(BatchTransform):
     def __call__(self, hrtf: np.ma.MaskedArray):
         # limit dB range to what is representable by data type
         min_value = np.max(hrtf) * np.finfo(hrtf.dtype).resolution
-        return 20 * np.log10(np.clip(hrtf, min_value, None))
+        return 20 * np.log10(np.maximum(hrtf, min_value))
 
 
     def inverse(self, hrtf):
         return 10 ** (hrtf / 20)
 
 
-class DomainTransform:
+class DomainTransform(BatchTransform):
     def __init__(self, domain: str, dtype: Optional[npt.DTypeLike]=None):
         if domain not in ('time', 'complex', 'magnitude', 'magnitude_db', 'phase'):
             raise ValueError(f'Unknown domain "{domain}" for HRIRs')

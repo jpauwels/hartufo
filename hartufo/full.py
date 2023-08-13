@@ -1,10 +1,10 @@
 from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, SonicomDataReader
-from .transforms.hrirs import ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform
+from .transforms.hrirs import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from numbers import Integral, Number
-from typing import Any, Dict, Iterable, List, Optional
+from numbers import Integral
+from typing import Dict, Iterable, Optional
 import numpy as np
 import numpy.typing as npt
 from scipy.fft import rfftfreq
@@ -69,6 +69,16 @@ class Dataset:
 
         self.subject_ids, self.sides = zip(*ear_ids)
 
+        for k in self._specification.keys():
+            transform_callable = self._specification[k].get('transform', [])
+            if callable(transform_callable):
+                transform_callable = [transform_callable]
+            self._specification[k]['transform'] = transform_callable
+            preprocess_callable = self._specification[k].get('preprocess', [])
+            if callable(preprocess_callable):
+                preprocess_callable = [preprocess_callable]
+            self._specification[k]['preprocess'] = preprocess_callable
+                
         if 'hrirs' in self._specification.keys():
             # Verify angle symmetry before reading complete dataset
             self.fundamental_angles, self.orthogonal_angles, self.radii, self._selection_mask, *_ = datareader._map_sofa_position_order_to_matrix(
@@ -79,24 +89,26 @@ class Dataset:
             if self._specification['hrirs'].get('side', '').startswith('both-'):
                 datareader._verify_angle_symmetry(self.fundamental_angles, self.orthogonal_angles)
             # Construct HRIR processing pipeline
-            self.hrir_pipeline = []
+            hrir_pipeline = []
             recorded_hrir_length = datareader.hrir_length(self.subject_ids[0])
             recorded_samplerate = datareader.hrir_samplerate(self.subject_ids[0])
             if self._specification['hrirs'].get('additive_scale_factor') is not None or self._specification['hrirs'].get('multiplicative_scale_factor'):
-                self.hrir_pipeline.append(ScaleTransform(self._specification['hrirs'].get('additive_scale_factor'), self._specification['hrirs'].get('multiplicative_scale_factor')))
+                hrir_pipeline.append(ScaleTransform(self._specification['hrirs'].get('additive_scale_factor'), self._specification['hrirs'].get('multiplicative_scale_factor')))
             if self._specification['hrirs'].get('min_phase', False):
-                self.hrir_pipeline.append(MinPhaseTransform(recorded_hrir_length))
+                hrir_pipeline.append(MinPhaseTransform(recorded_hrir_length))
             if self._specification['hrirs'].get('samplerate') is None:
                 self.hrir_samplerate = recorded_samplerate
             else:
                 self.hrir_samplerate = self._specification['hrirs']['samplerate']
-                self.hrir_pipeline.append(ResampleTransform(self.hrir_samplerate / recorded_samplerate))
+                hrir_pipeline.append(ResampleTransform(self.hrir_samplerate / recorded_samplerate))
             if self._specification['hrirs'].get('length') is None:
                 self.hrir_length = recorded_hrir_length
             else:
                 self.hrir_length = self._specification['hrirs']['length']
-                self.hrir_pipeline.append(TruncateTransform(self.hrir_length))
-            self.hrir_pipeline.append(DomainTransform(self._specification['hrirs'].get('domain', 'time'), self.dtype))
+                hrir_pipeline.append(TruncateTransform(self.hrir_length))
+            if self._specification['hrirs'].get('domain') is not None or self.dtype is not None:
+                hrir_pipeline.append(DomainTransform(self._specification['hrirs'].get('domain', 'time'), self.dtype))
+            self._specification['hrirs']['preprocess'] = hrir_pipeline + self._specification['hrirs']['preprocess']
             self.hrtf_frequencies = rfftfreq(self.hrir_length, 1/self.hrir_samplerate)
 
         self._data = defaultdict(list)
@@ -106,10 +118,7 @@ class Dataset:
             if 'anthropometry' in self._specification.keys():
                 self._data['anthropometry'].append(datareader.anthropometric_data(subject, side=side, select=self._specification['anthropometry'].get('select')).astype(self.dtype))
             if 'hrirs' in self._specification.keys():
-                hrirs = datareader.hrir(subject, side=side, fundamental_angles=self._specification['hrirs'].get('fundamental_angles'), orthogonal_angles=self._specification['hrirs'].get('orthogonal_angles'))
-                for transform in self.hrir_pipeline:
-                    hrirs = transform(hrirs)
-                self._data['hrirs'].append(hrirs)
+                self._data['hrirs'].append(datareader.hrir(subject, side=side, fundamental_angles=self._specification['hrirs'].get('fundamental_angles'), orthogonal_angles=self._specification['hrirs'].get('orthogonal_angles')))
             if 'subject' in self._specification.keys():
                 self._data['subject'].append(subject)
             if 'side' in self._specification.keys():
@@ -118,9 +127,16 @@ class Dataset:
                 self._data['collection'].append(datareader.query.collection_id)
 
         for k in self._specification.keys():
-            preprocess_callable = self._specification[k].get('preprocess')
-            if preprocess_callable is not None:
-                self._data[k] = list(map(preprocess_callable, self._data[k]))
+            if k in ('hrirs', 'anthropometry'):
+                try:
+                    self._data[k] = np.ma.stack(self._data[k])
+                except ValueError:
+                    raise ValueError(f'Not all data points have the same {k} shape') from None
+            for preprocess in self._specification[k]['preprocess']:
+                if isinstance(preprocess, BatchTransform):
+                    self._data[k] = preprocess(self._data[k])
+                else:
+                    self._data[k] = np.ma.stack(tuple(map(preprocess, self._data[k])))
 
 
     def __len__(self):
@@ -145,20 +161,11 @@ class Dataset:
                 transformed_data[k] = self._data[k][idx]
             except IndexError:
                 raise IndexError('Dataset index out of range') from None
-            transform_callable = self._specification[k].get('transform')
-            if isinstance(idx, Integral):
-                if transform_callable is not None:
-                    transformed_data[k] = transform_callable(transformed_data[k])
-            else:
-                if transform_callable is not None:
-                    transformed_data[k] = tuple(map(transform_callable, transformed_data[k]))
-                try:
-                    if isinstance(transformed_data[k][0], np.ma.MaskedArray):
-                        transformed_data[k] = np.ma.stack(transformed_data[k])
-                    else:
-                        transformed_data[k] = np.stack(transformed_data[k])
-                except ValueError:
-                    raise ValueError('Not all data points have the same shape') from None
+            for transform in self._specification[k]['transform']:
+                if isinstance(idx, Integral) or isinstance(transform, BatchTransform):
+                    transformed_data[k] = transform(transformed_data[k])
+                else:
+                    transformed_data[k] = np.ma.stack(tuple(map(transform, transformed_data[k])))
         return transformed_data
 
 
@@ -204,6 +211,20 @@ class Dataset:
         return tuple(np.unique(subject_ids))
 
 
+    def insert_transform(self, data_type, transform_callable, index):
+        if data_type not in self._specification.keys():
+            raise ValueError(f'This Dataset does not contain any {data_type}.')
+        self._specification[data_type]['transform'].insert(index, transform_callable)
+
+
+    def prepend_transform(self, data_type, transform_callable):
+        self.insert_transform(data_type, transform_callable, 0)
+
+
+    def append_transform(self, data_type, transform_callable):
+        self.insert_transform(data_type, transform_callable, len(self._specification[data_type]['transform']))
+
+
 def split_by_angles(dataset: Dataset):
     angle_datasets = []
     for row_idx, fundamental_angle in enumerate(dataset.fundamental_angles):
@@ -220,8 +241,7 @@ def split_by_angles(dataset: Dataset):
                         angle_dataset.positive_angles = dataset.positive_angles
                     except AttributeError:
                         pass
-                    for ex_idx in range(len(angle_dataset._data['hrirs'])):
-                        angle_dataset._data['hrirs'][ex_idx] = angle_dataset._data['hrirs'][ex_idx][row_idx:row_idx+1, column_idx:column_idx+1, radius_idx:radius_idx+1]
+                    angle_dataset._data['hrirs'] = angle_dataset._data['hrirs'][:, row_idx:row_idx+1, column_idx:column_idx+1, radius_idx:radius_idx+1]
                     angle_datasets.append(angle_dataset)
     return angle_datasets
 
