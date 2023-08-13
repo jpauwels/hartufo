@@ -29,6 +29,7 @@ class PlaneMixin:
         self._plane = plane
         self._plane_offset = plane_offset
         self._domain = domain
+        self._planar_transform = planar_transform
         hrirs_spec = {'hrirs': {'fundamental_angles': fundamental_angles, 'orthogonal_angles': orthogonal_angles, 'side': side, 'domain': domain, 'additive_scale_factor': hrir_offset, 'multiplicative_scale_factor': hrir_scaling, 'samplerate': hrir_samplerate, 'length': hrir_length, 'min_phase': hrir_min_phase, 'transform': planar_transform}}
         if other_specs is None:
             other_specs = {}
@@ -37,28 +38,28 @@ class PlaneMixin:
                 raise ValueError(f'No {spec_name} should be given since that role is already taken by the HRIRs')
         specs = {hrir_role+'_spec': hrirs_spec, **other_specs}
         super().__init__(**specs, **kwargs)
-        self.plane_angles = self._specification['hrirs']['transform'].calc_plane_angles(self.fundamental_angles, self.orthogonal_angles, self._selection_mask)
+        self.plane_angles = planar_transform.calc_plane_angles(self.fundamental_angles, self.orthogonal_angles, self._selection_mask)
 
 
     @property
     def positive_angles(self):
-        return self._specification['hrirs']['transform'].positive_angles
+        return self._planar_transform.positive_angles
 
 
     @positive_angles.setter
     def positive_angles(self, value):
-        self._specification['hrirs']['transform'].positive_angles = value
-        self.plane_angles = self._specification['hrirs']['transform'].calc_plane_angles(self.fundamental_angles, self.orthogonal_angles, self._selection_mask)
+        self._planar_transform.positive_angles = value
+        self.plane_angles = self._planar_transform.calc_plane_angles(self.fundamental_angles, self.orthogonal_angles, self._selection_mask)
 
 
     @property
     def min_angle(self):
-        return self._specification['hrirs']['transform'].min_angle
+        return self._planar_transform.min_angle
 
 
     @property
     def max_angle(self):
-        return self._specification['hrirs']['transform'].max_angle
+        return self._planar_transform.max_angle
 
 
     @property
