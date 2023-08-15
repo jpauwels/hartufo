@@ -85,6 +85,7 @@ class Dataset:
                 self.subject_ids[0],
                 self._specification['hrirs'].get('fundamental_angles'),
                 self._specification['hrirs'].get('orthogonal_angles'),
+                self._specification['hrirs'].get('distance'),
             )
             if self._specification['hrirs'].get('side', '').startswith('both-'):
                 datareader._verify_angle_symmetry(self.fundamental_angles, self.orthogonal_angles)
@@ -118,7 +119,7 @@ class Dataset:
             if 'anthropometry' in self._specification.keys():
                 self._data['anthropometry'].append(datareader.anthropometric_data(subject, side=side, select=self._specification['anthropometry'].get('select')).astype(self.dtype))
             if 'hrirs' in self._specification.keys():
-                self._data['hrirs'].append(datareader.hrir(subject, side=side, fundamental_angles=self._specification['hrirs'].get('fundamental_angles'), orthogonal_angles=self._specification['hrirs'].get('orthogonal_angles')))
+                self._data['hrirs'].append(datareader.hrir(subject, side, self._specification['hrirs'].get('fundamental_angles'), self._specification['hrirs'].get('orthogonal_angles'), self._specification['hrirs'].get('distance')))
             if 'subject' in self._specification.keys():
                 self._data['subject'].append(subject)
             if 'side' in self._specification.keys():
@@ -250,6 +251,12 @@ def _get_hrir_samplerate_from_spec(features_spec, target_spec, group_spec):
     spec_list = [spec for spec in (features_spec, target_spec, group_spec) if spec is not None]
     hrir_spec = {k: v for d in spec_list for k, v in d.items()}.get('hrirs', {})
     return hrir_spec.get('samplerate')
+
+
+def _get_hrir_distance_from_spec(features_spec, target_spec, group_spec):
+    spec_list = [spec for spec in (features_spec, target_spec, group_spec) if spec is not None]
+    hrir_spec = {k: v for d in spec_list for k, v in d.items()}.get('hrirs', {})
+    return hrir_spec.get('distance')
 
 
 class Cipic(Dataset):
@@ -445,7 +452,6 @@ class Chedar(Dataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        radius: float = 1,
         dtype: type = np.float32,
         download: bool = False,
         verify: bool = False,
@@ -453,7 +459,7 @@ class Chedar(Dataset):
         datareader = ChedarDataReader(
             sofa_directory_path=Path(root)/'sofa',
             anthropometry_matfile_path=Path(root)/'measurements.mat',
-            radius=radius,
+            distance=_get_hrir_distance_from_spec(features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
         )
@@ -472,7 +478,6 @@ class Widespread(Dataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        radius: float = 1,
         grid: str = 'UV',
         dtype: type = np.float32,
         download: bool = False,
@@ -480,7 +485,7 @@ class Widespread(Dataset):
     ) -> None:
         datareader = WidespreadDataReader(
             sofa_directory_path=Path(root)/'sofa',
-            radius=radius,
+            distance=_get_hrir_distance_from_spec(features_spec, target_spec, group_spec),
             grid=grid,
             download=download,
             verify=verify,

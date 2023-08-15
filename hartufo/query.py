@@ -150,7 +150,7 @@ class DataQuery:
             if unknown_keys:
                 raise ValueError(f'Unknown specifier{"s" if len(unknown_keys) > 1 else ""} "{", ".join([str(k) for k in unknown_keys])}" in {key if key else "specification"}')
         validate_dict(spec, self.allowed_keys)
-        validate_dict(spec, ('side', 'domain', 'fundamental_angles', 'orthogonal_angles', 'additive_scale_factor', 'multiplicative_scale_factor', 'samplerate', 'length', 'min_phase', 'exclude', 'preprocess', 'transform'), 'hrirs')
+        validate_dict(spec, ('side', 'domain', 'fundamental_angles', 'orthogonal_angles', 'distance', 'additive_scale_factor', 'multiplicative_scale_factor', 'samplerate', 'length', 'min_phase', 'exclude', 'preprocess', 'transform'), 'hrirs')
         validate_dict(spec, ('preprocess', 'transform'), 'subject')
         validate_dict(spec, ('preprocess', 'transform'), 'side')
         validate_dict(spec, ('preprocess', 'transform'), 'collection')
@@ -728,17 +728,17 @@ class ChedarDataQuery(HrirDataQuery, AnthropometryDataQuery):
     ANTHROPOMETRY_DOWNLOAD = {'file_url': 'https://sofacoustics.org/data/database/chedar/measurements.mat'}
 
 
-    def __init__(self, sofa_directory_path='', anthropometry_matfile_path='', radius=1, download=False, verify=False):
-        if np.isclose(radius, 0.2):
+    def __init__(self, sofa_directory_path='', anthropometry_matfile_path='', distance='farthest', download=False, verify=False):
+        if (isinstance(distance, Number) and np.isclose(distance, 0.2)) or distance == 'nearest':
             self._radius = '02m'
-        elif np.isclose(radius, 0.5):
+        elif isinstance(distance, Number) and np.isclose(distance, 0.5):
             self._radius = '05m'
-        elif np.isclose(radius, 1):
+        elif isinstance(distance, Number) and np.isclose(distance, 1):
             self._radius = '1m'
-        elif np.isclose(radius, 2):
+        elif (isinstance(distance, Number) and np.isclose(distance, 2)) or distance == 'farthest' or distance is None:
             self._radius = '2m'
         else:
-            raise ValueError('The radius needs to be one of 0.2, 0.5, 1 or 2')
+            raise ValueError('The distance needs to be one of "nearest", "farthest", 0.2, 0.5, 1 or 2')
         super().__init__(collection_id='chedar', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_matfile_path, variant_key=self._radius, download=download, verify=verify)
 
 
@@ -772,17 +772,17 @@ class WidespreadDataQuery(HrirDataQuery):
     HRIR_DOWNLOAD = {'base_url': 'https://sofacoustics.org/data/database/widespread/'}
 
 
-    def __init__(self, sofa_directory_path='', radius=1, grid='UV', download=False, verify=False):
-        if np.isclose(radius, 0.2):
+    def __init__(self, sofa_directory_path='', distance='farthest', grid='UV', download=False, verify=False):
+        if (isinstance(distance, Number) and np.isclose(distance, 0.2)) or distance == 'nearest':
             self._radius = '02m'
-        elif np.isclose(radius, 0.5):
+        elif isinstance(distance, Number) and np.isclose(distance, 0.5):
             self._radius = '05m'
-        elif np.isclose(radius, 1):
+        elif isinstance(distance, Number) and np.isclose(distance, 1):
             self._radius = '1m'
-        elif np.isclose(radius, 2):
+        elif (isinstance(distance, Number) and np.isclose(distance, 2)) or distance == 'farthest' or distance is None:
             self._radius = '2m'
         else:
-            raise ValueError('The radius needs to be one of 0.2, 0.5, 1 or 2')
+            raise ValueError('The distance needs to be one of "nearest", "farthest", 0.2, 0.5, 1 or 2')
         if grid not in ('UV', 'ICO'):
             raise ValueError('The grid needs to be either "UV" or "ICO".')
         self._grid = grid

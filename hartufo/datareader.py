@@ -1,7 +1,7 @@
 from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, Princeton3D3ADataQuery, SonicomDataQuery
 from .util import wrap_closed_open_interval, wrap_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian
 from abc import abstractmethod
-from typing import Optional
+from typing import Optional, Union
 import numpy as np
 import netCDF4 as ncdf
 from PIL import Image
@@ -28,7 +28,7 @@ class SofaDataReader(DataReader):
     (elevation for spherical coordinates, lateral angle for interaural coordinates)
     """
 
-    _quantisation: int = 3
+    _angle_quantisation: int = 3
 
 
     @property
@@ -96,7 +96,7 @@ class SofaDataReader(DataReader):
         return length
 
 
-    def _map_sofa_position_order_to_matrix(self, subject_id, fundamental_angles, orthogonal_angles):
+    def _map_sofa_position_order_to_matrix(self, subject_id, fundamental_angles, orthogonal_angles, distance):
         if fundamental_angles is not None and orthogonal_angles is not None and len(fundamental_angles) != len(orthogonal_angles):
             raise ValueError(f'The number of fundamental angles ({len(fundamental_angles)}) differs from the number of orthogonal angles ({len(orthogonal_angles)})')
         sofa_path = self._sofa_path(subject_id)
@@ -110,40 +110,53 @@ class SofaDataReader(DataReader):
             raise ValueError(f'Error reading file "{sofa_path}"') from exc
         finally:
             hrir_file.close()
-        quantised_positions = np.round(positions, self._quantisation)
+        quantised_positions =  np.column_stack((np.round(positions[:, :2], self._angle_quantisation), positions[:, 2]))
         quantised_positions[:, 0] = wrap_closed_open_interval(quantised_positions[:, 0], -180, 180)
+        if isinstance(distance, str):
+            file_radii = np.unique(quantised_positions[:, 2])
+            if distance == 'nearest':
+                distance = file_radii[0]
+            elif distance == 'farthest':
+                distance = file_radii[-1]
+            else:
+                raise ValueError(f'Invalid distance "{distance}". Only "nearest", "farthest" or a value in meter is allowed.')
 
         if fundamental_angles is not None:
             fundamental_angles = wrap_closed_open_interval(fundamental_angles, -180, 180)
         if orthogonal_angles is not None:
             orthogonal_angles = wrap_closed_interval(orthogonal_angles, -90, 90)
-        radii = np.unique(quantised_positions[:, 2])
-        if fundamental_angles is None and orthogonal_angles is None:
+        if fundamental_angles is None and orthogonal_angles is None and distance is None:
             # Read all positions in file, without extra checks
             selected_file_indices = list(range(len(quantised_positions)))
         else:
             # Check if file positions are part of requested positions
             selected_file_indices = []
-            if fundamental_angles is not None:
-                if orthogonal_angles is not None:
-                    check = lambda file_fundamental_angle, file_orthogonal_angle: (np.isclose(file_fundamental_angle, fundamental_angles) & np.isclose(file_orthogonal_angle, orthogonal_angles)).any()
-                else:
-                    check = lambda file_fundamental_angle, _: np.isclose(file_fundamental_angle, fundamental_angles).any()
-            elif orthogonal_angles is not None:
-                check = lambda _, file_orthogonal_angle: np.isclose(file_orthogonal_angle, orthogonal_angles).any()
+            if fundamental_angles is None:
+                check_fundamental_angle = lambda _: True
+            else:
+                check_fundamental_angle = lambda file_fundamental_angle: np.isclose(file_fundamental_angle, fundamental_angles)
+            if orthogonal_angles is None:
+                check_orthogonal_angle = lambda _: True
+            else:
+                check_orthogonal_angle = lambda file_orthogonal_angle: np.isclose(file_orthogonal_angle, orthogonal_angles)
+            if distance is None:
+                check_distance = lambda _: True
+            else:
+                check_distance = lambda file_radius: np.isclose(file_radius, distance)
             for file_idx, (file_fundamental_angle, file_orthogonal_angle, file_radius) in enumerate(quantised_positions):
-                if check(file_fundamental_angle, file_orthogonal_angle):
+                if (check_fundamental_angle(file_fundamental_angle) & check_orthogonal_angle(file_orthogonal_angle) & check_distance(file_radius)).any():
                     selected_file_indices.append(file_idx)
 
         selected_positions = quantised_positions[selected_file_indices]
         selected_fundamental_angles = selected_positions[:, 0]
         selected_orthogonal_angles = selected_positions[:, 1]
         selected_radii = selected_positions[:, 2]
+        unique_radii = np.unique(selected_radii)
 
         for pole_angle in (-90, 90):
             # If value at pole requested
             if orthogonal_angles is None or np.isclose(orthogonal_angles, pole_angle).any():
-                for radius in radii:
+                for radius in unique_radii:
                     pole_indices = np.flatnonzero(np.isclose(quantised_positions[:, 1], pole_angle) & (quantised_positions[:, 2] == radius))
                     # If at least one value at pole present in file
                     if len(pole_indices) > 0:
@@ -151,7 +164,6 @@ class SofaDataReader(DataReader):
                         if fundamental_angles is not None and orthogonal_angles is not None:
                             requested_fundamental_angles_at_pole = fundamental_angles[orthogonal_angles == pole_angle]
                             selected_fundamental_angles = np.concatenate((selected_fundamental_angles, requested_fundamental_angles_at_pole))
-                            selected_radii = np.concatenate((selected_radii, [radius]))
                         # If pole angle not present in selection yet
                         if len(selected_orthogonal_angles) == 0 or not np.isclose(selected_orthogonal_angles, pole_angle).any():
                             # Add to column angles at appropriate extremum
@@ -162,14 +174,13 @@ class SofaDataReader(DataReader):
 
         unique_fundamental_angles = np.unique(selected_fundamental_angles)
         unique_orthogonal_angles = np.unique(selected_orthogonal_angles)
-        unique_radii = np.unique(selected_radii)
 
         additional_pole_indices = []
 
         def repeat_value_at_pole(pole_angle, pole_column_idx):
             # If value at pole requested
             if orthogonal_angles is None or np.isclose(orthogonal_angles, pole_angle).any():
-                for radius_idx, radius in enumerate(radii):
+                for radius_idx, radius in enumerate(unique_radii):
                     pole_indices = np.flatnonzero(np.isclose(quantised_positions[:, 1], pole_angle) & (quantised_positions[:, 2] == radius))
                     # If at least one value at pole present in file
                     if len(pole_indices) > 0:
@@ -190,7 +201,7 @@ class SofaDataReader(DataReader):
             selection_mask_indices.append((np.argmax(file_fundamental_angle == unique_fundamental_angles), np.argmax(file_orthogonal_angle == unique_orthogonal_angles), np.argmax(file_radius == unique_radii)))
         selection_mask_indices.extend(additional_pole_indices)
         if len(selection_mask_indices) == 0:
-            raise ValueError('None of the specified angles are available in this dataset')
+            raise ValueError('None of the specified HRIR measurement positions are available in this dataset')
 
         selection_mask_indices = tuple(np.array(selection_mask_indices).T)
         selection_mask = np.full((len(unique_fundamental_angles), len(unique_orthogonal_angles), len(unique_radii)), True)
@@ -199,8 +210,8 @@ class SofaDataReader(DataReader):
         return unique_fundamental_angles, unique_orthogonal_angles, unique_radii, selection_mask, selected_file_indices, selection_mask_indices
 
 
-    def hrir_positions(self, subject_id, coordinate_system, fundamental_angles=None, orthogonal_angles=None):
-        selected_fundamental_angles, selected_orthogonal_angles, selected_radii, selection_mask, *_ = self._map_sofa_position_order_to_matrix(subject_id, fundamental_angles, orthogonal_angles)
+    def hrir_positions(self, subject_id, coordinate_system, fundamental_angles=None, orthogonal_angles=None, distance=None):
+        selected_fundamental_angles, selected_orthogonal_angles, selected_radii, selection_mask, *_ = self._map_sofa_position_order_to_matrix(subject_id, fundamental_angles, orthogonal_angles, distance)
 
         coordinates = self._coordinate_transform(coordinate_system, selected_fundamental_angles, selected_orthogonal_angles, selected_radii)
 
@@ -212,7 +223,7 @@ class SofaDataReader(DataReader):
         return position_grid
 
 
-    def hrir(self, subject_id, side, fundamental_angles=None, orthogonal_angles=None):
+    def hrir(self, subject_id, side, fundamental_angles=None, orthogonal_angles=None, distance=None):
         sofa_path = self._sofa_path(subject_id)
         hrir_file = ncdf.Dataset(sofa_path)
         try:
@@ -222,7 +233,7 @@ class SofaDataReader(DataReader):
             raise ValueError(f'Error reading file "{sofa_path}"') from exc
         finally:
             hrir_file.close()
-        selected_fundamental_angles, _, _, selection_mask, selected_file_indices, selection_mask_indices = self._map_sofa_position_order_to_matrix(subject_id, fundamental_angles, orthogonal_angles)
+        selected_fundamental_angles, _, _, selection_mask, selected_file_indices, selection_mask_indices = self._map_sofa_position_order_to_matrix(subject_id, fundamental_angles, orthogonal_angles, distance)
         hrir_matrix = np.empty(selection_mask.shape + (hrirs.shape[1],))
         hrir_matrix[selection_mask_indices] = hrirs[selected_file_indices]
         tiled_selection_mask = np.tile(selection_mask[:, :, :, np.newaxis], (1, 1, 1, hrir_matrix.shape[-1]))
@@ -492,19 +503,18 @@ class RiecDataReader(SofaSphericalDataReader):
 
 class ChedarDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
-    _quantisation: int = 1
+    _angle_quantisation: int = 1
 
 
     def __init__(self,
         sofa_directory_path: str = '',
         anthropometry_matfile_path: str = '',
-        radius: float = 1,
+        distance: Optional[Union[float, str]] = None,
         download: bool = False,
         verify: bool = True,
     ):
-        query = ChedarDataQuery(sofa_directory_path, anthropometry_matfile_path, radius, download, verify)
+        query = ChedarDataQuery(sofa_directory_path, anthropometry_matfile_path, distance, download, verify)
         super().__init__(query)
-        self._quantisation = 1
 
 
     def _sofa_path(self, subject_id):
@@ -513,19 +523,18 @@ class ChedarDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
 class WidespreadDataReader(SofaSphericalDataReader):
 
-    _quantisation: int = 1
+    _angle_quantisation: int = 1
 
 
     def __init__(self,
         sofa_directory_path: str = '',
-        radius: float = 1,
+        distance: Optional[Union[float, str]] = None,
         grid: str = 'UV',
         download: bool = False,
         verify: bool = True,
     ):
-        query = WidespreadDataQuery(sofa_directory_path, radius, grid, download, verify)
+        query = WidespreadDataQuery(sofa_directory_path, distance, grid, download, verify)
         super().__init__(query)
-        self._quantisation = 1
 
 
     def _sofa_path(self, subject_id):
