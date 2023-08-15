@@ -1,4 +1,4 @@
-from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, Princeton3D3ADataQuery, ScutDataQuery, SonicomDataQuery
+from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, CrossModDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, Princeton3D3ADataQuery, ScutDataQuery, SonicomDataQuery
 from .util import wrap_closed_open_interval, wrap_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian
 from abc import abstractmethod
 from typing import Optional, Union
@@ -388,7 +388,7 @@ class CipicDataReader(SofaInterauralDataReader, AnthropometryDataReader, ImageDa
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / 'subject_{:03d}.sofa'.format(subject_id))
+        return str(self.query.sofa_directory_path / f'subject_{subject_id:03d}.sofa')
 
 
     def _image_path(self, subject_id, side, rear=False):
@@ -414,7 +414,7 @@ class AriDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def _sofa_path(self, subject_id):
         try:
-            return str(next(self.query.sofa_directory_path.glob('hrtf [bc]_nh{}.sofa'.format(subject_id))))
+            return str(next(self.query.sofa_directory_path.glob(f'hrtf [bc]_nh{subject_id}.sofa')))
         except :
             raise ValueError(f'No subject with id "{subject_id}" exists in the collection')
 
@@ -433,7 +433,23 @@ class ListenDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / self.query._variant_key / '44100' / 'IRC_{:04d}_{}_44100.sofa'.format(subject_id, self.query._hrtf_type_char))
+        return str(self.query.sofa_directory_path / self.query._variant_key / '44100' / f'IRC_{subject_id:04d}_{self.query._hrtf_type_char}_44100.sofa')
+
+
+class CrossModDataReader(SofaSphericalDataReader):
+
+    def __init__(self,
+        sofa_directory_path: str = '',
+        hrtf_type: str = 'compensated',
+        download: bool = False,
+        verify: bool = True,
+    ):
+        query = CrossModDataQuery(sofa_directory_path, hrtf_type, download, verify)
+        super().__init__(query)
+
+
+    def _sofa_path(self, subject_id):
+        return str(self.query.sofa_directory_path / self.query._variant_key / '44100' / f'IRC_{subject_id:04d}_{self.query._hrtf_type_char}_44100.sofa')
 
 
 class BiLiDataReader(SofaSphericalDataReader):
@@ -450,7 +466,7 @@ class BiLiDataReader(SofaSphericalDataReader):
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / self.query._hrtf_type / str(self.query._samplerate) / 'IRC_{:04d}_{}_HRIR_{}.sofa'.format(subject_id, self.query._hrtf_type_char, self.query._samplerate))
+        return str(self.query.sofa_directory_path / self.query._hrtf_type / str(self.query._samplerate) / f'IRC_{subject_id:04d}_{self.query._hrtf_type_char}_HRIR_{self.query._samplerate}.sofa')
 
 
 class ItaDataReader(SofaSphericalDataReader, AnthropometryDataReader):
@@ -466,7 +482,7 @@ class ItaDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / 'MRT{:02d}.sofa'.format(subject_id))
+        return str(self.query.sofa_directory_path / f'MRT{subject_id:02d}.sofa')
 
 
 class HutubsDataReader(SofaSphericalDataReader, AnthropometryDataReader):
@@ -483,7 +499,7 @@ class HutubsDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / 'pp{:d}_HRIRs_{}.sofa'.format(subject_id, self.query._variant_key))
+        return str(self.query.sofa_directory_path / f'pp{subject_id:d}_HRIRs_{self.query._variant_key}.sofa')
 
 
 class RiecDataReader(SofaSphericalDataReader):
@@ -559,7 +575,7 @@ class Sadie2DataReader(SofaSphericalDataReader, ImageDataReader):
             sadie2_id = f'D{subject_id}'
         else:
             sadie2_id = f'H{subject_id}'
-        return str(self.query.sofa_directory_path / f'{sadie2_id}/{sadie2_id}_HRIR_SOFA/{sadie2_id}_{self.query._samplerate_str}_FIR_SOFA.sofa')
+        return str(self.query.sofa_directory_path / sadie2_id / f'{sadie2_id}_HRIR_SOFA' / f'{sadie2_id}_{self.query._samplerate_str}_FIR_SOFA.sofa')
 
 
     def _image_path(self, subject_id, side, rear=False):
@@ -590,7 +606,7 @@ class Princeton3D3ADataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / f'{self.query._method_str}/Subject{subject_id}/Subject{subject_id}_{self.query._hrtf_type_str}.sofa')
+        return str(self.query.sofa_directory_path / self.query._method_str / f'Subject{subject_id}' / f'Subject{subject_id}_{self.query._hrtf_type_str}.sofa')
 
 
 

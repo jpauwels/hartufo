@@ -585,6 +585,34 @@ class ListenDataQuery(HrirDataQuery, AnthropometryDataQuery):
         }
 
 
+class CrossModDataQuery(HrirDataQuery):
+
+    HRIR_DOWNLOAD = {'archive_url': 'http://bili2.ircam.fr/Archives/SimpleFreeFieldHRIR/CROSSMOD/{}/44100/archive.zip',
+                     'archive_checksum': '',
+                     'path_in_archive': '.',
+                     'target_suffix': ''}
+    HRIR_ARCHIVE_CHECKSUMS = {'raw': 'c1f7b2d034731c6cb2f8132c569a9063', 'compensated': 'b5e70b6b9795ce794bbd28fb48291e1a'}
+
+
+    def __init__(self, sofa_directory_path='', hrtf_type='compensated', download=False, verify=False):
+        if hrtf_type == 'raw':
+            self._hrtf_type_char = 'R'
+        elif hrtf_type == 'compensated':
+            self._hrtf_type_char = 'C'
+        else:
+            raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
+        self._hrtf_type = hrtf_type
+        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD['archive_url'].format(hrtf_type.upper())
+        self.HRIR_DOWNLOAD['archive_checksum'] = self.HRIR_ARCHIVE_CHECKSUMS[hrtf_type]
+        self.HRIR_DOWNLOAD['target_suffix'] = f'{hrtf_type}/44100'
+        super().__init__(collection_id='crossmod', sofa_directory_path=sofa_directory_path, variant_key=hrtf_type, download=download, verify=verify)
+        self._default_hrirs_exclude = ()
+
+
+    def _all_hrir_ids(self, side):
+        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._hrtf_type / '44100').glob(f'IRC_????_{self._hrtf_type_char}_44100.sofa')])
+
+
 class BiLiDataQuery(HrirDataQuery):
 
     HRIR_DOWNLOAD = {'archive_url': 'http://bili2.ircam.fr/Archives/SimpleFreeFieldHRIR/BILI/{}/{}/archive.zip',
