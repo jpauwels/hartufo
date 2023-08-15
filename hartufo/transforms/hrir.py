@@ -1,7 +1,7 @@
 from ..transforms import BatchTransform
-from ..util import wrap_closed_open_interval
+from ..util import wrap_closed_open_interval, lateral_vertical_from_yaw, lateral_vertical_from_pitch, lateral_vertical_from_roll, azimuth_elevation_from_yaw, azimuth_elevation_from_pitch, azimuth_elevation_from_roll
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Iterable, Optional
 import numpy as np
 import numpy.typing as npt
 from scipy.fft import rfft, fft, ifft
@@ -135,10 +135,13 @@ class DomainTransform(BatchTransform):
 
 class PlaneTransform(ABC):
 
-    def __init__(self, plane, plane_offset, positive_angles):
+    def __init__(self, plane, plane_offset, positive_angles, fundamental_angles, orthogonal_angles, selection_mask):
         self.plane = plane
         self.plane_offset = plane_offset
-        self.positive_angles = positive_angles
+        self.fundamental_angles = fundamental_angles
+        self.orthogonal_angles = orthogonal_angles
+        self.selection_mask = selection_mask
+        self.positive_angles = positive_angles # triggers calculation of min_angle, max_angle & plane_angles
 
 
     @property
@@ -147,7 +150,7 @@ class PlaneTransform(ABC):
 
 
     @positive_angles.setter
-    def positive_angles(self, value):
+    def positive_angles(self, value: bool):
         self._positive_angles = value
         if value:
             self.min_angle = 0
@@ -158,6 +161,17 @@ class PlaneTransform(ABC):
         else:
             self.min_angle = -90
             self.max_angle = 270
+        self.plane_angles = self._calc_plane_angles()
+
+
+    @staticmethod
+    @abstractmethod
+    def convert_plane_angles(
+        plane: str,
+        plane_angles: Optional[Iterable[float]],
+        plane_offset: float,
+    ):
+        pass
 
 
     @abstractmethod
@@ -175,7 +189,11 @@ class PlaneTransform(ABC):
 
 
     @abstractmethod
-    def calc_plane_angles(self, selected_angles):
+    def _calc_plane_angles(self):
+        pass
+    
+
+    def _stitch_plane(self, selected_angles):
         plane_angles = self(selected_angles)
         return wrap_closed_open_interval(plane_angles, self.min_angle, self.max_angle)
 
@@ -209,11 +227,42 @@ class InterauralPlaneTransform(PlaneTransform):
     _neg_sphere_present: bool
 
 
-    def calc_plane_angles(self, row_angles, column_angles, selection_mask):
-        if selection_mask is None:
+    @staticmethod
+    def convert_plane_angles(
+        plane: str,
+        plane_angles: Optional[Iterable[float]],
+        plane_offset: float,
+    ):
+        if plane == 'horizontal' or plane == 'interaural':
+            if plane == 'horizontal' and plane_offset != 0:
+                raise ValueError('Only the horizontal plane at vertical angle 0 is available in an interaural grid dataset')
+            if plane_angles is None:
+                lateral_angles, vertical_angles = None, (plane_offset - 180, plane_offset)
+            else:
+                lateral_angles, vertical_angles = lateral_vertical_from_yaw(plane_angles, plane_offset)
+        elif plane == 'median':
+            if plane_angles is None:
+                lateral_angles, vertical_angles = (plane_offset,), None
+            else:
+                lateral_angles, vertical_angles = lateral_vertical_from_pitch(plane_angles, plane_offset)
+        elif plane == 'frontal':
+            if plane_offset != 0:
+                raise ValueError('Only the frontal plane at vertical angles +/-90 is available in an interaural grid dataset')
+            if plane_angles is None:
+                lateral_angles, vertical_angles = None, (plane_offset - 90, plane_offset + 90)
+            else:
+                lateral_angles, vertical_angles = lateral_vertical_from_roll(plane_angles, plane_offset)
+        else:
+            if plane not in ('horizontal', 'median', 'frontal', 'interaural'):
+                raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal" or "interaural".')
+        return vertical_angles, lateral_angles
+
+
+    def _calc_plane_angles(self):
+        if self.selection_mask is None:
             return np.array([])
-        vertical_angles = row_angles
-        lateral_angles = np.ma.array(column_angles, mask=selection_mask[0])
+        vertical_angles = self.fundamental_angles
+        lateral_angles = np.ma.array(self.orthogonal_angles, mask=self.selection_mask[0])
 
         if self.plane == 'median':
             input_angles = vertical_angles
@@ -222,11 +271,11 @@ class InterauralPlaneTransform(PlaneTransform):
             else:
                 self._split_idx = self._idx_first_not_smaller_than(vertical_angles, -90)
         else:
-            self._split_idx = self._idx_first_not_smaller_than(column_angles)
+            self._split_idx = self._idx_first_not_smaller_than(self.orthogonal_angles)
             if len(vertical_angles) > 1:
                 # both half planes present
                 back_yaw_angles = 180-lateral_angles
-                front_yaw_angles = np.ma.array(column_angles, mask=selection_mask[1])
+                front_yaw_angles = np.ma.array(self.orthogonal_angles, mask=self.selection_mask[1])
                 input_angles = [back_yaw_angles, front_yaw_angles]
                 self._left_pole_overlap = np.isclose(front_yaw_angles, 90).any() and np.isclose(back_yaw_angles, 90).any()
                 self._right_pole_overlap = np.isclose(front_yaw_angles, -90).any() and np.isclose(back_yaw_angles, 270).any()
@@ -255,7 +304,7 @@ class InterauralPlaneTransform(PlaneTransform):
                 # reverse angular direction
                 input_angles = [-x for x in input_angles]
 
-        return super().calc_plane_angles(input_angles)
+        return super()._stitch_plane(input_angles)
 
 
     def __call__(self, hrirs: np.ma.MaskedArray):
@@ -346,21 +395,51 @@ class SphericalPlaneTransform(PlaneTransform):
     _neg_sphere_present: bool
 
 
-    def calc_plane_angles(self, row_angles, column_angles, selection_mask):
-        if selection_mask is None:
+    @staticmethod
+    def convert_plane_angles(
+        plane: str,
+        plane_angles: Optional[Iterable[float]],
+        plane_offset: float,
+    ):
+        if plane == 'horizontal':
+            if plane_angles is None:
+                azimuth_angles, elevation_angles = None, (plane_offset,)
+            else:
+                azimuth_angles, elevation_angles = azimuth_elevation_from_yaw(plane_angles, plane_offset)
+        elif plane == 'median' or plane == 'vertical':
+            if plane == 'median' and plane_offset != 0:
+                raise ValueError('Only the median plane at azimuth 0 is available in a spherical coordinate dataset')
+            if plane_angles is None:
+                azimuth_angles, elevation_angles = (plane_offset - 180, plane_offset), None
+            else:
+                azimuth_angles, elevation_angles = azimuth_elevation_from_pitch(plane_angles, plane_offset)
+        elif plane == 'frontal':
+            if plane_offset != 0:
+                raise ValueError('Only the frontal plane at azimuth +/-90 is available in a spherical coordinate dataset')
+            if plane_angles is None:
+                azimuth_angles, elevation_angles = (plane_offset - 90, plane_offset + 90), None
+            else:
+                azimuth_angles, elevation_angles = azimuth_elevation_from_roll(plane_angles, plane_offset)
+        else:
+            raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal" or "vertical".')
+        return azimuth_angles, elevation_angles
+
+
+    def _calc_plane_angles(self):
+        if self.selection_mask is None:
             return np.array([])
-        azimuth_angles = row_angles
-        elevation_angles = np.ma.array(column_angles, mask=selection_mask[0])
+        azimuth_angles = self.fundamental_angles
+        elevation_angles = np.ma.array(self.orthogonal_angles, mask=self.selection_mask[0])
 
         if self.plane == 'horizontal':
             input_angles = azimuth_angles
             self._split_idx = self._idx_first_not_smaller_than(azimuth_angles)
         else:
-            self._split_idx = self._idx_first_not_smaller_than(column_angles)
+            self._split_idx = self._idx_first_not_smaller_than(self.orthogonal_angles)
             if len(azimuth_angles) > 1:
                 # both half planes present
                 back_pitch_angles = 180-elevation_angles
-                front_pitch_angles = np.ma.array(column_angles, mask=selection_mask[1])
+                front_pitch_angles = np.ma.array(self.orthogonal_angles, mask=self.selection_mask[1])
                 input_angles = [back_pitch_angles, front_pitch_angles]
                 self._up_pole_overlap = np.isclose(front_pitch_angles, 90).any() and np.isclose(back_pitch_angles, 90).any()
                 self._down_pole_overlap = np.isclose(front_pitch_angles, -90).any() and np.isclose(back_pitch_angles, 270).any()
@@ -389,7 +468,7 @@ class SphericalPlaneTransform(PlaneTransform):
                 # shift origin from Y to Z axis
                 input_angles = [x - 90 for x in input_angles]
         
-        return super().calc_plane_angles(input_angles)
+        return super()._stitch_plane(input_angles)
 
 
     def __call__(self, hrirs: np.ma.MaskedArray):

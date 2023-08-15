@@ -140,28 +140,15 @@ class DataQuery:
 
 
     def validate_specification(self, spec):
-        def validate_dict(given_dict, allowed_keys, key=''):
-            if key:
-                try:
-                    given_dict = given_dict[key]
-                except KeyError:
-                    return
-            unknown_keys = sorted([x for x in set(given_dict.keys()).difference(allowed_keys)])
-            if unknown_keys:
-                raise ValueError(f'Unknown specifier{"s" if len(unknown_keys) > 1 else ""} "{", ".join([str(k) for k in unknown_keys])}" in {key if key else "specification"}')
-        validate_dict(spec, self.allowed_keys)
-        validate_dict(spec, ('side', 'domain', 'fundamental_angles', 'orthogonal_angles', 'distance', 'additive_scale_factor', 'multiplicative_scale_factor', 'samplerate', 'length', 'min_phase', 'exclude', 'preprocess', 'transform'), 'hrirs')
-        validate_dict(spec, ('preprocess', 'transform'), 'subject')
-        validate_dict(spec, ('preprocess', 'transform'), 'side')
-        validate_dict(spec, ('preprocess', 'transform'), 'collection')
-        validate_dict(spec, ('side', 'rear', 'preprocess', 'transform'), 'image')
-        validate_dict(spec, ('side', 'select', 'partial', 'preprocess', 'transform'), 'anthropometry')
+        unknown_keys = sorted([x for x in set(spec.keys()).difference(self.allowed_keys)])
+        if unknown_keys:
+            raise ValueError(f'This collection does not accept specifier{"s" if len(unknown_keys) > 1 else ""} "{", ".join([f"{k.title()}Spec" for k in unknown_keys])}"')
 
 
     def specification_based_ids(self, specification, include_subjects=None, exclude_subjects=None):
         self.validate_specification(specification)
         all_sides = {}
-        for key in ('hrirs', 'image', 'anthropometry'):
+        for key in ('hrir', 'image', 'anthropometry'):
             side = specification.get(key, {}).get('side')
             if side is not None:
                 all_sides[key] = side
@@ -176,7 +163,7 @@ class DataQuery:
         separate_ids = []
         if 'image' in specification.keys():
             side = specification['image'].get('side', default_side)
-            rear = specification['image'].get('rear')
+            rear = specification['image']['rear']
             exclude = specification['image'].get('exclude', exclude_subjects)
             separate_ids.append(set(self.image_ids(side, rear, exclude)))
         if 'anthropometry' in specification.keys():
@@ -184,9 +171,9 @@ class DataQuery:
             exclude = specification['anthropometry'].get('exclude', exclude_subjects)
             optional_kwargs = {k: v for k, v in specification['anthropometry'].items() if k in ('select', 'partial')}
             separate_ids.append(set(self.anthropometry_ids(side, **optional_kwargs, exclude=exclude)))
-        if 'hrirs' in specification.keys():
-            side = specification['hrirs'].get('side', default_side)
-            exclude = specification['hrirs'].get('exclude', exclude_subjects)
+        if 'hrir' in specification.keys():
+            side = specification['hrir'].get('side', default_side)
+            exclude = specification['hrir'].get('exclude', exclude_subjects)
             separate_ids.append(set(self.hrir_ids(side, exclude)))
 
         ids = sorted(set.intersection(*separate_ids))
@@ -239,7 +226,7 @@ class HrirDataQuery(DataQuery):
     ):
         if sofa_directory_path:
             self.allowed_keys = list(self.allowed_keys)
-            self.allowed_keys += ['hrirs']
+            self.allowed_keys += ['hrir']
         self.sofa_directory_path = Path(sofa_directory_path)
         self._variant_key = variant_key
         super().__init__(**kwargs)
@@ -256,13 +243,13 @@ class HrirDataQuery(DataQuery):
 
     def _check_integrity(self) -> bool:
         super()._check_integrity()
-        if 'hrirs' in self.allowed_keys:
+        if 'hrir' in self.allowed_keys:
             self._integrity_helper(HRIR_CHECKSUMS[self.collection_id][self._variant_key], self.sofa_directory_path)
 
 
     def _download(self) -> None:
         super()._download()
-        if 'hrirs' in self.allowed_keys:
+        if 'hrir' in self.allowed_keys:
             self._download_helper(self.HRIR_DOWNLOAD, HRIR_CHECKSUMS[self.collection_id][self._variant_key], self.sofa_directory_path)
 
 

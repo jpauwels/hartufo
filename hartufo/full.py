@@ -1,10 +1,12 @@
 from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, CrossModDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader
-from .transforms.hrirs import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform
+from .specifications import Spec, HrirSpec, sanitise_specs, sanitise_multiple_specs
+from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, InterauralPlaneTransform, SphericalPlaneTransform
 from collections import defaultdict
 from copy import deepcopy
+from itertools import chain
 from pathlib import Path
 from numbers import Integral
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, Union
 import numpy as np
 import numpy.typing as npt
 from scipy.fft import rfftfreq
@@ -15,9 +17,9 @@ class Dataset:
     def __init__(
         self,
         datareader: DataReader,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -25,7 +27,7 @@ class Dataset:
         dict_format = True,
     ) -> None:
         super().__init__()
-        self._query = datareader.query
+        self.query = datareader.query
         self.fundamental_angle_name = datareader.fundamental_angle_name
         self.orthogonal_angle_name = datareader.orthogonal_angle_name
         # Allow specifying ids that are excluded by default without explicitly overriding `exclude_ids``
@@ -35,24 +37,23 @@ class Dataset:
         self._dict_format = dict_format
         self.dtype = dtype
 
-        if target_spec is None:
-            target_spec = {}
-        if group_spec is None:
-            group_spec = {}
+        features_spec = sanitise_specs(features_spec)
+        target_spec = sanitise_specs(target_spec)
+        group_spec = sanitise_specs(group_spec)
 
-        self._specification = {**features_spec, **target_spec, **group_spec}
+        self._specification = {spec.name: spec.spec for spec in chain(features_spec, target_spec, group_spec)}
         if not self._specification:
-            raise ValueError('At least one specification should not be empty')
-        self._features_keys = tuple(features_spec.keys())
-        self._target_keys = tuple(target_spec.keys())
-        self._group_keys = tuple(group_spec.keys())
+            raise ValueError('At least one specification should be given.')
+        self._features_keys = tuple((spec.name for spec in features_spec))
+        self._target_keys = tuple((spec.name for spec in target_spec))
+        self._group_keys = tuple((spec.name for spec in group_spec))
 
         if subject_requirements is not None:
             self._specification = {**self._specification, **subject_requirements}
-        ear_ids = self._query.specification_based_ids(self._specification, include_subjects=subject_ids, exclude_subjects=exclude_ids)
+        ear_ids = self.query.specification_based_ids(self._specification, include_subjects=subject_ids, exclude_subjects=exclude_ids)
 
         if len(ear_ids) == 0:
-            if len(self._query.specification_based_ids(self._specification)) == 0:
+            if len(self.query.specification_based_ids(self._specification)) == 0:
                 raise ValueError('Empty dataset. Check if its configuration and paths are correct.')
             if subject_ids:
                 raise ValueError('None of the explicitly requested subject IDs are available.')
@@ -69,57 +70,54 @@ class Dataset:
 
         self.subject_ids, self.sides = zip(*ear_ids)
 
-        for k in self._specification.keys():
-            transform_callable = self._specification[k].get('transform', [])
-            if callable(transform_callable):
-                transform_callable = [transform_callable]
-            self._specification[k]['transform'] = transform_callable
-            preprocess_callable = self._specification[k].get('preprocess', [])
-            if callable(preprocess_callable):
-                preprocess_callable = [preprocess_callable]
-            self._specification[k]['preprocess'] = preprocess_callable
-                
-        if 'hrirs' in self._specification.keys():
+        if 'hrir' in self._specification.keys():
+            hrir_spec = self._specification['hrir']
+            # Handle planar specification
+            if 'plane' in hrir_spec:
+                requested_fundamental_angles, requested_orthogonal_angles = self.PlaneTransform.convert_plane_angles(hrir_spec['plane'], hrir_spec.get('plane_angles'), hrir_spec['plane_offset'])
+            else:
+                requested_fundamental_angles, requested_orthogonal_angles = hrir_spec.get('fundamental_angles'), hrir_spec.get('orthogonal_angles')
             # Verify angle symmetry before reading complete dataset
             self.fundamental_angles, self.orthogonal_angles, self.radii, self._selection_mask, *_ = datareader._map_sofa_position_order_to_matrix(
-                self.subject_ids[0],
-                self._specification['hrirs'].get('fundamental_angles'),
-                self._specification['hrirs'].get('orthogonal_angles'),
-                self._specification['hrirs'].get('distance'),
+                self.subject_ids[0], requested_fundamental_angles, requested_orthogonal_angles, hrir_spec.get('distance'),
             )
-            if self._specification['hrirs'].get('side', '').startswith('both-'):
+            if hrir_spec.get('side', '').startswith('both-'):
                 datareader._verify_angle_symmetry(self.fundamental_angles, self.orthogonal_angles)
+            # Create plane transform from file angles and mask
+            if 'plane' in hrir_spec:
+                self._plane_transform = self.PlaneTransform(hrir_spec['plane'], hrir_spec['plane_offset'], hrir_spec['positive_angles'], self.fundamental_angles, self.orthogonal_angles, self._selection_mask)
+                self.append_transform(HrirSpec, self._plane_transform)
             # Construct HRIR processing pipeline
             hrir_pipeline = []
             recorded_hrir_length = datareader.hrir_length(self.subject_ids[0])
             recorded_samplerate = datareader.hrir_samplerate(self.subject_ids[0])
-            if self._specification['hrirs'].get('additive_scale_factor') is not None or self._specification['hrirs'].get('multiplicative_scale_factor'):
-                hrir_pipeline.append(ScaleTransform(self._specification['hrirs'].get('additive_scale_factor'), self._specification['hrirs'].get('multiplicative_scale_factor')))
-            if self._specification['hrirs'].get('min_phase', False):
+            if hrir_spec.get('additive_scale_factor') is not None or hrir_spec.get('multiplicative_scale_factor'):
+                hrir_pipeline.append(ScaleTransform(hrir_spec.get('additive_scale_factor'), hrir_spec.get('multiplicative_scale_factor')))
+            if hrir_spec['min_phase']:
                 hrir_pipeline.append(MinPhaseTransform(recorded_hrir_length))
-            if self._specification['hrirs'].get('samplerate') is None:
+            if hrir_spec.get('samplerate') is None:
                 self.hrir_samplerate = recorded_samplerate
             else:
-                self.hrir_samplerate = self._specification['hrirs']['samplerate']
+                self.hrir_samplerate = hrir_spec['samplerate']
                 hrir_pipeline.append(ResampleTransform(self.hrir_samplerate / recorded_samplerate))
-            if self._specification['hrirs'].get('length') is None:
+            if hrir_spec.get('length') is None:
                 self.hrir_length = recorded_hrir_length
             else:
-                self.hrir_length = self._specification['hrirs']['length']
+                self.hrir_length = hrir_spec['length']
                 hrir_pipeline.append(TruncateTransform(self.hrir_length))
-            if self._specification['hrirs'].get('domain') is not None or self.dtype is not None:
-                hrir_pipeline.append(DomainTransform(self._specification['hrirs'].get('domain', 'time'), self.dtype))
-            self._specification['hrirs']['preprocess'] = hrir_pipeline + self._specification['hrirs']['preprocess']
+            if hrir_spec['domain'] is not None or self.dtype is not None:
+                hrir_pipeline.append(DomainTransform(hrir_spec['domain'], self.dtype))
+            hrir_spec['preprocess'] = hrir_pipeline + hrir_spec['preprocess']
             self.hrtf_frequencies = rfftfreq(self.hrir_length, 1/self.hrir_samplerate)
 
         self._data = defaultdict(list)
         for subject, side in ear_ids:
             if 'image' in self._specification.keys():
-                self._data['image'].append(datareader.image(subject, side=side, rear=self._specification['image'].get('rear', False)))
+                self._data['image'].append(datareader.image(subject, side=side, rear=self._specification['image']['rear']))
             if 'anthropometry' in self._specification.keys():
                 self._data['anthropometry'].append(datareader.anthropometric_data(subject, side=side, select=self._specification['anthropometry'].get('select')).astype(self.dtype))
-            if 'hrirs' in self._specification.keys():
-                self._data['hrirs'].append(datareader.hrir(subject, side, self._specification['hrirs'].get('fundamental_angles'), self._specification['hrirs'].get('orthogonal_angles'), self._specification['hrirs'].get('distance')))
+            if 'hrir' in self._specification.keys():
+                self._data['hrir'].append(datareader.hrir(subject, side, requested_fundamental_angles, requested_orthogonal_angles, self._specification['hrir'].get('distance')))
             if 'subject' in self._specification.keys():
                 self._data['subject'].append(subject)
             if 'side' in self._specification.keys():
@@ -128,7 +126,7 @@ class Dataset:
                 self._data['collection'].append(datareader.query.collection_id)
 
         for k in self._specification.keys():
-            if k in ('hrirs', 'anthropometry'):
+            if k in ('hrir', 'anthropometry'):
                 try:
                     self._data[k] = np.ma.stack(self._data[k])
                 except ValueError:
@@ -207,23 +205,27 @@ class Dataset:
 
     @property
     def available_subject_ids(self):
-        ear_ids = self._query.specification_based_ids(self._specification, exclude_subjects=self._exclude_ids)
+        ear_ids = self.query.specification_based_ids(self._specification, exclude_subjects=self._exclude_ids)
         subject_ids, _ = zip(*ear_ids)
         return tuple(np.unique(subject_ids))
 
 
-    def insert_transform(self, data_type, transform_callable, index):
-        if data_type not in self._specification.keys():
-            raise ValueError(f'This Dataset does not contain any {data_type}.')
-        self._specification[data_type]['transform'].insert(index, transform_callable)
+    def insert_transform(self, spec_type, transform_callable, index):
+        if spec_type.name not in self._specification.keys():
+            raise ValueError(f'No {spec_type.name.title()}Spec in this Dataset.')
+        self._specification[spec_type.name]['transform'].insert(index, transform_callable)
 
 
-    def prepend_transform(self, data_type, transform_callable):
-        self.insert_transform(data_type, transform_callable, 0)
+    def prepend_transform(self, spec_type, transform_callable):
+        self.insert_transform(spec_type, transform_callable, 0)
 
 
-    def append_transform(self, data_type, transform_callable):
-        self.insert_transform(data_type, transform_callable, len(self._specification[data_type]['transform']))
+    def append_transform(self, spec_type, transform_callable):
+        self.insert_transform(spec_type, transform_callable, len(self._specification[data_type]['transform']))
+
+
+    def delete_transform(self, spec_type, index):
+        self._specification[spec_type.name]['transform'].pop(index)
 
 
 def split_by_angles(dataset: Dataset):
@@ -242,32 +244,28 @@ def split_by_angles(dataset: Dataset):
                         angle_dataset.positive_angles = dataset.positive_angles
                     except AttributeError:
                         pass
-                    angle_dataset._data['hrirs'] = angle_dataset._data['hrirs'][:, row_idx:row_idx+1, column_idx:column_idx+1, radius_idx:radius_idx+1]
+                    angle_dataset._data['hrir'] = angle_dataset._data['hrir'][:, row_idx:row_idx+1, column_idx:column_idx+1, radius_idx:radius_idx+1]
                     angle_datasets.append(angle_dataset)
     return angle_datasets
 
 
-def _get_hrir_samplerate_from_spec(features_spec, target_spec, group_spec):
-    spec_list = [spec for spec in (features_spec, target_spec, group_spec) if spec is not None]
-    hrir_spec = {k: v for d in spec_list for k, v in d.items()}.get('hrirs', {})
-    return hrir_spec.get('samplerate')
-
-
-def _get_hrir_distance_from_spec(features_spec, target_spec, group_spec):
-    spec_list = [spec for spec in (features_spec, target_spec, group_spec) if spec is not None]
-    hrir_spec = {k: v for d in spec_list for k, v in d.items()}.get('hrirs', {})
-    return hrir_spec.get('distance')
+def _get_value_from_hrir_spec(key, *specs):
+    hrir_dict = {k: v for spec in sanitise_multiple_specs(specs) if isinstance(spec, HrirSpec) for k, v in spec.spec.items()}
+    return hrir_dict.get(key)
 
 
 class Cipic(Dataset):
     """CIPIC HRTF Dataset
     """
+    PlaneTransform = InterauralPlaneTransform
+
+
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -288,12 +286,15 @@ class Cipic(Dataset):
 class Ari(Dataset):
     """ARI HRTF Dataset
     """
+    PlaneTransform = SphericalPlaneTransform
+
+    
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -313,12 +314,15 @@ class Ari(Dataset):
 class Listen(Dataset):
     """Listen HRTF Dataset
     """
+    PlaneTransform = SphericalPlaneTransform
+
+    
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -340,12 +344,15 @@ class Listen(Dataset):
 class CrossMod(Dataset):
     """CrossMod HRTF Dataset
     """
+    PlaneTransform = SphericalPlaneTransform
+
+    
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -366,12 +373,15 @@ class CrossMod(Dataset):
 class BiLi(Dataset):
     """BiLi HRTF Dataset
     """
+    PlaneTransform = SphericalPlaneTransform
+
+    
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -383,7 +393,7 @@ class BiLi(Dataset):
         datareader = BiLiDataReader(
             sofa_directory_path=Path(root)/'sofa',
             hrtf_type=hrtf_type,
-            hrir_samplerate=_get_hrir_samplerate_from_spec(features_spec, target_spec, group_spec),
+            hrir_samplerate=_get_value_from_hrir_spec('samplerate', features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
         )
@@ -393,12 +403,15 @@ class BiLi(Dataset):
 class Ita(Dataset):
     """ITA HRTF Dataset
     """
+    PlaneTransform = SphericalPlaneTransform
+
+    
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -418,12 +431,15 @@ class Ita(Dataset):
 class Hutubs(Dataset):
     """HUTUBS HRTF Dataset
     """
+    PlaneTransform = SphericalPlaneTransform
+
+    
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -445,12 +461,15 @@ class Hutubs(Dataset):
 class Riec(Dataset):
     """RIEC HRTF Dataset
     """
+    PlaneTransform = SphericalPlaneTransform
+
+    
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -469,12 +488,15 @@ class Riec(Dataset):
 class Chedar(Dataset):
     """CHEDAR HRTF Dataset
     """
+    PlaneTransform = SphericalPlaneTransform
+
+    
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -485,7 +507,7 @@ class Chedar(Dataset):
         datareader = ChedarDataReader(
             sofa_directory_path=Path(root)/'sofa',
             anthropometry_matfile_path=Path(root)/'measurements.mat',
-            distance=_get_hrir_distance_from_spec(features_spec, target_spec, group_spec),
+            distance=_get_value_from_hrir_spec('distance', features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
         )
@@ -495,12 +517,15 @@ class Chedar(Dataset):
 class Widespread(Dataset):
     """Widespread HRTF Dataset
     """
+    PlaneTransform = SphericalPlaneTransform
+
+    
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -511,7 +536,7 @@ class Widespread(Dataset):
     ) -> None:
         datareader = WidespreadDataReader(
             sofa_directory_path=Path(root)/'sofa',
-            distance=_get_hrir_distance_from_spec(features_spec, target_spec, group_spec),
+            distance=_get_value_from_hrir_spec('distance', features_spec, target_spec, group_spec),
             grid=grid,
             download=download,
             verify=verify,
@@ -522,12 +547,15 @@ class Widespread(Dataset):
 class Sadie2(Dataset):
     """SADIE II HRTF Dataset
     """
+    PlaneTransform = SphericalPlaneTransform
+
+    
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -538,7 +566,7 @@ class Sadie2(Dataset):
         datareader = Sadie2DataReader(
             sofa_directory_path=Path(root)/'Database-Master_V1-4',
             image_directory_path=Path(root)/'Database-Master_V1-4',
-            hrir_samplerate=_get_hrir_samplerate_from_spec(features_spec, target_spec, group_spec),
+            hrir_samplerate=_get_value_from_hrir_spec('samplerate', features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
         )
@@ -548,12 +576,15 @@ class Sadie2(Dataset):
 class Princeton3D3A(Dataset):
     """3D3A HRTF Dataset
     """
+    PlaneTransform = SphericalPlaneTransform
+
+    
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -577,12 +608,15 @@ class Princeton3D3A(Dataset):
 class Scut(Dataset):
     """SCUT HRTF Dataset
     """
+    PlaneTransform = SphericalPlaneTransform
+
+    
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -602,12 +636,15 @@ class Scut(Dataset):
 class Sonicom(Dataset):
     """SONICOM HRTF Dataset
     """
+    PlaneTransform = SphericalPlaneTransform
+
+    
     def __init__(
         self,
         root: str,
-        features_spec: Dict,
-        target_spec: Optional[Dict] = None,
-        group_spec: Optional[Dict] = None,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
@@ -619,7 +656,7 @@ class Sonicom(Dataset):
         datareader = SonicomDataReader(
             sofa_directory_path=Path(root),
             hrtf_type=hrtf_type,
-            hrir_samplerate=_get_hrir_samplerate_from_spec(features_spec, target_spec, group_spec),
+            hrir_samplerate=_get_value_from_hrir_spec('samplerate', features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
         )
