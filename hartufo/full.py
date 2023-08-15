@@ -1,4 +1,4 @@
-from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader
+from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, CrossModDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader
 from .transforms.hrirs import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform
 from collections import defaultdict
 from copy import deepcopy
@@ -330,6 +330,32 @@ class Listen(Dataset):
         datareader = ListenDataReader(
             sofa_directory_path=Path(root)/'sofa',
             anthropometry_directory_path=Path(root)/'anthropometry',
+            hrtf_type=hrtf_type,
+            download=download,
+            verify=verify,
+        )
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
+
+
+class CrossMod(Dataset):
+    """CrossMod HRTF Dataset
+    """
+    def __init__(
+        self,
+        root: str,
+        features_spec: Dict,
+        target_spec: Optional[Dict] = None,
+        group_spec: Optional[Dict] = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        hrtf_type: str = 'compensated',
+        dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = False,
+    ) -> None:
+        datareader = CrossModDataReader(
+            sofa_directory_path=Path(root)/'sofa',
             hrtf_type=hrtf_type,
             download=download,
             verify=verify,
