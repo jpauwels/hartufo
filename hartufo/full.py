@@ -10,6 +10,7 @@ from typing import Dict, Iterable, Optional, Union
 import numpy as np
 import numpy.typing as npt
 from scipy.fft import rfftfreq
+from tqdm import tqdm
 
 
 class Dataset:
@@ -111,7 +112,7 @@ class Dataset:
             self.hrtf_frequencies = rfftfreq(self.hrir_length, 1/self.hrir_samplerate)
 
         self._data = defaultdict(list)
-        for subject, side in ear_ids:
+        for subject, side in tqdm(ear_ids, desc=f'Loading data from disk', leave=None):
             if 'image' in self._specification.keys():
                 self._data['image'].append(datareader.image(subject, side=side, rear=self._specification['image']['rear']))
             if 'anthropometry' in self._specification.keys():
@@ -131,7 +132,7 @@ class Dataset:
                     self._data[k] = np.ma.stack(self._data[k])
                 except ValueError:
                     raise ValueError(f'Not all data points have the same {k} shape') from None
-            for preprocess in self._specification[k]['preprocess']:
+            for preprocess in tqdm(self._specification[k]['preprocess'], desc=f'Preprocessing {k}', leave=None):
                 if isinstance(preprocess, BatchTransform):
                     self._data[k] = preprocess(self._data[k])
                 else:
