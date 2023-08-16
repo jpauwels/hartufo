@@ -14,6 +14,12 @@ class DataReader:
     ):
         self.query = query
 
+    
+    def collection(self, suffix=None):
+        if suffix is None:
+            return self.query.collection_id
+        return f'{self.query.collection_id}-{suffix}'
+
 
 class SofaDataReader(DataReader):
     """
