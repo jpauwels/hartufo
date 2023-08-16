@@ -124,7 +124,7 @@ class Dataset:
             if 'side' in self._specification.keys():
                 self._data['side'].append(side)
             if 'collection' in self._specification.keys():
-                self._data['collection'].append(datareader.query.collection_id)
+                self._data['collection'].append(datareader.collection(self._specification.get('hrir', {}).get('method')))
 
         for k in self._specification.keys():
             if k in ('hrir', 'anthropometry'):
