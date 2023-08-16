@@ -88,6 +88,8 @@ class HrirSpec(Spec):
         fundamental_angles: Optional[Iterable[float]] = None,
         orthogonal_angles: Optional[Iterable[float]] = None,
         distance: Optional[Union[float, str]] = None,
+        method: Optional[str] = None,
+        variant: str = 'compensated',
         additive_scale_factor: Optional[float] = None,
         multiplicative_scale_factor: Optional[float] = None,
         samplerate: Optional[float] = None,
@@ -103,6 +105,8 @@ class HrirSpec(Spec):
         self.add('fundamental_angles', fundamental_angles)
         self.add('orthogonal_angles', orthogonal_angles)
         self.add('distance', distance)
+        self.add('method', method)
+        self.add('variant', variant)
         self.add('additive_scale_factor', additive_scale_factor)
         self.add('multiplicative_scale_factor', multiplicative_scale_factor)
         self.add('samplerate', samplerate)
@@ -121,6 +125,8 @@ class HrirPlaneSpec(HrirSpec):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         distance: Optional[Union[float, str]] = None,
+        method: Optional[str] = None,
+        variant: str = 'compensated',
         additive_scale_factor: Optional[float] = None,
         multiplicative_scale_factor: Optional[float] = None,
         samplerate: Optional[float] = None,
@@ -132,7 +138,7 @@ class HrirPlaneSpec(HrirSpec):
     ):
         if plane not in ('horizontal', 'median', 'frontal', 'vertical', 'interaural'):
             raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal", "vertical" or "interaural".')
-        super().__init__(domain, side, None, None, distance, additive_scale_factor, multiplicative_scale_factor, samplerate, length, min_phase, exclude, preprocess, transform)
+        super().__init__(domain, side, None, None, distance, method, variant, additive_scale_factor, multiplicative_scale_factor, samplerate, length, min_phase, exclude, preprocess, transform)
         self.add('plane', plane)
         self.add('plane_angles', plane_angles)
         self.add('plane_offset', plane_offset)

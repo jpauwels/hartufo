@@ -14,6 +14,8 @@ class PlaneDatasetMixin:
         plane_offset: float,
         positive_angles: bool,
         distance: Union[float, str],
+        hrir_method: Optional[str],
+        hrir_variant: str,
         hrir_offset: Optional[float],
         hrir_scaling: Optional[float],
         hrir_samplerate: Optional[float],
@@ -23,7 +25,7 @@ class PlaneDatasetMixin:
         other_specs: Optional[Dict] = None,
         **kwargs,
     ):
-        hrirs_spec = HrirPlaneSpec(plane, domain, side, plane_angles, plane_offset, positive_angles, distance, hrir_offset, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase)
+        hrirs_spec = HrirPlaneSpec(plane, domain, side, plane_angles, plane_offset, positive_angles, distance, hrir_method, hrir_variant, hrir_offset, hrir_scaling, hrir_samplerate, hrir_length, hrir_min_phase)
         if other_specs is None:
             other_specs = {}
         for spec_name in other_specs.keys():
@@ -138,7 +140,7 @@ class CipicPlane(PlaneDatasetMixin, Cipic):
         verify: bool = True,
     ):
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', None, 'compensated', root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,
@@ -170,7 +172,7 @@ class AriPlane(PlaneDatasetMixin, Ari):
         if positive_angles is None:
             positive_angles = False
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', None, 'compensated', root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,
@@ -186,6 +188,7 @@ class ListenPlane(PlaneDatasetMixin, Listen):
         plane_angles: Optional[Iterable[float]] = None,
         plane_offset: float = 0.,
         positive_angles: bool = False,
+        hrir_variant: str = 'compensated',
         hrir_offset: Optional[float] = None,
         hrir_scaling: Optional[float] = None,
         hrir_samplerate: Optional[float] = None,
@@ -195,15 +198,14 @@ class ListenPlane(PlaneDatasetMixin, Listen):
         other_specs: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         download: bool = False,
         verify: bool = True,
     ):
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', None, hrir_variant, root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
-            hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, hrtf_type=hrtf_type, dtype=dtype,
+            hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,
         )
 
@@ -217,6 +219,7 @@ class CrossModPlane(PlaneDatasetMixin, CrossMod):
         plane_angles: Optional[Iterable[float]] = None,
         plane_offset: float = 0.,
         positive_angles: bool = False,
+        hrir_variant: str = 'compensated',
         hrir_offset: Optional[float] = None,
         hrir_scaling: Optional[float] = None,
         hrir_samplerate: Optional[float] = None,
@@ -226,15 +229,14 @@ class CrossModPlane(PlaneDatasetMixin, CrossMod):
         other_specs: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         download: bool = False,
         verify: bool = True,
     ):
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', None, hrir_variant, root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
-            hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, hrtf_type=hrtf_type, dtype=dtype,
+            hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,
         )
 
@@ -248,6 +250,7 @@ class BiLiPlane(PlaneDatasetMixin, BiLi):
         plane_angles: Optional[Iterable[float]] = None,
         plane_offset: float = 0.,
         positive_angles: bool = False,
+        hrir_variant: str = 'compensated',
         hrir_offset: Optional[float] = None,
         hrir_scaling: Optional[float] = None,
         hrir_samplerate: Optional[float] = None,
@@ -257,15 +260,14 @@ class BiLiPlane(PlaneDatasetMixin, BiLi):
         other_specs: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         download: bool = False,
         verify: bool = True,
     ):
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', None, hrir_variant, root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
-            hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, hrtf_type=hrtf_type,
+            hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,
         )
 
@@ -293,7 +295,7 @@ class ItaPlane(PlaneDatasetMixin, Ita):
         verify: bool = True,
     ):
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', None, 'compensated', root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,
@@ -309,6 +311,8 @@ class HutubsPlane(PlaneDatasetMixin, Hutubs):
         plane_angles: Optional[Iterable[float]] = None,
         plane_offset: float = 0.,
         positive_angles: bool = False,
+        hrir_method: Optional[str] = 'acoustic',
+        hrir_variant: str = 'compensated',
         hrir_offset: Optional[float] = None,
         hrir_scaling: Optional[float] = None,
         hrir_samplerate: Optional[float] = None,
@@ -318,15 +322,14 @@ class HutubsPlane(PlaneDatasetMixin, Hutubs):
         other_specs: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        measured_hrtf: bool = True,
         dtype: type = np.float32,
         download: bool = False,
         verify: bool = True,
     ):
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', hrir_method, hrir_variant, root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
-            hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, measured_hrtf=measured_hrtf,
+            hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,
         )
 
@@ -355,7 +358,7 @@ class RiecPlane(PlaneDatasetMixin, Riec):
         verify: bool = True,
     ):
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, distance, root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, distance, None, 'compensated', root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,
@@ -386,7 +389,7 @@ class ChedarPlane(PlaneDatasetMixin, Chedar):
         verify: bool = False,
     ):
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, distance, root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, distance, None, 'compensated', root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,
@@ -418,7 +421,7 @@ class WidespreadPlane(PlaneDatasetMixin, Widespread):
         verify: bool = False,
     ):
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, distance, root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, distance, None, 'compensated', root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, grid=grid,
             download=download, verify=verify,
@@ -448,7 +451,7 @@ class Sadie2Plane(PlaneDatasetMixin, Sadie2):
         verify: bool = True,
     ):
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', None, 'compensated', root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,
@@ -464,6 +467,8 @@ class Princeton3D3APlane(PlaneDatasetMixin, Princeton3D3A):
         plane_angles: Optional[Iterable[float]] = None,
         plane_offset: float = 0.,
         positive_angles: bool = False,
+        hrir_method: Optional[str] = 'acoustic',
+        hrir_variant: str = 'compensated',
         hrir_offset: Optional[float] = None,
         hrir_scaling: Optional[float] = None,
         hrir_samplerate: Optional[float] = None,
@@ -473,16 +478,14 @@ class Princeton3D3APlane(PlaneDatasetMixin, Princeton3D3A):
         other_specs: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrtf_method: str = 'measured',
-        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         download: bool = False,
         verify: bool = True,
     ):
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', hrir_method, hrir_variant, root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
-            hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, hrtf_method=hrtf_method, hrtf_type=hrtf_type,
+            hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,
         )
 
@@ -497,6 +500,7 @@ class ScutPlane(PlaneDatasetMixin, Scut):
         plane_offset: float = 0.,
         positive_angles: bool = False,
         distance: Union[float, str] = 'farthest',
+        hrir_method: Optional[str] = 'acoustic',
         hrir_offset: Optional[float] = None,
         hrir_scaling: Optional[float] = None,
         hrir_samplerate: Optional[float] = None,
@@ -511,7 +515,7 @@ class ScutPlane(PlaneDatasetMixin, Scut):
         verify: bool = True,
     ):
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, distance, root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, distance, hrir_method, 'compensated', root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,
@@ -527,6 +531,7 @@ class SonicomPlane(PlaneDatasetMixin, Sonicom):
         plane_angles: Optional[Iterable[float]] = None,
         plane_offset: float = 0.,
         positive_angles: bool = False,
+        hrir_variant: str = 'compensated',
         hrir_offset: Optional[float] = None,
         hrir_scaling: Optional[float] = None,
         hrir_samplerate: Optional[float] = None,
@@ -536,14 +541,13 @@ class SonicomPlane(PlaneDatasetMixin, Sonicom):
         other_specs: Optional[Dict] = None,
         subject_ids: Optional[Iterable[int]] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         download: bool = False,
         verify: bool = True,
     ):
         super().__init__(
-            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', root=root,
+            plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', None, hrir_variant, root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
-            hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype, hrtf_type=hrtf_type,
+            hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,
         )
