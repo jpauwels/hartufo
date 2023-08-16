@@ -424,49 +424,49 @@ class ListenDataReader(SofaSphericalDataReader, AnthropometryDataReader):
     def __init__(self,
         sofa_directory_path: str = '',
         anthropometry_directory_path: str = '',
-        hrtf_type: str = 'compensated',
+        hrir_variant: str = 'compensated',
         download: bool = False,
         verify: bool = True,
     ):
-        query = ListenDataQuery(sofa_directory_path, anthropometry_directory_path, hrtf_type, download, verify)
+        query = ListenDataQuery(sofa_directory_path, anthropometry_directory_path, hrir_variant, download, verify)
         super().__init__(query)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / self.query._variant_key / '44100' / f'IRC_{subject_id:04d}_{self.query._hrtf_type_char}_44100.sofa')
+        return str(self.query.sofa_directory_path / self.query._checksum_key / '44100' / f'IRC_{subject_id:04d}_{self.query._hrir_variant_char}_44100.sofa')
 
 
 class CrossModDataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = '',
-        hrtf_type: str = 'compensated',
+        hrir_variant: str = 'compensated',
         download: bool = False,
         verify: bool = True,
     ):
-        query = CrossModDataQuery(sofa_directory_path, hrtf_type, download, verify)
+        query = CrossModDataQuery(sofa_directory_path, hrir_variant, download, verify)
         super().__init__(query)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / self.query._variant_key / '44100' / f'IRC_{subject_id:04d}_{self.query._hrtf_type_char}_44100.sofa')
+        return str(self.query.sofa_directory_path / self.query._checksum_key / '44100' / f'IRC_{subject_id:04d}_{self.query._hrir_variant_char}_44100.sofa')
 
 
 class BiLiDataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = '',
-        hrtf_type: str = 'compensated',
+        hrir_variant: str = 'compensated',
         hrir_samplerate: Optional[float] = None,
         download: bool = False,
         verify: bool = True,
     ):
-        query = BiLiDataQuery(sofa_directory_path, hrir_samplerate, hrtf_type, download, verify)
+        query = BiLiDataQuery(sofa_directory_path, hrir_samplerate, hrir_variant, download, verify)
         super().__init__(query)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / self.query._hrtf_type / str(self.query._samplerate) / f'IRC_{subject_id:04d}_{self.query._hrtf_type_char}_HRIR_{self.query._samplerate}.sofa')
+        return str(self.query.sofa_directory_path / self.query._hrir_variant / str(self.query._samplerate) / f'IRC_{subject_id:04d}_{self.query._hrir_variant_char}_HRIR_{self.query._samplerate}.sofa')
 
 
 class ItaDataReader(SofaSphericalDataReader, AnthropometryDataReader):
@@ -490,16 +490,16 @@ class HutubsDataReader(SofaSphericalDataReader, AnthropometryDataReader):
     def __init__(self,
         sofa_directory_path: str = '',
         anthropometry_csvfile_path: str = '',
-        measured_hrtf: bool = True,
+        hrir_method: Optional[str] = None,
         download: bool = False,
         verify: bool = True,
     ):
-        query = HutubsDataQuery(sofa_directory_path, anthropometry_csvfile_path, measured_hrtf, download, verify)
+        query = HutubsDataQuery(sofa_directory_path, anthropometry_csvfile_path, hrir_method, download, verify)
         super().__init__(query)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / f'pp{subject_id:d}_HRIRs_{self.query._variant_key}.sofa')
+        return str(self.query.sofa_directory_path / f'pp{subject_id:d}_HRIRs_{self.query._method_str}.sofa')
 
 
 class RiecDataReader(SofaSphericalDataReader):
@@ -596,17 +596,17 @@ class Princeton3D3ADataReader(SofaSphericalDataReader, AnthropometryDataReader):
     def __init__(self,
         sofa_directory_path: str = '',
         anthropometry_directory_path: str = '',
-        hrtf_method: str = 'measured',
-        hrtf_type: str = 'compensated',
+        hrir_method: Optional[str] = None,
+        hrir_variant: str = 'compensated',
         download: bool = False,
         verify: bool = True,
     ):
-        query = Princeton3D3ADataQuery(sofa_directory_path, anthropometry_directory_path, hrtf_method, hrtf_type, download, verify)
+        query = Princeton3D3ADataQuery(sofa_directory_path, anthropometry_directory_path, hrir_method, hrir_variant, download, verify)
         super().__init__(query)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / self.query._method_str / f'Subject{subject_id}' / f'Subject{subject_id}_{self.query._hrtf_type_str}.sofa')
+        return str(self.query.sofa_directory_path / self.query._method_str / f'Subject{subject_id}' / f'Subject{subject_id}_{self.query._hrir_variant_str}.sofa')
 
 
 
@@ -615,8 +615,6 @@ class ScutDataReader(SofaSphericalDataReader, AnthropometryDataReader):
     def __init__(self,
         sofa_directory_path: str = '',
         anthropometry_csvfile_path: str = '',
-        hrtf_type: str = 'compensated',
-        hrir_samplerate: Optional[float] = None,
         download: bool = False,
         verify: bool = True,
     ):
@@ -632,14 +630,14 @@ class SonicomDataReader(SofaSphericalDataReader):
 
     def __init__(self,
         sofa_directory_path: str = '',
-        hrtf_type: str = 'compensated',
+        hrir_variant: str = 'compensated',
         hrir_samplerate: Optional[float] = None,
         download: bool = False,
         verify: bool = True,
     ):
-        query = SonicomDataQuery(sofa_directory_path, hrir_samplerate, hrtf_type, download, verify)
+        query = SonicomDataQuery(sofa_directory_path, hrir_samplerate, hrir_variant, download, verify)
         super().__init__(query)
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / f'P{subject_id:04d}' / 'HRTF' / 'HRTF' / self.query._samplerate_str / f'P{subject_id:04d}_{self.query._hrtf_type_str}_{self.query._samplerate_str}.sofa')
+        return str(self.query.sofa_directory_path / f'P{subject_id:04d}' / 'HRTF' / 'HRTF' / self.query._samplerate_str / f'P{subject_id:04d}_{self.query._hrir_variant_str}_{self.query._samplerate_str}.sofa')

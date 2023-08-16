@@ -221,14 +221,14 @@ class HrirDataQuery(DataQuery):
 
     def __init__(self,
         sofa_directory_path: str = '',
-        variant_key: str = '',
+        checksum_key: str = '',
         **kwargs,
     ):
         if sofa_directory_path:
             self.allowed_keys = list(self.allowed_keys)
             self.allowed_keys += ['hrir']
         self.sofa_directory_path = Path(sofa_directory_path)
-        self._variant_key = variant_key
+        self._checksum_key = checksum_key
         super().__init__(**kwargs)
 
 
@@ -244,13 +244,13 @@ class HrirDataQuery(DataQuery):
     def _check_integrity(self) -> bool:
         super()._check_integrity()
         if 'hrir' in self.allowed_keys:
-            self._integrity_helper(HRIR_CHECKSUMS[self.collection_id][self._variant_key], self.sofa_directory_path)
+            self._integrity_helper(HRIR_CHECKSUMS[self.collection_id][self._checksum_key], self.sofa_directory_path)
 
 
     def _download(self) -> None:
         super()._download()
         if 'hrir' in self.allowed_keys:
-            self._download_helper(self.HRIR_DOWNLOAD, HRIR_CHECKSUMS[self.collection_id][self._variant_key], self.sofa_directory_path)
+            self._download_helper(self.HRIR_DOWNLOAD, HRIR_CHECKSUMS[self.collection_id][self._checksum_key], self.sofa_directory_path)
 
 
 class AnthropometryDataQuery(DataQuery):
@@ -519,21 +519,21 @@ class ListenDataQuery(HrirDataQuery, AnthropometryDataQuery):
     ANTHROPOMETRY_DOWNLOAD = {'base_url': 'http://eecs.qmul.ac.uk/~johan/hartufo/MORPHO/'} #'ftp://ftp.ircam.fr/pub/IRCAM/equipes/salles/listen/archive/MORPHO/'}
 
 
-    def __init__(self, sofa_directory_path='', anthropometry_directory_path='', hrtf_type='compensated', download=False, verify=False):
-        if hrtf_type == 'raw':
-            self._hrtf_type_char = 'R'
-        elif hrtf_type == 'compensated':
-            self._hrtf_type_char = 'C'
+    def __init__(self, sofa_directory_path='', anthropometry_directory_path='', hrir_variant='compensated', download=False, verify=False):
+        if hrir_variant == 'raw':
+            self._hrir_variant_char = 'R'
+        elif hrir_variant == 'compensated':
+            self._hrir_variant_char = 'C'
         else:
-            raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
-        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD['archive_url'].format(hrtf_type.upper())
-        self.HRIR_DOWNLOAD['archive_checksum'] = self.HRIR_ARCHIVE_CHECKSUMS[hrtf_type]
-        self.HRIR_DOWNLOAD['target_suffix'] = f'{hrtf_type}/44100'
-        super().__init__(collection_id='listen', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, variant_key=hrtf_type, download=download, verify=verify)
+            raise ValueError(f'Unknown HRIR variant "{hrir_variant}"')
+        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD['archive_url'].format(hrir_variant.upper())
+        self.HRIR_DOWNLOAD['archive_checksum'] = self.HRIR_ARCHIVE_CHECKSUMS[hrir_variant]
+        self.HRIR_DOWNLOAD['target_suffix'] = f'{hrir_variant}/44100'
+        super().__init__(collection_id='listen', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, checksum_key=hrir_variant, download=download, verify=verify)
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._variant_key / '44100').glob(f'IRC_????_{self._hrtf_type_char}_44100.sofa')])
+        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._checksum_key / '44100').glob(f'IRC_????_{self._hrir_variant_char}_44100.sofa')])
 
 
     def _load_anthropometry(self, anthropometry_path):
@@ -581,23 +581,23 @@ class CrossModDataQuery(HrirDataQuery):
     HRIR_ARCHIVE_CHECKSUMS = {'raw': 'c1f7b2d034731c6cb2f8132c569a9063', 'compensated': 'b5e70b6b9795ce794bbd28fb48291e1a'}
 
 
-    def __init__(self, sofa_directory_path='', hrtf_type='compensated', download=False, verify=False):
-        if hrtf_type == 'raw':
-            self._hrtf_type_char = 'R'
-        elif hrtf_type == 'compensated':
-            self._hrtf_type_char = 'C'
+    def __init__(self, sofa_directory_path='', hrir_variant='compensated', download=False, verify=False):
+        if hrir_variant == 'raw':
+            self._hrir_variant_char = 'R'
+        elif hrir_variant == 'compensated':
+            self._hrir_variant_char = 'C'
         else:
-            raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
-        self._hrtf_type = hrtf_type
-        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD['archive_url'].format(hrtf_type.upper())
-        self.HRIR_DOWNLOAD['archive_checksum'] = self.HRIR_ARCHIVE_CHECKSUMS[hrtf_type]
-        self.HRIR_DOWNLOAD['target_suffix'] = f'{hrtf_type}/44100'
-        super().__init__(collection_id='crossmod', sofa_directory_path=sofa_directory_path, variant_key=hrtf_type, download=download, verify=verify)
+            raise ValueError(f'Unknown HRIR variant "{hrir_variant}"')
+        self._hrir_variant = hrir_variant
+        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD['archive_url'].format(hrir_variant.upper())
+        self.HRIR_DOWNLOAD['archive_checksum'] = self.HRIR_ARCHIVE_CHECKSUMS[hrir_variant]
+        self.HRIR_DOWNLOAD['target_suffix'] = f'{hrir_variant}/44100'
+        super().__init__(collection_id='crossmod', sofa_directory_path=sofa_directory_path, checksum_key=hrir_variant, download=download, verify=verify)
         self._default_hrirs_exclude = ()
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._hrtf_type / '44100').glob(f'IRC_????_{self._hrtf_type_char}_44100.sofa')])
+        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._hrir_variant / '44100').glob(f'IRC_????_{self._hrir_variant_char}_44100.sofa')])
 
 
 class BiLiDataQuery(HrirDataQuery):
@@ -615,29 +615,29 @@ class BiLiDataQuery(HrirDataQuery):
     }
 
 
-    def __init__(self, sofa_directory_path='', samplerate=96000, hrtf_type='compensated', download=False, verify=False):
-        if hrtf_type == 'raw':
-            self._hrtf_type_char = 'R'
-        elif hrtf_type == 'compensated':
-            self._hrtf_type_char = 'C'
-        elif hrtf_type == 'compensated-interpolated':
-            self._hrtf_type_char = 'I'
+    def __init__(self, sofa_directory_path='', samplerate=96000, hrir_variant='compensated', download=False, verify=False):
+        if hrir_variant == 'raw':
+            self._hrir_variant_char = 'R'
+        elif hrir_variant == 'compensated':
+            self._hrir_variant_char = 'C'
+        elif hrir_variant == 'compensated-interpolated':
+            self._hrir_variant_char = 'I'
         else:
-            raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
-        if samplerate not in (44100, 48000, 96000) or hrtf_type != 'compensated-interpolated':
+            raise ValueError(f'Unknown HRIR variant "{hrir_variant}"')
+        if samplerate not in (44100, 48000, 96000) or hrir_variant != 'compensated-interpolated':
             samplerate = 96000
         self._samplerate = samplerate
-        self._hrtf_type = hrtf_type
-        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD['archive_url'].format(hrtf_type.upper().replace('-', '_'), samplerate)
-        variant_key = f'{hrtf_type}-{samplerate}'
-        self.HRIR_DOWNLOAD['archive_checksum'] = self.HRIR_ARCHIVE_CHECKSUMS[variant_key]
-        self.HRIR_DOWNLOAD['target_suffix'] = f'{hrtf_type}/{samplerate}'
-        super().__init__(collection_id='bili', sofa_directory_path=sofa_directory_path, variant_key=variant_key, download=download, verify=verify)
+        self._hrir_variant = hrir_variant
+        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD['archive_url'].format(hrir_variant.upper().replace('-', '_'), samplerate)
+        checksum_key = f'{hrir_variant}-{samplerate}'
+        self.HRIR_DOWNLOAD['archive_checksum'] = self.HRIR_ARCHIVE_CHECKSUMS[checksum_key]
+        self.HRIR_DOWNLOAD['target_suffix'] = f'{hrir_variant}/{samplerate}'
+        super().__init__(collection_id='bili', sofa_directory_path=sofa_directory_path, checksum_key=checksum_key, download=download, verify=verify)
         self._default_hrirs_exclude = () # TODO: Neumann KU100 and Brüel & Kjaer type 4100D with and without pinna dummies
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._hrtf_type / str(self._samplerate)).glob(f'IRC_????_{self._hrtf_type_char}_HRIR_{self._samplerate}.sofa')])
+        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._hrir_variant / str(self._samplerate)).glob(f'IRC_????_{self._hrir_variant_char}_HRIR_{self._samplerate}.sofa')])
 
 
 class ItaDataQuery(HrirDataQuery, AnthropometryDataQuery):
@@ -684,15 +684,23 @@ class HutubsDataQuery(HrirDataQuery, AnthropometryDataQuery):
     ANTHROPOMETRY_DOWNLOAD = {'file_url': 'https://sofacoustics.org/data/database/hutubs/AntrhopometricMeasures.csv'}
 
 
-    def __init__(self, sofa_directory_path='', anthropometry_csvfile_path='', measured_hrtf=True, download=False, verify=False):
-        super().__init__(collection_id='hutubs', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_csvfile_path, variant_key='measured' if measured_hrtf else 'simulated', download=download, verify=verify)
+    def __init__(self, sofa_directory_path='', anthropometry_csvfile_path='', hrir_method=None, download=False, verify=False):
+        if hrir_method is None:
+            hrir_method = 'acoustic'
+        if hrir_method == 'acoustic':
+            self._method_str = 'measured'
+        elif hrir_method == 'simulated':
+            self._method_str = 'simulated'
+        else:
+            raise ValueError(f'Unknown HRIR method "{hrir_method}".')
+        super().__init__(collection_id='hutubs', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_csvfile_path, checksum_key=hrir_method, download=download, verify=verify)
         self._default_hrirs_exclude = (1, 96) # FABIAN dummy
         self._default_anthropometry_exclude = (1, 96) # FABIAN dummy
         self._default_mesh_exclude = (1, 96) # FABIAN dummy
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[0].split('pp')[1]) for x in self.sofa_directory_path.glob(f'pp??_HRIRs_{self._variant_key}.sofa')])
+        return sorted([int(x.stem.split('_')[0].split('pp')[1]) for x in self.sofa_directory_path.glob(f'pp??_HRIRs_{self._method_str}.sofa')])
 
 
     def _load_anthropometry(self, anthropometry_path):
@@ -754,7 +762,7 @@ class ChedarDataQuery(HrirDataQuery, AnthropometryDataQuery):
             self._radius = '2m'
         else:
             raise ValueError('The distance needs to be one of "nearest", "farthest", 0.2, 0.5, 1 or 2')
-        super().__init__(collection_id='chedar', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_matfile_path, variant_key=self._radius, download=download, verify=verify)
+        super().__init__(collection_id='chedar', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_matfile_path, checksum_key=self._radius, download=download, verify=verify)
 
 
     def _all_hrir_ids(self, side):
@@ -801,7 +809,7 @@ class WidespreadDataQuery(HrirDataQuery):
         if grid not in ('UV', 'ICO'):
             raise ValueError('The grid needs to be either "UV" or "ICO".')
         self._grid = grid
-        super().__init__(collection_id='widespread', sofa_directory_path=sofa_directory_path, variant_key=f'{self._grid}-{self._radius}', download=download, verify=verify)
+        super().__init__(collection_id='widespread', sofa_directory_path=sofa_directory_path, checksum_key=f'{self._grid}-{self._radius}', download=download, verify=verify)
 
 
     def _all_hrir_ids(self, side):
@@ -826,7 +834,7 @@ class Sadie2DataQuery(HrirDataQuery, ImageDataQuery):
         else:
             samplerate = 96000
             self._samplerate_str = '96K_24bit_512tap'
-        super().__init__(collection_id='sadie2', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, variant_key=f'{samplerate}', download=download, verify=verify)
+        super().__init__(collection_id='sadie2', sofa_directory_path=sofa_directory_path, image_directory_path=image_directory_path, checksum_key=f'{samplerate}', download=download, verify=verify)
         self._default_hrirs_exclude = (1, 2, 3, 4, 5, 6, 7, 8, 9) # higher spatial resolution
         self._default_images_exclude = (1, 2, 3, 16) # dummies (1, 2) & empty images (3, 16)
 
@@ -853,45 +861,46 @@ class Princeton3D3ADataQuery(HrirDataQuery, AnthropometryDataQuery):
     ANTHROPOMETRY_DOWNLOAD = {'base_url': ''}
 
 
-    def __init__(self, sofa_directory_path='', anthropometry_directory_path='', hrtf_method='measured', hrtf_type='compensated', download=False, verify=False):
-        if hrtf_type == 'raw':
-            self._hrtf_type_str = 'BIRs'
-        elif hrtf_type == 'compensated':
-            self._hrtf_type_str = 'HRIRs'
-        elif hrtf_type == 'compensated-lowfreqextended':
-            self._hrtf_type_str = 'HRIRs_lfc'
-        elif hrtf_type == 'compensated-equalized':
-            self._hrtf_type_str = 'HRIRs_dfeq'
+    def __init__(self, sofa_directory_path='', anthropometry_directory_path='', hrir_method='acoustic', hrir_variant='compensated', download=False, verify=False):
+        if hrir_variant == 'raw':
+            self._hrir_variant_str = 'BIRs'
+        elif hrir_variant == 'compensated':
+            self._hrir_variant_str = 'HRIRs'
+        elif hrir_variant == 'compensated-lowfreqextended':
+            self._hrir_variant_str = 'HRIRs_lfc'
+        elif hrir_variant == 'compensated-equalized':
+            self._hrir_variant_str = 'HRIRs_dfeq'
         else:
-            raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
-        if hrtf_method == 'measured':
+            raise ValueError(f'Unknown HRIR variant "{hrir_variant}"')
+        if hrir_method is None or hrir_method == 'acoustic':
+            hrir_method = 'acoustic'
             self._method_str = 'Acoustic'
         else:
-            if hrtf_type not in ('compensated', 'compensated-equalized'):
-                raise ValueError('Only compensated and diffuse field equalized types of HRTF available for BEM-simulations')
-            if hrtf_method == 'simulated-head':
+            if hrir_variant not in ('compensated', 'compensated-equalized'):
+                raise ValueError('Only "compensated" and "compensated-equalized" variants of HRTF are available for BEM-simulations')
+            if hrir_method == 'simulated-head':
                 self._method_str = 'BEM/Head-Only'
-            elif hrtf_method == 'simulated-head_ears':
+            elif hrir_method == 'simulated-head_ears':
                 self._method_str = 'BEM/Head-and-Ears'
-            elif hrtf_method == 'simulated-head_ears_torso-consumer_grade':
+            elif hrir_method == 'simulated-head_ears_torso-consumer_grade':
                 self._method_str = 'BEM/Head-Ears-and-Torso/Consumer-Grade'
-            elif hrtf_method == 'simulated-head_ears_torso-reference_grade':
+            elif hrir_method == 'simulated-head_ears_torso-reference_grade':
                 self._method_str = 'BEM/Head-Ears-and-Torso/Reference-Grade'
             else:
-                raise ValueError(f'Unknown HRTF method "{hrtf_method}"')
+                raise ValueError(f'Unknown HRIR method "{hrir_method}"')
         if download:
             raise NotImplementedError(
                 f'Downloading of the 3D3A collection is not yet supported. Manually download the files linked from {self.HRIR_DOWNLOAD["base_url"]} and extract'
                 f' them to {sofa_directory_path} and {anthropometry_directory_path}. Then pass "verify=True" to the constructor to check the expected'
                 ' location and content of the files.'
             )
-        super().__init__(collection_id='3d3a', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, variant_key=f'{hrtf_method}-{hrtf_type}', download=download, verify=verify)
+        super().__init__(collection_id='3d3a', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, checksum_key=f'{hrir_method}-{hrir_variant}', download=download, verify=verify)
         self._default_hrirs_exclude = (37, 44) # Neumann KU100 and Brüel & Kjaer HATS 4128C dummy
         self._default_anthropometry_exclude = (37, 44) # Neumann KU100 and Brüel & Kjaer HATS 4128C dummy
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[0].lstrip('Subject')) for x in self.sofa_directory_path.glob(f'{self._method_str}/Subject*/Subject*_{self._hrtf_type_str}.sofa')])
+        return sorted([int(x.stem.split('_')[0].lstrip('Subject')) for x in self.sofa_directory_path.glob(f'{self._method_str}/Subject*/Subject*_{self._hrir_variant_str}.sofa')])
 
 
     def _load_anthropometry(self, anthropometry_path):
@@ -962,35 +971,35 @@ class SonicomDataQuery(HrirDataQuery):
     HRIR_DOWNLOAD = {'base_url': 'https://www.axdesign.co.uk/tools-and-devices/sonicom-hrtf-dataset'}
 
 
-    def __init__(self, sofa_directory_path='', samplerate=96000, hrtf_type='compensated', download=False, verify=False):
+    def __init__(self, sofa_directory_path='', samplerate=96000, hrir_variant='compensated', download=False, verify=False):
         if samplerate not in (44100, 48000, 96000):
             samplerate = 96000
         self._samplerate_str = f'{round(samplerate/1000)}kHz'
-        if hrtf_type == 'raw':
-            self._hrtf_type_str = 'Raw'
-        elif hrtf_type == 'raw-nodelay':
-            self._hrtf_type_str = 'Raw_NoITD'
-        elif hrtf_type == 'windowed':
-            self._hrtf_type_str = 'Windowed'
-        elif hrtf_type == 'windowed-nodelay':
-            self._hrtf_type_str = 'Windowed_NoITD'
-        elif hrtf_type == 'compensated':
-            self._hrtf_type_str = 'FreeFieldComp'
-        elif hrtf_type == 'compensated-nodelay':
-            self._hrtf_type_str = 'FreeFieldComp_NoITD'
-        elif hrtf_type == 'compensated-minphase':
-            self._hrtf_type_str = 'FreeFieldCompMinPhase'
-        elif hrtf_type == 'compensated-minphase-nodelay':
-            self._hrtf_type_str = 'FreeFieldCompMinPhase_NoITD'
+        if hrir_variant == 'raw':
+            self._hrir_variant_str = 'Raw'
+        elif hrir_variant == 'raw-itd_removed':
+            self._hrir_variant_str = 'Raw_NoITD'
+        elif hrir_variant == 'windowed':
+            self._hrir_variant_str = 'Windowed'
+        elif hrir_variant == 'windowed-itd_removed':
+            self._hrir_variant_str = 'Windowed_NoITD'
+        elif hrir_variant == 'compensated':
+            self._hrir_variant_str = 'FreeFieldComp'
+        elif hrir_variant == 'compensated-itd_removed':
+            self._hrir_variant_str = 'FreeFieldComp_NoITD'
+        elif hrir_variant == 'compensated-minphase':
+            self._hrir_variant_str = 'FreeFieldCompMinPhase'
+        elif hrir_variant == 'compensated-minphase-itd_removed':
+            self._hrir_variant_str = 'FreeFieldCompMinPhase_NoITD'
         else:
-            raise ValueError(f'Unknown HRTF type "{hrtf_type}"')
+            raise ValueError(f'Unknown HRIR variant "{hrir_variant}"')
         if download:
             raise NotImplementedError(
                 f'Downloading of the SONICOM collection is not yet supported. Manually download the zip files from {self.HRIR_DOWNLOAD["base_url"]} and extract'
                 f' them to {sofa_directory_path}. Then pass "verify=True" to the constructor to check the expected location and content of the files.'
             )
-        super().__init__(collection_id='sonicom', sofa_directory_path=sofa_directory_path, variant_key=f'{hrtf_type}-{samplerate}', download=download, verify=verify)
+        super().__init__(collection_id='sonicom', sofa_directory_path=sofa_directory_path, checksum_key=f'{hrir_variant}-{samplerate}', download=download, verify=verify)
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[0].lstrip('P')) for x in self.sofa_directory_path.glob(f'P????/HRTF/HRTF/{self._samplerate_str}/P????_{self._hrtf_type_str}_{self._samplerate_str}.sofa')])
+        return sorted([int(x.stem.split('_')[0].lstrip('P')) for x in self.sofa_directory_path.glob(f'P????/HRTF/HRTF/{self._samplerate_str}/P????_{self._hrir_variant_str}_{self._samplerate_str}.sofa')])

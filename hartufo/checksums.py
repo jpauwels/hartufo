@@ -780,7 +780,7 @@ HRIR_CHECKSUMS = {
         ],
     },
     'hutubs': {
-        'measured': [
+        'acoustic': [
             ('pp1_HRIRs_measured.sofa', '8bbf12f193a9296eb5ba2e2f68a81c09'),
             ('pp2_HRIRs_measured.sofa', '3639bf7e82c704f9531204b62d68a4f3'),
             ('pp3_HRIRs_measured.sofa', 'c17096043c53214eb972a29b3f21edfd'),
@@ -12221,7 +12221,7 @@ HRIR_CHECKSUMS = {
         ],
     },
     '3d3a': {
-        'measured-raw': [
+        'acoustic-raw': [
             ('Acoustic/Subject1/Subject1_BIRs.sofa', '2e7dd273dab32fa52429863ca052bae7'),
             ('Acoustic/Subject2/Subject2_BIRs.sofa', '1cbe2d45e6467561cec9867d095a93c5'),
             ('Acoustic/Subject4/Subject4_BIRs.sofa', '1fe72d932e6c978e8e4512941e7b362c'),
@@ -12261,7 +12261,7 @@ HRIR_CHECKSUMS = {
             ('Acoustic/Subject43/Subject43_BIRs.sofa', '5107bc51fc8377bab009073a56772e47'),
             ('Acoustic/Subject44/Subject44_BIRs.sofa', 'ecb3790ed14c0448f14295dcaf322758'),
         ],
-        'measured-compensated': [
+        'acoustic-compensated': [
             ('Acoustic/Subject1/Subject1_HRIRs.sofa', '72e0d602b661fd49ce6c926c01520e3a'),
             ('Acoustic/Subject2/Subject2_HRIRs.sofa', '7452242615509749f818cd6591fdc376'),
             ('Acoustic/Subject4/Subject4_HRIRs.sofa', '5ee81c3b2a3f6131dac7051621d9e02a'),
@@ -12301,7 +12301,7 @@ HRIR_CHECKSUMS = {
             ('Acoustic/Subject43/Subject43_HRIRs.sofa', '2f84fc8e1338d6edc5944ad15f0118d3'),
             ('Acoustic/Subject44/Subject44_HRIRs.sofa', '9f7cd708cf2ef6ede805368c3005588f'),
         ],
-        'measured-compensated-equalized': [
+        'acoustic-compensated-equalized': [
             ('Acoustic/Subject1/Subject1_HRIRs_dfeq.sofa', '29a1992e6b6d2bc9b95bc8f4cacee478'),
             ('Acoustic/Subject2/Subject2_HRIRs_dfeq.sofa', '0c07527944f895361c8fc4f3d32080a1'),
             ('Acoustic/Subject4/Subject4_HRIRs_dfeq.sofa', '41d35e60e2c93490bc1e7ed711f7ba06'),
@@ -12341,7 +12341,7 @@ HRIR_CHECKSUMS = {
             ('Acoustic/Subject43/Subject43_HRIRs_dfeq.sofa', '24c7c9998db488196d4944e9b003c17e'),
             ('Acoustic/Subject44/Subject44_HRIRs_dfeq.sofa', 'db82275f0241d741f1d6781d79a8d07a'),
         ],
-        'measured-compensated-lowfreqextended': [
+        'acoustic-compensated-lowfreqextended': [
             ('Acoustic/Subject1/Subject1_HRIRs_lfc.sofa', 'fa988edd36c2083cd7fe0d742b77610f'),
             ('Acoustic/Subject2/Subject2_HRIRs_lfc.sofa', 'a4ca2b3bd9087da170e0e764cc7002fa'),
             ('Acoustic/Subject4/Subject4_HRIRs_lfc.sofa', 'cf2726b75bf7c212f1eabffaf4284999'),

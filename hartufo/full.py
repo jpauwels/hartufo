@@ -327,7 +327,6 @@ class Listen(Dataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         download: bool = False,
         verify: bool = False,
@@ -335,7 +334,7 @@ class Listen(Dataset):
         datareader = ListenDataReader(
             sofa_directory_path=Path(root)/'sofa',
             anthropometry_directory_path=Path(root)/'anthropometry',
-            hrtf_type=hrtf_type,
+            hrir_variant=_get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
         )
@@ -357,14 +356,13 @@ class CrossMod(Dataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         download: bool = False,
         verify: bool = False,
     ) -> None:
         datareader = CrossModDataReader(
             sofa_directory_path=Path(root)/'sofa',
-            hrtf_type=hrtf_type,
+            hrir_variant=_get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
         )
@@ -386,14 +384,13 @@ class BiLi(Dataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         download: bool = False,
         verify: bool = False,
     ) -> None:
         datareader = BiLiDataReader(
             sofa_directory_path=Path(root)/'sofa',
-            hrtf_type=hrtf_type,
+            hrir_variant=_get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec),
             hrir_samplerate=_get_value_from_hrir_spec('samplerate', features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
@@ -444,7 +441,6 @@ class Hutubs(Dataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        measured_hrtf: bool = True,
         dtype: type = np.float32,
         download: bool = False,
         verify: bool = False,
@@ -452,7 +448,7 @@ class Hutubs(Dataset):
         datareader = HutubsDataReader(
             sofa_directory_path=Path(root)/'sofa',
             anthropometry_csvfile_path=Path(root)/'AntrhopometricMeasures.csv',
-            measured_hrtf=measured_hrtf,
+            hrir_method=_get_value_from_hrir_spec('method', features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
             )
@@ -589,8 +585,6 @@ class Princeton3D3A(Dataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrtf_method: str = 'measured',
-        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         download: bool = False,
         verify: bool = False,
@@ -598,8 +592,8 @@ class Princeton3D3A(Dataset):
         datareader = Princeton3D3ADataReader(
             sofa_directory_path=Path(root)/'HRTFs',
             anthropometry_directory_path=Path(root)/'Anthropometric-Data',
-            hrtf_method=hrtf_method,
-            hrtf_type=hrtf_type,
+            hrir_method=_get_value_from_hrir_spec('method', features_spec, target_spec, group_spec),
+            hrir_variant=_get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
         )
@@ -649,14 +643,13 @@ class Sonicom(Dataset):
         subject_ids: Optional[Iterable[int]] = None,
         subject_requirements: Optional[Dict] = None,
         exclude_ids: Optional[Iterable[int]] = None,
-        hrtf_type: str = 'compensated',
         dtype: type = np.float32,
         download: bool = False,
         verify: bool = False,
     ) -> None:
         datareader = SonicomDataReader(
             sofa_directory_path=Path(root),
-            hrtf_type=hrtf_type,
+            hrir_variant=_get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec),
             hrir_samplerate=_get_value_from_hrir_spec('samplerate', features_spec, target_spec, group_spec),
             download=download,
             verify=verify,
