@@ -796,17 +796,25 @@ class WidespreadDataQuery(HrirDataQuery):
 
 
     def __init__(self, sofa_directory_path='', distance='farthest', grid='UV', download=False, verify=False):
-        if (isinstance(distance, Number) and np.isclose(distance, 0.2)) or distance == 'nearest':
-            self._radius = '02m'
-        elif isinstance(distance, Number) and np.isclose(distance, 0.5):
-            self._radius = '05m'
-        elif isinstance(distance, Number) and np.isclose(distance, 1):
-            self._radius = '1m'
-        elif (isinstance(distance, Number) and np.isclose(distance, 2)) or distance == 'farthest' or distance is None:
-            self._radius = '2m'
+        if grid == 'UV':
+            if (isinstance(distance, Number) and np.isclose(distance, 0.2)) or distance == 'nearest':
+                self._radius = '02m'
+            elif isinstance(distance, Number) and np.isclose(distance, 0.5):
+                self._radius = '05m'
+            elif isinstance(distance, Number) and np.isclose(distance, 1):
+                self._radius = '1m'
+            elif (isinstance(distance, Number) and np.isclose(distance, 2)) or distance == 'farthest' or distance is None:
+                self._radius = '2m'
+            else:
+                raise ValueError('The distance needs to be one of "nearest", "farthest", 0.2, 0.5, 1 or 2')
+        elif grid == 'ICO':
+            if (isinstance(distance, Number) and np.isclose(distance, 1)) or distance == 'nearest':
+                self._radius = '1m'
+            elif (isinstance(distance, Number) and np.isclose(distance, 2)) or distance == 'farthest' or distance is None:
+                self._radius = '2m'
+            else:
+                raise ValueError('The distance needs to be one of "nearest", "farthest", 1 or 2')
         else:
-            raise ValueError('The distance needs to be one of "nearest", "farthest", 0.2, 0.5, 1 or 2')
-        if grid not in ('UV', 'ICO'):
             raise ValueError('The grid needs to be either "UV" or "ICO".')
         self._grid = grid
         super().__init__(collection_id='widespread', sofa_directory_path=sofa_directory_path, checksum_key=f'{self._grid}-{self._radius}', download=download, verify=verify)

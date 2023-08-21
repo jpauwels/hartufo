@@ -141,3 +141,10 @@ def lateral_vertical_from_roll(roll_angles, plane_offset=0):
         return tuple(lateral_angles), tuple(vertical_angles)
     except TypeError:
         return (lateral_angles.item(),), (vertical_angles.item(),)
+
+
+def quantise(values, precision):
+    if precision > 0:
+        return (values / precision).round(decimals=0) * precision
+    else:
+        return values.round(decimals=-precision)

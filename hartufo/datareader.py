@@ -1,5 +1,5 @@
 from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, CrossModDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, Princeton3D3ADataQuery, ScutDataQuery, SonicomDataQuery
-from .util import wrap_closed_open_interval, wrap_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian
+from .util import wrap_closed_open_interval, wrap_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian, quantise
 from abc import abstractmethod
 from typing import Optional, Union
 import numpy as np
@@ -34,7 +34,8 @@ class SofaDataReader(DataReader):
     (elevation for spherical coordinates, lateral angle for interaural coordinates)
     """
 
-    _angle_quantisation: int = 3
+    _angle_quantisation: int = -3
+    _distance_quantisation: int = -3
 
 
     @property
@@ -116,7 +117,8 @@ class SofaDataReader(DataReader):
             raise ValueError(f'Error reading file "{sofa_path}"') from exc
         finally:
             hrir_file.close()
-        quantised_positions =  np.column_stack((np.round(positions[:, :2], self._angle_quantisation), positions[:, 2]))
+        quantised_positions =  np.column_stack((quantise(positions[:, :2], self._angle_quantisation), 
+                                                quantise(positions[:, 2], self._distance_quantisation)))
         quantised_positions[:, 0] = wrap_closed_open_interval(quantised_positions[:, 0], -180, 180)
         if isinstance(distance, str):
             file_radii = np.unique(quantised_positions[:, 2])
@@ -525,7 +527,7 @@ class RiecDataReader(SofaSphericalDataReader):
 
 class ChedarDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
-    _angle_quantisation: int = 1
+    _angle_quantisation: int = 5
 
 
     def __init__(self,
@@ -545,9 +547,6 @@ class ChedarDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
 class WidespreadDataReader(SofaSphericalDataReader):
 
-    _angle_quantisation: int = 1
-
-
     def __init__(self,
         sofa_directory_path: str = '',
         distance: Optional[Union[float, str]] = None,
@@ -557,7 +556,10 @@ class WidespreadDataReader(SofaSphericalDataReader):
     ):
         query = WidespreadDataQuery(sofa_directory_path, distance, grid, download, verify)
         super().__init__(query)
-
+        if grid == 'UV':
+            self._angle_quantisation = 5
+        else:
+            self._angle_quantisation = 0
 
     def _sofa_path(self, subject_id):
         return str(self.query.sofa_directory_path / f'{self.query._grid}{self.query._radius}_{subject_id:05d}.sofa')
