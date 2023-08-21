@@ -107,12 +107,12 @@ class DataQuery:
     @staticmethod
     def _download_helper(download_info, checksum_info, target_path):
         if 'base_url' in download_info:
-            target_path.mkdir(parents=True, exist_ok=True)
             for filename, md5 in checksum_info:
-                if (target_path / filename).exists():
+                file_path = (target_path / filename)
+                if file_path.exists():
                     continue
-                url = quote(os.path.join(download_info['base_url'], filename), safe='/:()')
-                download_url(url, root=target_path, filename=filename, md5=md5)
+                url = quote(os.path.join(download_info['base_url'], file_path.name), safe='/:()')
+                download_url(url, root=file_path.parent, filename=file_path.name, md5=md5)
         else:
             parent_dir = target_path.parent
             parent_dir.mkdir(parents=True, exist_ok=True)
@@ -766,7 +766,7 @@ class ChedarDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'chedar_????_UV{self._radius}.sofa')])
+        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'{self._radius}/chedar_????_UV{self._radius}.sofa')])
 
 
     def _load_anthropometry(self, anthropometry_path):
@@ -821,7 +821,7 @@ class WidespreadDataQuery(HrirDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'{self._grid}{self._radius}_?????.sofa')])
+        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'{self._grid}/{self._radius}/{self._grid}{self._radius}_?????.sofa')])
 
 
 class Sadie2DataQuery(HrirDataQuery, ImageDataQuery):

@@ -542,7 +542,7 @@ class ChedarDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / f'chedar_{subject_id:04d}_UV{self.query._radius}.sofa')
+        return str(self.query.sofa_directory_path / self.query._radius / f'chedar_{subject_id:04d}_UV{self.query._radius}.sofa')
 
 
 class WidespreadDataReader(SofaSphericalDataReader):
@@ -562,7 +562,7 @@ class WidespreadDataReader(SofaSphericalDataReader):
             self._angle_quantisation = 0
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / f'{self.query._grid}{self.query._radius}_{subject_id:05d}.sofa')
+        return str(self.query.sofa_directory_path / self.query._grid / self.query._radius / f'{self.query._grid}{self.query._radius}_{subject_id:05d}.sofa')
 
 
 class Sadie2DataReader(SofaSphericalDataReader, ImageDataReader):
