@@ -1,4 +1,4 @@
-from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, CrossModDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader
+from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, CrossModDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader, MitKemarDataReader
 from .specifications import Spec, HrirSpec, sanitise_specs, sanitise_multiple_specs
 from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, InterauralPlaneTransform, SphericalPlaneTransform
 from collections import defaultdict
@@ -665,6 +665,33 @@ class Sonicom(Dataset):
             sofa_directory_path=Path(root),
             hrir_variant=_get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec),
             hrir_samplerate=_get_value_from_hrir_spec('samplerate', features_spec, target_spec, group_spec),
+            download=download,
+            verify=verify,
+        )
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
+
+
+class MitKemar(Dataset):
+    """MIT KEMAR HRTF Dataset
+    """
+    PlaneTransform = SphericalPlaneTransform
+
+    
+    def __init__(
+        self,
+        root: str,
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = False,
+    ) -> None:
+        datareader = MitKemarDataReader(
+            sofa_directory_path=Path(root)/'sofa',
             download=download,
             verify=verify,
         )

@@ -1,7 +1,7 @@
 from typing import Dict, Iterable, Optional, Union
 import numpy as np
 from .display import plot_hrir_plane, plot_hrtf_plane, plot_plane_angles, plot_hrir_lines, plot_hrtf_lines
-from .full import Cipic, Ari, Listen, BiLi, CrossMod, Ita, Hutubs, Riec, Chedar, Widespread, Sadie2, Princeton3D3A, Scut, Sonicom
+from .full import Cipic, Ari, Listen, BiLi, CrossMod, Ita, Hutubs, Riec, Chedar, Widespread, Sadie2, Princeton3D3A, Scut, Sonicom, MitKemar
 from .specifications import HrirPlaneSpec
 
 
@@ -547,6 +547,37 @@ class SonicomPlane(PlaneDatasetMixin, Sonicom):
     ):
         super().__init__(
             plane, domain, side, plane_angles, plane_offset, positive_angles, 'farthest', None, hrir_variant, root=root,
+            hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
+            hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
+            download=download, verify=verify,
+        )
+
+
+class MitKemarPlane(PlaneDatasetMixin, MitKemar):
+    def __init__(self,
+        root: str,
+        plane: str,
+        domain: str = 'magnitude_db',
+        side: str = 'left',
+        plane_angles: Optional[Iterable[float]] = None,
+        plane_offset: float = 0.,
+        positive_angles: bool = False,
+        distance: Union[float, str] = 'farthest',
+        hrir_offset: Optional[float] = None,
+        hrir_scaling: Optional[float] = None,
+        hrir_samplerate: Optional[float] = None,
+        hrir_length: Optional[float] = None,
+        hrir_min_phase: bool = False,
+        hrir_role: str = 'features',
+        other_specs: Optional[Dict] = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = True,
+    ):
+        super().__init__(
+            plane, domain, side, plane_angles, plane_offset, positive_angles, distance, None, 'compensated', root=root,
             hrir_offset=hrir_offset, hrir_scaling=hrir_scaling, hrir_samplerate=hrir_samplerate, hrir_length=hrir_length, hrir_min_phase=hrir_min_phase,
             hrir_role=hrir_role, other_specs=other_specs, subject_ids=subject_ids, exclude_ids=exclude_ids, dtype=dtype,
             download=download, verify=verify,

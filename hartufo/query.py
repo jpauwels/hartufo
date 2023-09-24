@@ -1011,3 +1011,16 @@ class SonicomDataQuery(HrirDataQuery):
 
     def _all_hrir_ids(self, side):
         return sorted([int(x.stem.split('_')[0].lstrip('P')) for x in self.sofa_directory_path.glob(f'P????/HRTF/HRTF/{self._samplerate_str}/P????_{self._hrir_variant_str}_{self._samplerate_str}.sofa')])
+
+
+class MitKemarDataQuery(HrirDataQuery):
+
+    HRIR_DOWNLOAD = {'base_url': 'https://sofacoustics.org/data/database/mit/'}
+
+
+    def __init__(self, sofa_directory_path='', download=False, verify=False):
+        super().__init__(collection_id='mit-kemar', sofa_directory_path=sofa_directory_path, download=download, verify=verify)
+
+
+    def _all_hrir_ids(self, side):
+        return sorted([x.stem.split('_')[2] for x in self.sofa_directory_path.glob('mit_kemar_*_pinna.sofa')])

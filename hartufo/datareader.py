@@ -1,4 +1,4 @@
-from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, CrossModDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, Princeton3D3ADataQuery, ScutDataQuery, SonicomDataQuery
+from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, CrossModDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, Princeton3D3ADataQuery, ScutDataQuery, SonicomDataQuery, MitKemarDataQuery
 from .util import wrap_closed_open_interval, wrap_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian, quantise
 from abc import abstractmethod
 from typing import Optional, Union
@@ -649,3 +649,18 @@ class SonicomDataReader(SofaSphericalDataReader):
 
     def _sofa_path(self, subject_id):
         return str(self.query.sofa_directory_path / f'P{subject_id:04d}' / 'HRTF' / 'HRTF' / self.query._samplerate_str / f'P{subject_id:04d}_{self.query._hrir_variant_str}_{self.query._samplerate_str}.sofa')
+
+
+class MitKemarDataReader(SofaSphericalDataReader):
+
+    def __init__(self,
+        sofa_directory_path: str = '',
+        download: bool = False,
+        verify: bool = True,
+    ):
+        query = MitKemarDataQuery(sofa_directory_path, download, verify)
+        super().__init__(query)
+
+
+    def _sofa_path(self, subject_id):
+        return str(self.query.sofa_directory_path / f'mit_kemar_{subject_id}_pinna.sofa')

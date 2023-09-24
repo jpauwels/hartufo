@@ -17518,6 +17518,12 @@ HRIR_CHECKSUMS = {
             ('P0200/HRTF/HRTF/96kHz/P0200_FreeFieldCompMinPhase_NoITD_96kHz.sofa', 'c3cfef6a1160699e3021a5c38150e0a2'),
         ],
     },
+    'mit-kemar': {
+        '': [
+            ('mit_kemar_large_pinna.sofa', 'c31f54cfaab6955dbc426fb716dbd358'),
+            ('mit_kemar_normal_pinna.sofa', '0999a5f5219d4da08b28aca7188b3539'),
+        ],
+    },
 }
 
 
