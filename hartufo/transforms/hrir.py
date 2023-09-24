@@ -9,19 +9,23 @@ from scipy.signal import hilbert
 from samplerate import resample
 
 
-def _to_dense(sparse_array: np.ma.MaskedArray):
-    ''' Converts an N-D np.ma.MaskedArray to a 2-D dense np.array which flattens all dimensions except the last into one while keeping the last 
+def _to_dense2d(multidim_array: np.ndarray) -> np.ndarray:
+    ''' Converts an N-D np.ndarray to a 2-D dense array which flattens all dimensions except the last into one while keeping the last 
         dimension intact.'''
-    return sparse_array.compressed().reshape(-1, sparse_array.shape[-1])
+    dense_array = multidim_array.compressed() if np.ma.isMaskedArray(multidim_array) else multidim_array
+    return dense_array.reshape(-1, multidim_array.shape[-1])
 
 
-def _to_sparse(dense_array: np.array, prototype: np.ma.MaskedArray):
-    ''' Converts a 2-D dense np.array into a N-D np.ma.MaskedArray whose dimensions and sparsity mask is taken from the given prototypical 
+def _to_multidim(dense2d_array: np.ndarray, prototype: np.ndarray) -> np.ndarray:
+    ''' Converts a 2-D dense np.ndarray into a N-D np.ndarray whose dimensions and sparsity mask is taken from the given prototypical 
         sparse array, except for the final dimension which is taken from the dense array itself.'''
-    sparse_mask = np.tile(np.ma.getmaskarray(prototype)[..., :1], (*np.ones(prototype.ndim-1, dtype=int), dense_array.shape[-1]))
-    sparse_array = np.ma.array(np.empty((*prototype.shape[:-1], dense_array.shape[-1])), dtype=dense_array.dtype, mask=sparse_mask)
-    sparse_array[~sparse_mask] = dense_array.ravel()
-    return sparse_array
+    if np.ma.isMaskedArray(prototype):
+        sparse_mask = np.tile(np.ma.getmaskarray(prototype)[..., :1], (*np.ones(prototype.ndim-1, dtype=int), dense2d_array.shape[-1]))
+        sparse_array = np.ma.array(np.empty((*prototype.shape[:-1], dense2d_array.shape[-1])), dtype=dense2d_array.dtype, mask=sparse_mask)
+        sparse_array[~sparse_mask] = dense2d_array.ravel()
+        return sparse_array
+    else:
+        return dense2d_array.reshape(*prototype.shape[:-1], -1)
 
 
 class ScaleTransform(BatchTransform):
@@ -30,7 +34,7 @@ class ScaleTransform(BatchTransform):
         self.multiplicative_factor = multiplicative_factor
 
 
-    def __call__(self, values: np.ma.MaskedArray):
+    def __call__(self, values: np.ndarray) -> np.ndarray:
         scaled_values = values
         if isinstance(self.additive_factor, np.ndarray) or self.additive_factor != 0:
             scaled_values = scaled_values + self.additive_factor
@@ -39,7 +43,7 @@ class ScaleTransform(BatchTransform):
         return scaled_values
 
 
-    def inverse(self, scaled_values: np.ma.MaskedArray):
+    def inverse(self, scaled_values: np.ndarray) -> np.ndarray:
         values = scaled_values
         if isinstance(self.additive_factor, np.ndarray) or self.additive_factor != 0:
             values = values - self.additive_factor
@@ -49,14 +53,14 @@ class ScaleTransform(BatchTransform):
 
 
 class MinPhaseTransform(BatchTransform):
-    def __call__(self, hrirs: np.ma.MaskedArray):
-        dense_hrirs = _to_dense(hrirs)
+    def __call__(self, hrirs: np.ndarray) -> np.ndarray:
+        dense_hrirs = _to_dense2d(hrirs)
         hrtf = fft(dense_hrirs)
         magnitudes = np.abs(hrtf)
         min_phases = -np.imag(hilbert(np.log(np.maximum(magnitudes, np.finfo(magnitudes.dtype).smallest_subnormal))))
         min_phase_hrtf = magnitudes * np.exp(1j * min_phases)
         min_phase_hrirs = np.real(ifft(min_phase_hrtf)[..., :hrirs.shape[-1]])
-        return _to_sparse(min_phase_hrirs, hrirs)
+        return _to_multidim(min_phase_hrirs, hrirs)
 
 
 class ResampleTransform(BatchTransform):
@@ -64,13 +68,13 @@ class ResampleTransform(BatchTransform):
         self.resample_factor = resample_factor
 
 
-    def __call__(self, hrirs: np.ma.MaskedArray):
+    def __call__(self, hrirs: np.ndarray) -> np.ndarray:
         if self.resample_factor == 1:
             return hrirs
-        dense_hrirs = _to_dense(hrirs)
+        dense_hrirs = _to_dense2d(hrirs)
         # process in chunks of 128 HRIRs (channels) because that's the maximum supported by resample
         resampled_hrirs = np.row_stack([resample(dense_hrirs[ch_idx:ch_idx+128].T, self.resample_factor).T for ch_idx in range(0, len(dense_hrirs), 128)])
-        return _to_sparse(resampled_hrirs, hrirs)
+        return _to_multidim(resampled_hrirs, hrirs)
 
 
 class SelectIndicesTransform(BatchTransform):
@@ -79,7 +83,7 @@ class SelectIndicesTransform(BatchTransform):
         self._selection = indices
 
 
-    def __call__(self, values: np.ma.MaskedArray):
+    def __call__(self, values: np.ndarray) -> np.ndarray:
         return values[..., self._selection]
 
 
@@ -89,13 +93,13 @@ class TruncateTransform(SelectIndicesTransform):
 
 
 class DecibelTransform(BatchTransform):
-    def __call__(self, hrtf: np.ma.MaskedArray):
+    def __call__(self, hrtf: np.ndarray) -> np.ndarray:
         # limit dB range to what is representable by data type
         min_value = np.max(hrtf) * np.finfo(hrtf.dtype).resolution
         return 20 * np.log10(np.maximum(hrtf, min_value))
 
 
-    def inverse(self, hrtf):
+    def inverse(self, hrtf: np.ndarray) -> np.ndarray:
         return 10 ** (hrtf / 20)
 
 
@@ -111,18 +115,19 @@ class DomainTransform(BatchTransform):
         self.dtype = dtype
 
 
-    def __call__(self, hrirs: np.ma.MaskedArray):
+    def __call__(self, hrirs: np.ndarray) -> np.ndarray:
         if self.domain == 'time':
             transformed_hrirs = hrirs
         else:
-            dense_hrirs = _to_dense(hrirs)
+            dense_hrirs = _to_dense2d(hrirs)
             dense_hrtf = rfft(dense_hrirs, norm='forward')
-            hrtf = _to_sparse(dense_hrtf, hrirs)
+            hrtf = _to_multidim(dense_hrtf, hrirs)
             if self.domain == 'complex':
                 transformed_hrirs = hrtf
             elif self.domain.startswith('magnitude'):
-                # workaround to avoid spurious warning triggered by np.abs in NumPy v1.23.5
-                hrtf._fill_value = hrirs.fill_value
+                if np.ma.isMaskedArray(hrtf):
+                    # workaround to avoid spurious warning triggered by np.abs in NumPy v1.23.5
+                    hrtf._fill_value = hrirs.fill_value
                 magnitudes = np.abs(hrtf)
                 if self.domain.endswith('_db'):
                     transformed_hrirs = self._db_transformer(magnitudes)
