@@ -32,18 +32,18 @@ class ScaleTransform(BatchTransform):
 
     def __call__(self, values: np.ma.MaskedArray):
         scaled_values = values
-        if self.additive_factor != 0:
+        if isinstance(self.additive_factor, np.ndarray) or self.additive_factor != 0:
             scaled_values = scaled_values + self.additive_factor
-        if self.multiplicative_factor != 1:
+        if isinstance(self.multiplicative_factor, np.ndarray) or self.multiplicative_factor != 1:
             scaled_values = scaled_values * self.multiplicative_factor
         return scaled_values
 
 
     def inverse(self, scaled_values: np.ma.MaskedArray):
         values = scaled_values
-        if self.additive_factor != 0:
+        if isinstance(self.additive_factor, np.ndarray) or self.additive_factor != 0:
             values = values - self.additive_factor
-        if self.multiplicative_factor != 1:
+        if isinstance(self.multiplicative_factor, np.ndarray) or self.multiplicative_factor != 1:
             values = values / self.multiplicative_factor
         return values
 
