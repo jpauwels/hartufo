@@ -94,7 +94,7 @@ class Dataset:
             if hrir_spec.get('additive_scale_factor') is not None or hrir_spec.get('multiplicative_scale_factor') is not None:
                 hrir_pipeline.append(ScaleTransform(hrir_spec.get('additive_scale_factor', 0), hrir_spec.get('multiplicative_scale_factor', 1)))
             if hrir_spec['min_phase']:
-                hrir_pipeline.append(MinPhaseTransform(recorded_hrir_length))
+                hrir_pipeline.append(MinPhaseTransform())
             if hrir_spec.get('samplerate') is None:
                 self.hrir_samplerate = recorded_samplerate
             else:
