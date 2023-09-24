@@ -53,7 +53,7 @@ class MinPhaseTransform(BatchTransform):
         dense_hrirs = _to_dense(hrirs)
         hrtf = fft(dense_hrirs)
         magnitudes = np.abs(hrtf)
-        min_phases = -np.imag(hilbert(np.log(np.maximum(magnitudes, 1e-320))))
+        min_phases = -np.imag(hilbert(np.log(np.maximum(magnitudes, np.finfo(magnitudes.dtype).smallest_subnormal))))
         min_phase_hrtf = magnitudes * np.exp(1j * min_phases)
         min_phase_hrirs = np.real(ifft(min_phase_hrtf)[..., :hrirs.shape[-1]])
         return _to_sparse(min_phase_hrirs, hrirs)
