@@ -28,6 +28,21 @@ def _to_multidim(dense2d_array: np.ndarray, prototype: np.ndarray) -> np.ndarray
         return dense2d_array.reshape(*prototype.shape[:-1], -1)
 
 
+class Hrir2dTransform(BatchTransform):
+    def __init__(self, prototype: Optional[np.ndarray] = None):
+        self._prototype = prototype
+
+
+    def __call__(self, hrirs: np.ndarray) -> np.ndarray:
+        if self._prototype is None:
+            self._prototype = hrirs
+        return _to_dense2d(hrirs)
+
+
+    def inverse(self, hrirs_list: np.ndarray) -> np.ndarray:
+        return _to_multidim(hrirs_list, self._prototype)
+
+
 class ScaleTransform(BatchTransform):
     def __init__(self, additive_factor: float = 0, multiplicative_factor = 1):
         self.additive_factor = additive_factor
