@@ -128,7 +128,7 @@ class HrirPlaneSpec(HrirSpec):
         plane_angles: Optional[Iterable[float]] = None,
         plane_offset: float = 0.,
         positive_angles: bool = False,
-        distance: Optional[Union[float, str]] = None,
+        distance: Union[float, str] = 'farthest',
         method: Optional[str] = None,
         variant: str = 'compensated',
         additive_scale_factor: Optional[float] = None,
