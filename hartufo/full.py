@@ -214,6 +214,21 @@ class Dataset:
         return tuple(np.unique(subject_ids))
 
 
+    @property
+    def preprocessing_chain(self):
+        return self._specification['hrir']['preprocess']
+
+
+    @property
+    def transform_chain(self):
+        return self._specification['hrir']['transform']
+
+
+    @property
+    def full_chain(self):
+        return self._specification['hrir']['preprocess'] + self._specification['hrir']['transform']
+
+
     def insert_transform(self, spec_type, transform_callable, index):
         if spec_type.name not in self._specification.keys():
             raise ValueError(f'No {spec_type.name.title()}Spec in this Dataset.')
@@ -236,8 +251,7 @@ class Dataset:
     def hrtf_frequencies(self):
         if self._specification['hrir'].get('domain', 'time') == 'time':
             return self._hrtf_frequencies
-        all_transforms = self._specification['hrir']['preprocess'] + self._specification['hrir']['transform']
-        region_selector = [t for t in all_transforms if isinstance(t, SelectValueRangeTransform)]
+        region_selector = [t for t in self.full_chain if isinstance(t, SelectValueRangeTransform)]
         if not region_selector:
             return self._hrtf_frequencies
         return self._hrtf_frequencies[region_selector[0]._selection]
