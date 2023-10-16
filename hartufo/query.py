@@ -992,9 +992,9 @@ class SonicomDataQuery(HrirDataQuery):
             self._hrir_variant_str = 'FreeFieldComp'
         elif hrir_variant == 'compensated-itd_removed':
             self._hrir_variant_str = 'FreeFieldComp_NoITD'
-        elif hrir_variant == 'compensated-minphase':
+        elif hrir_variant == 'minphase_compensated':
             self._hrir_variant_str = 'FreeFieldCompMinPhase'
-        elif hrir_variant == 'compensated-minphase-itd_removed':
+        elif hrir_variant == 'minphase_compensated-itd_removed':
             self._hrir_variant_str = 'FreeFieldCompMinPhase_NoITD'
         else:
             raise ValueError(f'Unknown HRIR variant "{hrir_variant}"')
@@ -1004,10 +1004,17 @@ class SonicomDataQuery(HrirDataQuery):
                 f' them to {sofa_directory_path}. Then pass "verify=True" to the constructor to check the expected location and content of the files.'
             )
         super().__init__(collection_id='sonicom', sofa_directory_path=sofa_directory_path, checksum_key=f'{hrir_variant}-{samplerate}', download=download, verify=verify)
+        self._default_hrirs_exclude = ('KEMAR_SmallEars', 'KEMAR_LargeEars')
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[0].lstrip('P')) for x in self.sofa_directory_path.glob(f'P????/HRTF/HRTF/{self._samplerate_str}/P????_{self._hrir_variant_str}_{self._samplerate_str}.sofa')])
+        all_ids = []
+        for x in self.sofa_directory_path.glob(f'*/HRTF/HRTF/{self._samplerate_str}/*_{self._hrir_variant_str}_{self._samplerate_str}.sofa'):
+            if x.stem.startswith('KEMAR_'):
+                all_ids.append('KEMAR_'+x.stem.split('_')[1])
+            else:
+                all_ids.append(int(x.stem.split('_')[0].lstrip('P')))
+        return sorted(all_ids)
 
 
 class MitKemarDataQuery(HrirDataQuery):

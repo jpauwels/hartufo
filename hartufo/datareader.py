@@ -649,7 +649,11 @@ class SonicomDataReader(SofaSphericalDataReader):
 
 
     def _sofa_path(self, subject_id):
-        return str(self.query.sofa_directory_path / f'P{subject_id:04d}' / 'HRTF' / 'HRTF' / self.query._samplerate_str / f'P{subject_id:04d}_{self.query._hrir_variant_str}_{self.query._samplerate_str}.sofa')
+        if isinstance(subject_id, int):
+            base_dir = f'P{subject_id:04d}'
+        else:
+            base_dir = subject_id
+        return str(self.query.sofa_directory_path / base_dir / 'HRTF' / 'HRTF' / self.query._samplerate_str / f'{base_dir}_{self.query._hrir_variant_str}_{self.query._samplerate_str}.sofa')
 
 
 class MitKemarDataReader(SofaSphericalDataReader):

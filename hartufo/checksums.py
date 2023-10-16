@@ -12873,6 +12873,8 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0198/HRTF/HRTF/44kHz/P0198_Raw_44kHz.sofa', '3d55c3e7572cf13a8928c20c4d876dab'),
             ('P0199/HRTF/HRTF/44kHz/P0199_Raw_44kHz.sofa', 'dda50b64143baf438a8e9baeddea6e77'),
             ('P0200/HRTF/HRTF/44kHz/P0200_Raw_44kHz.sofa', '00cb052418f91ccd4cc24340bf4ecf1c'),
+            ('KEMAR_LargeEars/HRTF/HRTF/44kHz/KEMAR_LargeEars_Raw_44kHz.sofa', '4dcb2bf0a9345ecad7622fc20c275aa4'),
+            ('KEMAR_SmallEars/HRTF/HRTF/44kHz/KEMAR_SmallEars_Raw_44kHz.sofa', '91aad0704b7405f46d59e82177543f01'),
         ],
         'raw-itd_removed-44100': [
             ('P0001/HRTF/HRTF/44kHz/P0001_Raw_NoITD_44kHz.sofa', '436afa28a717d02b21e03bdbbf002364'),
@@ -13075,6 +13077,8 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0198/HRTF/HRTF/44kHz/P0198_Raw_NoITD_44kHz.sofa', '82b0fd4bbc344ff45040381e34b14cb5'),
             ('P0199/HRTF/HRTF/44kHz/P0199_Raw_NoITD_44kHz.sofa', 'c46e410a4be22bbf76fe846b6e82c2d5'),
             ('P0200/HRTF/HRTF/44kHz/P0200_Raw_NoITD_44kHz.sofa', '23fe25642f497410d791261c37c7c20b'),
+            ('KEMAR_LargeEars/HRTF/HRTF/44kHz/KEMAR_LargeEars_Raw_NoITD_44kHz.sofa', 'b28dc1930b46c0ded700649b6125c91c'),
+            ('KEMAR_SmallEars/HRTF/HRTF/44kHz/KEMAR_SmallEars_Raw_NoITD_44kHz.sofa', '61d94c37e26bd6269cc6336a844e3eb8'),
         ],
         'windowed-44100': [
             ('P0001/HRTF/HRTF/44kHz/P0001_Windowed_44kHz.sofa', '2a38e8adc8ab35a83cac5898e235148c'),
@@ -13276,7 +13280,9 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/44kHz/P0197_Windowed_44kHz.sofa', '967cf9fb71387b53e3fa89a7ebb331e7'),
             ('P0198/HRTF/HRTF/44kHz/P0198_Windowed_44kHz.sofa', '64f3de5ebb7e12b08a8dbca9c8968419'),
             ('P0199/HRTF/HRTF/44kHz/P0199_Windowed_44kHz.sofa', 'e06709654524580a1e565a41932ba780'),
-            ('P0200/HRTF/HRTF/44kHz/P0200_Windowed_44kHz.sofa', '1cb4737b9db27fc2318b1b172ebe6502'),            
+            ('P0200/HRTF/HRTF/44kHz/P0200_Windowed_44kHz.sofa', '1cb4737b9db27fc2318b1b172ebe6502'),
+            ('KEMAR_LargeEars/HRTF/HRTF/44kHz/KEMAR_LargeEars_Windowed_44kHz.sofa', '308c84baea87ffd2b5fbc4240441619e'),
+            ('KEMAR_SmallEars/HRTF/HRTF/44kHz/KEMAR_SmallEars_Windowed_44kHz.sofa', '754b746c600187a317068a02fa61fa8a'),
         ],
         'windowed-itd_removed-44100': [
             ('P0001/HRTF/HRTF/44kHz/P0001_Windowed_NoITD_44kHz.sofa', '8e461153230e0de340c9379272c6b6db'),
@@ -13479,6 +13485,8 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0198/HRTF/HRTF/44kHz/P0198_Windowed_NoITD_44kHz.sofa', 'd46fcf99fca49ba14e64b59e82046f93'),
             ('P0199/HRTF/HRTF/44kHz/P0199_Windowed_NoITD_44kHz.sofa', 'abfa720a3d9f3c7aa2a2f3e09e4e40a1'),
             ('P0200/HRTF/HRTF/44kHz/P0200_Windowed_NoITD_44kHz.sofa', '2f8d9172e853c769452b9a8d03812dca'),
+            ('KEMAR_LargeEars/HRTF/HRTF/44kHz/KEMAR_LargeEars_Windowed_NoITD_44kHz.sofa', '22b4d8abeb3a9c6236db77ce1cd4532e'),
+            ('KEMAR_SmallEars/HRTF/HRTF/44kHz/KEMAR_SmallEars_Windowed_NoITD_44kHz.sofa', '70497f48ca717fae429c15800dd6f013'),
         ],
         'compensated-44100': [
             ('P0001/HRTF/HRTF/44kHz/P0001_FreeFieldComp_44kHz.sofa', '550bc9f0e26fc157bc24715b178337b9'),
@@ -13681,6 +13689,8 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0198/HRTF/HRTF/44kHz/P0198_FreeFieldComp_44kHz.sofa', '4942da4de05718593cbfd191777fcccf'),
             ('P0199/HRTF/HRTF/44kHz/P0199_FreeFieldComp_44kHz.sofa', '7fae6aa4044ae36cc3f4ba76f0e546c2'),
             ('P0200/HRTF/HRTF/44kHz/P0200_FreeFieldComp_44kHz.sofa', 'a69b404f1de5b636e7ea83dc67cacf3e'),
+            ('KEMAR_LargeEars/HRTF/HRTF/44kHz/KEMAR_LargeEars_FreeFieldComp_44kHz.sofa', 'e9f217ad150740befae3985cbfafad3b'),
+            ('KEMAR_SmallEars/HRTF/HRTF/44kHz/KEMAR_SmallEars_FreeFieldComp_44kHz.sofa', '76107a392af0946ff92b5b86323ecd61'),
         ],
         'compensated-itd_removed-44100': [
             ('P0001/HRTF/HRTF/44kHz/P0001_FreeFieldComp_NoITD_44kHz.sofa', '422aeb0ad8afad6fbbb00793dce7899e'),
@@ -13882,9 +13892,11 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/44kHz/P0197_FreeFieldComp_NoITD_44kHz.sofa', 'a99438a56791f54d86ccd2b84dcca1f1'),
             ('P0198/HRTF/HRTF/44kHz/P0198_FreeFieldComp_NoITD_44kHz.sofa', '463dd4b023dd68fe6d1c0d7d021df6de'),
             ('P0199/HRTF/HRTF/44kHz/P0199_FreeFieldComp_NoITD_44kHz.sofa', 'a8a16a2c45643b0b7ba623369784d95e'),
-            ('P0200/HRTF/HRTF/44kHz/P0200_FreeFieldComp_NoITD_44kHz.sofa', '9d7d0dd2b397211f9dc28092ea90a141'),            
+            ('P0200/HRTF/HRTF/44kHz/P0200_FreeFieldComp_NoITD_44kHz.sofa', '9d7d0dd2b397211f9dc28092ea90a141'),
+            ('KEMAR_LargeEars/HRTF/HRTF/44kHz/KEMAR_LargeEars_FreeFieldComp_NoITD_44kHz.sofa', 'ca90707ac0e67217bd9018151fa3d6cd'),
+            ('KEMAR_SmallEars/HRTF/HRTF/44kHz/KEMAR_SmallEars_FreeFieldComp_NoITD_44kHz.sofa', '4bd3f9c224e517ebbf05c26faef75df8'),
         ],
-        'compensated-minphase-44100': [
+        'minphase_compensated-44100': [
             ('P0001/HRTF/HRTF/44kHz/P0001_FreeFieldCompMinPhase_44kHz.sofa', '6c7127fec736cbbf84f07161e7aa77da'),
             ('P0002/HRTF/HRTF/44kHz/P0002_FreeFieldCompMinPhase_44kHz.sofa', '50d59c9caf411f615c83c01b6bf4255d'),
             ('P0003/HRTF/HRTF/44kHz/P0003_FreeFieldCompMinPhase_44kHz.sofa', 'd01386f2cc685ed7431c51cdeb98210e'),
@@ -14084,9 +14096,11 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/44kHz/P0197_FreeFieldCompMinPhase_44kHz.sofa', '67bc9b647d602c414a885d332e5d0ee5'),
             ('P0198/HRTF/HRTF/44kHz/P0198_FreeFieldCompMinPhase_44kHz.sofa', '40b47fd30750dd666a88e2e340553a14'),
             ('P0199/HRTF/HRTF/44kHz/P0199_FreeFieldCompMinPhase_44kHz.sofa', '78dcaa12c4ffb7d014dc601c7e9ed3c9'),
-            ('P0200/HRTF/HRTF/44kHz/P0200_FreeFieldCompMinPhase_44kHz.sofa', '7f232dca981baf32b4ca8ffb5f10138c'),            
+            ('P0200/HRTF/HRTF/44kHz/P0200_FreeFieldCompMinPhase_44kHz.sofa', '7f232dca981baf32b4ca8ffb5f10138c'),
+            ('KEMAR_LargeEars/HRTF/HRTF/44kHz/KEMAR_LargeEars_FreeFieldCompMinPhase_44kHz.sofa', '2a464294edf703e6cac176e8942f4a22'),
+            ('KEMAR_SmallEars/HRTF/HRTF/44kHz/KEMAR_SmallEars_FreeFieldCompMinPhase_44kHz.sofa', 'a64058c75247302b64d8f2f66b6f9b4c'),
         ],
-        'compensated-minphase-itd_removed-44100': [
+        'minphase_compensated-itd_removed-44100': [
             ('P0001/HRTF/HRTF/44kHz/P0001_FreeFieldCompMinPhase_NoITD_44kHz.sofa', '4df1df7fa97b5720052643552921f87b'),
             ('P0002/HRTF/HRTF/44kHz/P0002_FreeFieldCompMinPhase_NoITD_44kHz.sofa', '4a1e780ab3fc4290f2d57abd036310e1'),
             ('P0003/HRTF/HRTF/44kHz/P0003_FreeFieldCompMinPhase_NoITD_44kHz.sofa', 'db69e1fd5b00cfe745723bb2b33be6eb'),
@@ -14286,7 +14300,9 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/44kHz/P0197_FreeFieldCompMinPhase_NoITD_44kHz.sofa', 'fed2a5a77b6ac072564b759abe653530'),
             ('P0198/HRTF/HRTF/44kHz/P0198_FreeFieldCompMinPhase_NoITD_44kHz.sofa', '7da00ceb8a65a0d6f0993ced620cf93e'),
             ('P0199/HRTF/HRTF/44kHz/P0199_FreeFieldCompMinPhase_NoITD_44kHz.sofa', '56bb3fa6f7fb740adadd4c1fef55d080'),
-            ('P0200/HRTF/HRTF/44kHz/P0200_FreeFieldCompMinPhase_NoITD_44kHz.sofa', '5ec51428601c93fe39f90559a90f73b4'),            
+            ('P0200/HRTF/HRTF/44kHz/P0200_FreeFieldCompMinPhase_NoITD_44kHz.sofa', '5ec51428601c93fe39f90559a90f73b4'),
+            ('KEMAR_LargeEars/HRTF/HRTF/44kHz/KEMAR_LargeEars_FreeFieldCompMinPhase_NoITD_44kHz.sofa', 'fa45ef48c5202b39a7408294c059e608'),
+            ('KEMAR_SmallEars/HRTF/HRTF/44kHz/KEMAR_SmallEars_FreeFieldCompMinPhase_NoITD_44kHz.sofa', '8a0b02be78370ad8c2c3c6d200b46430'),
         ],
         'raw-48000': [
             ('P0001/HRTF/HRTF/48kHz/P0001_Raw_48kHz.sofa', '93d3d70f83c82a29ac304a5576117b26'),
@@ -14489,6 +14505,8 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0198/HRTF/HRTF/48kHz/P0198_Raw_48kHz.sofa', 'b3aad0394bfb20f5ac26b6cb63474334'),
             ('P0199/HRTF/HRTF/48kHz/P0199_Raw_48kHz.sofa', '477cdbdacaa4bcbd99d42118eb83711e'),
             ('P0200/HRTF/HRTF/48kHz/P0200_Raw_48kHz.sofa', '35eee317013c9be9500da6b9bbb5e89c'),
+            ('KEMAR_LargeEars/HRTF/HRTF/48kHz/KEMAR_LargeEars_Raw_48kHz.sofa', '42ab6b998879c7280a134d8e58ae00ea'),
+            ('KEMAR_SmallEars/HRTF/HRTF/48kHz/KEMAR_SmallEars_Raw_48kHz.sofa', 'b9c31cab3f42f75c64847bdaa1343746'),
         ],
         'raw-itd_removed-48000': [
             ('P0001/HRTF/HRTF/48kHz/P0001_Raw_NoITD_48kHz.sofa', '655a711caee8d975b3662708c82a10e1'),
@@ -14690,7 +14708,9 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/48kHz/P0197_Raw_NoITD_48kHz.sofa', '8c0c4c4c6a82374a49e429e56e4b0c1c'),
             ('P0198/HRTF/HRTF/48kHz/P0198_Raw_NoITD_48kHz.sofa', 'a5e7e1294b5c04d3de478f52f48f1834'),
             ('P0199/HRTF/HRTF/48kHz/P0199_Raw_NoITD_48kHz.sofa', '3f545a9634fbf406880fa690be760c03'),
-            ('P0200/HRTF/HRTF/48kHz/P0200_Raw_NoITD_48kHz.sofa', '311267619b8287b4513477479c958de1'),            
+            ('P0200/HRTF/HRTF/48kHz/P0200_Raw_NoITD_48kHz.sofa', '311267619b8287b4513477479c958de1'),
+            ('KEMAR_LargeEars/HRTF/HRTF/48kHz/KEMAR_LargeEars_Raw_NoITD_48kHz.sofa', '1261df726cc1e341d288fbd6c478b690'),
+            ('KEMAR_SmallEars/HRTF/HRTF/48kHz/KEMAR_SmallEars_Raw_NoITD_48kHz.sofa', '85936a1e699485d4c93d723b2d21d00c'),
         ],
         'windowed-48000': [
             ('P0001/HRTF/HRTF/48kHz/P0001_Windowed_48kHz.sofa', 'd91e393d3160976443ca2b054f4cdaf4'),
@@ -14893,6 +14913,8 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0198/HRTF/HRTF/48kHz/P0198_Windowed_48kHz.sofa', '0931202eb0f4e40100d8293fe0f444b5'),
             ('P0199/HRTF/HRTF/48kHz/P0199_Windowed_48kHz.sofa', 'a19af22b65e8cc09536af17e003ccb93'),
             ('P0200/HRTF/HRTF/48kHz/P0200_Windowed_48kHz.sofa', 'a73a23c798e8cadfa5ab5f05d6b54add'),
+            ('KEMAR_LargeEars/HRTF/HRTF/48kHz/KEMAR_LargeEars_Windowed_48kHz.sofa', '684ffecee124b6a98766c0a735d5c5cd'),
+            ('KEMAR_SmallEars/HRTF/HRTF/48kHz/KEMAR_SmallEars_Windowed_48kHz.sofa', '75487bff2b176ca1beedd45b34401bea'),
         ],
         'windowed-itd_removed-48000': [
             ('P0001/HRTF/HRTF/48kHz/P0001_Windowed_NoITD_48kHz.sofa', 'aeb5f3835a6270af8ce20e67112f01e4'),
@@ -15094,7 +15116,9 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/48kHz/P0197_Windowed_NoITD_48kHz.sofa', '52e5212262d024f064b47456f384629d'),
             ('P0198/HRTF/HRTF/48kHz/P0198_Windowed_NoITD_48kHz.sofa', '490167d829be169e76cde20f05eadd68'),
             ('P0199/HRTF/HRTF/48kHz/P0199_Windowed_NoITD_48kHz.sofa', 'ed9b805d048c0fe3154400f42a30cd21'),
-            ('P0200/HRTF/HRTF/48kHz/P0200_Windowed_NoITD_48kHz.sofa', '5de8361e1a565e77aa608b4cbd0d7c0b'),            
+            ('P0200/HRTF/HRTF/48kHz/P0200_Windowed_NoITD_48kHz.sofa', '5de8361e1a565e77aa608b4cbd0d7c0b'),
+            ('KEMAR_LargeEars/HRTF/HRTF/48kHz/KEMAR_LargeEars_Windowed_NoITD_48kHz.sofa', '99933fac5bda0668a2dfa80380b059db'),
+            ('KEMAR_SmallEars/HRTF/HRTF/48kHz/KEMAR_SmallEars_Windowed_NoITD_48kHz.sofa', '8c21848c58b7bdafe391e5b5f8ea2489'),
         ],
         'compensated-48000': [
             ('P0001/HRTF/HRTF/48kHz/P0001_FreeFieldComp_48kHz.sofa', '5f0ee7aa8f198ef4f7002b973aba71c4'),
@@ -15296,7 +15320,9 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/48kHz/P0197_FreeFieldComp_48kHz.sofa', '0b29b68c20318a5a7046c41619b35717'),
             ('P0198/HRTF/HRTF/48kHz/P0198_FreeFieldComp_48kHz.sofa', '1f6b2d9ccfb1ec782cbb8cc4057ed0c7'),
             ('P0199/HRTF/HRTF/48kHz/P0199_FreeFieldComp_48kHz.sofa', 'dac3b635a82272a27c0f363142f33ad4'),
-            ('P0200/HRTF/HRTF/48kHz/P0200_FreeFieldComp_48kHz.sofa', '5700cfc5fb4f011ff63f943d06b8eab9'),            
+            ('P0200/HRTF/HRTF/48kHz/P0200_FreeFieldComp_48kHz.sofa', '5700cfc5fb4f011ff63f943d06b8eab9'),
+            ('KEMAR_LargeEars/HRTF/HRTF/48kHz/KEMAR_LargeEars_FreeFieldComp_48kHz.sofa', 'a3c0339f63afe18ec8f59fc983bce3c5'),
+            ('KEMAR_SmallEars/HRTF/HRTF/48kHz/KEMAR_SmallEars_FreeFieldComp_48kHz.sofa', '04a08a5e131d0af79eae1d8b152fc371'),
         ],
         'compensated-itd_removed-48000': [
             ('P0001/HRTF/HRTF/48kHz/P0001_FreeFieldComp_NoITD_48kHz.sofa', 'd62938ec10ecfeb90b832abe69e72f81'),
@@ -15498,9 +15524,11 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/48kHz/P0197_FreeFieldComp_NoITD_48kHz.sofa', 'c6548a93994761cc957b25fc04b0fac5'),
             ('P0198/HRTF/HRTF/48kHz/P0198_FreeFieldComp_NoITD_48kHz.sofa', '39f682190dba7418b36296822c72e747'),
             ('P0199/HRTF/HRTF/48kHz/P0199_FreeFieldComp_NoITD_48kHz.sofa', '7723ea2959bbcb2075f75dc6286bd0c0'),
-            ('P0200/HRTF/HRTF/48kHz/P0200_FreeFieldComp_NoITD_48kHz.sofa', 'f293c3511d168480f3d976b66d6fc8ba'),            
+            ('P0200/HRTF/HRTF/48kHz/P0200_FreeFieldComp_NoITD_48kHz.sofa', 'f293c3511d168480f3d976b66d6fc8ba'),
+            ('KEMAR_LargeEars/HRTF/HRTF/48kHz/KEMAR_LargeEars_FreeFieldComp_NoITD_48kHz.sofa', 'a13d0d251de3cc53df0162b63d73502a'),
+            ('KEMAR_SmallEars/HRTF/HRTF/48kHz/KEMAR_SmallEars_FreeFieldComp_NoITD_48kHz.sofa', '1961556cfb6a146501e5dc80a62810fa'),
         ],
-        'compensated-minphase-48000': [
+        'minphase_compensated-48000': [
             ('P0001/HRTF/HRTF/48kHz/P0001_FreeFieldCompMinPhase_48kHz.sofa', '9a1059553e377b8e2f3585fbc0cf6554'),
             ('P0002/HRTF/HRTF/48kHz/P0002_FreeFieldCompMinPhase_48kHz.sofa', 'dcdf0e5a3261bf1e7b464eaea60c6814'),
             ('P0003/HRTF/HRTF/48kHz/P0003_FreeFieldCompMinPhase_48kHz.sofa', 'a614ed226e3380aafeec34c074b1d3a9'),
@@ -15700,9 +15728,11 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/48kHz/P0197_FreeFieldCompMinPhase_48kHz.sofa', 'd11a54c0192f0cd50b207a6340e6ef2a'),
             ('P0198/HRTF/HRTF/48kHz/P0198_FreeFieldCompMinPhase_48kHz.sofa', '551cdeaf88fe3131576814a234c0c244'),
             ('P0199/HRTF/HRTF/48kHz/P0199_FreeFieldCompMinPhase_48kHz.sofa', '12ff8db46bffc98674b3bdb07a263154'),
-            ('P0200/HRTF/HRTF/48kHz/P0200_FreeFieldCompMinPhase_48kHz.sofa', '2c9c0b2672fd8d29399b1366b2c7d139'),            
+            ('P0200/HRTF/HRTF/48kHz/P0200_FreeFieldCompMinPhase_48kHz.sofa', '2c9c0b2672fd8d29399b1366b2c7d139'),
+            ('KEMAR_LargeEars/HRTF/HRTF/48kHz/KEMAR_LargeEars_FreeFieldCompMinPhase_48kHz.sofa', '31992eee692776e308f17af2a75898a8'),
+            ('KEMAR_SmallEars/HRTF/HRTF/48kHz/KEMAR_SmallEars_FreeFieldCompMinPhase_48kHz.sofa', '7747af8bb8e38288ffda5208ad3e865c'),
         ],
-        'compensated-minphase-itd_removed-48000': [
+        'minphase_compensated-itd_removed-48000': [
             ('P0001/HRTF/HRTF/48kHz/P0001_FreeFieldCompMinPhase_NoITD_48kHz.sofa', 'dcb094d4080f33dc1912dfa29661d7a7'),
             ('P0002/HRTF/HRTF/48kHz/P0002_FreeFieldCompMinPhase_NoITD_48kHz.sofa', '9b818850366adc0e2ec461d7ff46c41b'),
             ('P0003/HRTF/HRTF/48kHz/P0003_FreeFieldCompMinPhase_NoITD_48kHz.sofa', '44c7455cda27d9c292075cd483e3f883'),
@@ -15902,7 +15932,9 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/48kHz/P0197_FreeFieldCompMinPhase_NoITD_48kHz.sofa', 'ddc2e5f41f61a1a9806b2768a94b5956'),
             ('P0198/HRTF/HRTF/48kHz/P0198_FreeFieldCompMinPhase_NoITD_48kHz.sofa', 'dbff9f58c626d8e05b0fb506ec46b5e9'),
             ('P0199/HRTF/HRTF/48kHz/P0199_FreeFieldCompMinPhase_NoITD_48kHz.sofa', '9b0be3ae249348b2398b3e591384fb65'),
-            ('P0200/HRTF/HRTF/48kHz/P0200_FreeFieldCompMinPhase_NoITD_48kHz.sofa', '5b6fb44302a27381cf92919069b82666'),            
+            ('P0200/HRTF/HRTF/48kHz/P0200_FreeFieldCompMinPhase_NoITD_48kHz.sofa', '5b6fb44302a27381cf92919069b82666'),
+            ('KEMAR_LargeEars/HRTF/HRTF/48kHz/KEMAR_LargeEars_FreeFieldCompMinPhase_NoITD_48kHz.sofa', '9703975694c342c74e43a14b9cbf89f0'),
+            ('KEMAR_SmallEars/HRTF/HRTF/48kHz/KEMAR_SmallEars_FreeFieldCompMinPhase_NoITD_48kHz.sofa', 'fc29c7735a12653d04c23a75f8bb06a7'),
         ],
         'raw-96000': [
             ('P0001/HRTF/HRTF/96kHz/P0001_Raw_96kHz.sofa', '2c67359c99757b1f6b3df17ba3e3bd1d'),
@@ -16105,6 +16137,8 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0198/HRTF/HRTF/96kHz/P0198_Raw_96kHz.sofa', 'd1bc2e060f94f6bf26a7a2175fc3bf12'),
             ('P0199/HRTF/HRTF/96kHz/P0199_Raw_96kHz.sofa', '4074fc749a47c5fad881ca14a427825a'),
             ('P0200/HRTF/HRTF/96kHz/P0200_Raw_96kHz.sofa', 'd8924dc504467bd987ebe7dd77e1005f'),
+            ('KEMAR_LargeEars/HRTF/HRTF/96kHz/KEMAR_LargeEars_Raw_96kHz.sofa', 'aff9df67e33509616b1185bf693284da'),
+            ('KEMAR_SmallEars/HRTF/HRTF/96kHz/KEMAR_SmallEars_Raw_96kHz.sofa', 'c928cd2e41936d14e8348bcb93bb288c'),
         ],
         'raw-itd_removed-96000': [
             ('P0001/HRTF/HRTF/96kHz/P0001_Raw_NoITD_96kHz.sofa', '6405fe2d3512f2ebfab54834c81865f5'),
@@ -16306,7 +16340,9 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/96kHz/P0197_Raw_NoITD_96kHz.sofa', '75ad4e2997f1cc54fb6cd99c442b87e4'),
             ('P0198/HRTF/HRTF/96kHz/P0198_Raw_NoITD_96kHz.sofa', 'dcacfd6f5d30bbe29e37466c49de9092'),
             ('P0199/HRTF/HRTF/96kHz/P0199_Raw_NoITD_96kHz.sofa', '69adbe4875b6cd0462cea2270330c8c6'),
-            ('P0200/HRTF/HRTF/96kHz/P0200_Raw_NoITD_96kHz.sofa', 'caf5f22a9247e331255d79de7f8ce058'),            
+            ('P0200/HRTF/HRTF/96kHz/P0200_Raw_NoITD_96kHz.sofa', 'caf5f22a9247e331255d79de7f8ce058'),
+            ('KEMAR_LargeEars/HRTF/HRTF/96kHz/KEMAR_LargeEars_Raw_NoITD_96kHz.sofa', 'ec0fb4f2cf8bb0b6f8f5f5497bd11943'),
+            ('KEMAR_SmallEars/HRTF/HRTF/96kHz/KEMAR_SmallEars_Raw_NoITD_96kHz.sofa', '0e4617a086bc678eb90d1cdd53683514'),
         ],
         'windowed-96000': [
             ('P0001/HRTF/HRTF/96kHz/P0001_Windowed_96kHz.sofa', 'd3555084eec6ffba5a89ee6e5dda2ca8'),
@@ -16508,7 +16544,9 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/96kHz/P0197_Windowed_96kHz.sofa', '9dde3c91bc7d3a6e44f02a4e012b8777'),
             ('P0198/HRTF/HRTF/96kHz/P0198_Windowed_96kHz.sofa', '5968dc858229501a8704b2ccfb0fc4a7'),
             ('P0199/HRTF/HRTF/96kHz/P0199_Windowed_96kHz.sofa', '66fac4a0668885c9aa5b19a344fa6d75'),
-            ('P0200/HRTF/HRTF/96kHz/P0200_Windowed_96kHz.sofa', '57f460fff59e043a76a7823e8e5bcf6b'),            
+            ('P0200/HRTF/HRTF/96kHz/P0200_Windowed_96kHz.sofa', '57f460fff59e043a76a7823e8e5bcf6b'),
+            ('KEMAR_LargeEars/HRTF/HRTF/96kHz/KEMAR_LargeEars_Windowed_96kHz.sofa', '7496a5469f50daf678f9298cf2c3ef78'),
+            ('KEMAR_SmallEars/HRTF/HRTF/96kHz/KEMAR_SmallEars_Windowed_96kHz.sofa', 'c88cd919a08be80b9c76435225da45af'),
         ],
         'windowed-itd_removed-96000': [
             ('P0001/HRTF/HRTF/96kHz/P0001_Windowed_NoITD_96kHz.sofa', 'd737b0abda5b57d34503aeb14f27ae01'),
@@ -16710,7 +16748,9 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/96kHz/P0197_Windowed_NoITD_96kHz.sofa', '2dc816a8d98eee118063eaca39a2d2fa'),
             ('P0198/HRTF/HRTF/96kHz/P0198_Windowed_NoITD_96kHz.sofa', '50aa5406db27cf7e7ec6aee32232c802'),
             ('P0199/HRTF/HRTF/96kHz/P0199_Windowed_NoITD_96kHz.sofa', '7a78fa764d63325485f3146ef2dc5916'),
-            ('P0200/HRTF/HRTF/96kHz/P0200_Windowed_NoITD_96kHz.sofa', 'fab17fc47b2f861b87c8fb53baea5e87'),            
+            ('P0200/HRTF/HRTF/96kHz/P0200_Windowed_NoITD_96kHz.sofa', 'fab17fc47b2f861b87c8fb53baea5e87'),
+            ('KEMAR_LargeEars/HRTF/HRTF/96kHz/KEMAR_LargeEars_Windowed_NoITD_96kHz.sofa', '0f3f3bf9e13923c29e5e9352b6b925e1'),
+            ('KEMAR_SmallEars/HRTF/HRTF/96kHz/KEMAR_SmallEars_Windowed_NoITD_96kHz.sofa', '3dc3bb231124665a764d7b3d17ed3c44'),
         ],
         'compensated-96000': [
             ('P0001/HRTF/HRTF/96kHz/P0001_FreeFieldComp_96kHz.sofa', 'a01560a659db7bae2526a008c9d7477c'),
@@ -16913,6 +16953,8 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0198/HRTF/HRTF/96kHz/P0198_FreeFieldComp_96kHz.sofa', '1fd3e7ee66c153ceff6fd676dd224ad7'),
             ('P0199/HRTF/HRTF/96kHz/P0199_FreeFieldComp_96kHz.sofa', '056fbc261e05003f682c51a73fb517bb'),
             ('P0200/HRTF/HRTF/96kHz/P0200_FreeFieldComp_96kHz.sofa', '67af03fb115d270a3d8bfb326c94884e'),
+            ('KEMAR_LargeEars/HRTF/HRTF/96kHz/KEMAR_LargeEars_FreeFieldComp_96kHz.sofa', '05a1bf7877e7802e1d9a8f8bd96d4db3'),
+            ('KEMAR_SmallEars/HRTF/HRTF/96kHz/KEMAR_SmallEars_FreeFieldComp_96kHz.sofa', '75c203473a17a60951009845181efcc7'),
         ],
         'compensated-itd_removed-96000': [
             ('P0001/HRTF/HRTF/96kHz/P0001_FreeFieldComp_NoITD_96kHz.sofa', '77334bef20e2b3af062909f62c8bda98'),
@@ -17114,9 +17156,11 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/96kHz/P0197_FreeFieldComp_NoITD_96kHz.sofa', 'e2433052d9bd4997fa227dd3e97917b7'),
             ('P0198/HRTF/HRTF/96kHz/P0198_FreeFieldComp_NoITD_96kHz.sofa', 'b77e5818e495bf7c86f10be2073b1be3'),
             ('P0199/HRTF/HRTF/96kHz/P0199_FreeFieldComp_NoITD_96kHz.sofa', '3c61f85facd8e95573f1c2e2dd288df8'),
-            ('P0200/HRTF/HRTF/96kHz/P0200_FreeFieldComp_NoITD_96kHz.sofa', 'e63833462ab85571c4f00d33fdd565be'),            
+            ('P0200/HRTF/HRTF/96kHz/P0200_FreeFieldComp_NoITD_96kHz.sofa', 'e63833462ab85571c4f00d33fdd565be'),
+            ('KEMAR_LargeEars/HRTF/HRTF/96kHz/KEMAR_LargeEars_FreeFieldComp_NoITD_96kHz.sofa', '0d5861f63c19fb71e11397671dcc988a'),
+            ('KEMAR_SmallEars/HRTF/HRTF/96kHz/KEMAR_SmallEars_FreeFieldComp_NoITD_96kHz.sofa', '91d5fc457a483edd1c148052e4dfaf3f'),
         ],
-        'compensated-minphase-96000': [
+        'minphase_compensated-96000': [
             ('P0001/HRTF/HRTF/96kHz/P0001_FreeFieldCompMinPhase_96kHz.sofa', 'f2fa25c5cac82b73d78b203178b2326e'),
             ('P0002/HRTF/HRTF/96kHz/P0002_FreeFieldCompMinPhase_96kHz.sofa', '31f08edc3effd9882276ddaf14c6a605'),
             ('P0003/HRTF/HRTF/96kHz/P0003_FreeFieldCompMinPhase_96kHz.sofa', 'aae18aa76e6602e61f8d265f7ec9238d'),
@@ -17316,9 +17360,11 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0197/HRTF/HRTF/96kHz/P0197_FreeFieldCompMinPhase_96kHz.sofa', '122f1293fb636ed77571a78e4cca38a3'),
             ('P0198/HRTF/HRTF/96kHz/P0198_FreeFieldCompMinPhase_96kHz.sofa', '5b7c1273017de842de8d6dafde037650'),
             ('P0199/HRTF/HRTF/96kHz/P0199_FreeFieldCompMinPhase_96kHz.sofa', 'fa3072018a6b798fae5a50d27253de8d'),
-            ('P0200/HRTF/HRTF/96kHz/P0200_FreeFieldCompMinPhase_96kHz.sofa', 'e8f35340bcc568517a66f8a3905b9c34'),            
+            ('P0200/HRTF/HRTF/96kHz/P0200_FreeFieldCompMinPhase_96kHz.sofa', 'e8f35340bcc568517a66f8a3905b9c34'),
+            ('KEMAR_LargeEars/HRTF/HRTF/96kHz/KEMAR_LargeEars_FreeFieldCompMinPhase_96kHz.sofa', 'e96eb22ad832f0174b9755a7c0a1ed8c'),
+            ('KEMAR_SmallEars/HRTF/HRTF/96kHz/KEMAR_SmallEars_FreeFieldCompMinPhase_96kHz.sofa', 'b7dd89f8475eba10c2ee3fa8a13eb45e'),
         ],
-        'compensated-minphase-itd_removed-96000': [
+        'minphase_compensated-itd_removed-96000': [
             ('P0001/HRTF/HRTF/96kHz/P0001_FreeFieldCompMinPhase_NoITD_96kHz.sofa', 'c576b87514305b751017d0ccda39df99'),
             ('P0002/HRTF/HRTF/96kHz/P0002_FreeFieldCompMinPhase_NoITD_96kHz.sofa', '929efe82b019d76683f512e7ee1096bc'),
             ('P0003/HRTF/HRTF/96kHz/P0003_FreeFieldCompMinPhase_NoITD_96kHz.sofa', '10401e9d1b63d2faf6f4bae617dadc3d'),
@@ -17519,6 +17565,8 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
             ('P0198/HRTF/HRTF/96kHz/P0198_FreeFieldCompMinPhase_NoITD_96kHz.sofa', '4ddc7be9348d75f4481a51a03ce5bbe0'),
             ('P0199/HRTF/HRTF/96kHz/P0199_FreeFieldCompMinPhase_NoITD_96kHz.sofa', '61adcf7a8e7082dd55f38476d3be9494'),
             ('P0200/HRTF/HRTF/96kHz/P0200_FreeFieldCompMinPhase_NoITD_96kHz.sofa', 'c3cfef6a1160699e3021a5c38150e0a2'),
+            ('KEMAR_LargeEars/HRTF/HRTF/96kHz/KEMAR_LargeEars_FreeFieldCompMinPhase_NoITD_96kHz.sofa', '5494d83757b5d648f5920a0c0e343a6b'),
+            ('KEMAR_SmallEars/HRTF/HRTF/96kHz/KEMAR_SmallEars_FreeFieldCompMinPhase_NoITD_96kHz.sofa', '6f15e2af1cd2f9d622afab5af06fe365'),
         ],
     },
     'mit-kemar': {
