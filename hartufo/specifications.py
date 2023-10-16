@@ -144,7 +144,7 @@ class HrirPlaneSpec(HrirSpec):
     ):
         if plane not in ('horizontal', 'median', 'frontal', 'vertical', 'interaural'):
             raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal", "vertical" or "interaural".')
-        super().__init__(domain, side, None, None, distance, method, variant, additive_scale_factor, multiplicative_scale_factor, samplerate, length, min_phase, exclude, min_freq, max_freq, preprocess, transform)
+        super().__init__(domain, side, None, None, distance, method, variant, additive_scale_factor, multiplicative_scale_factor, samplerate, length, min_phase, min_freq, max_freq, exclude, preprocess, transform)
         self.add('plane', plane)
         self.add('plane_angles', plane_angles)
         self.add('plane_offset', plane_offset)
