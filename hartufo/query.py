@@ -5,6 +5,7 @@ import warnings
 import random
 from abc import abstractmethod
 from numbers import Number
+from typing import Dict, Union
 from xml.etree.ElementTree import parse
 import tempfile
 import os.path
@@ -84,7 +85,7 @@ class DataQuery:
 
 
     @staticmethod
-    def _integrity_helper(checksum_info, target_path) -> bool:
+    def _integrity_helper(checksum_info, target_path):
         if target_path.is_dir():
             all_checks = np.array([check_integrity(target_path / filename, md5) for filename, md5 in checksum_info])
             if not all(all_checks):
@@ -100,7 +101,7 @@ class DataQuery:
                 raise FileNotFoundError(f'The file "{target_path}" is missing. Use download=True to download it.')
 
 
-    def _check_integrity(self) -> bool:
+    def _check_integrity(self):
         return
 
 
@@ -216,7 +217,7 @@ class DataQuery:
 class HrirDataQuery(DataQuery):
 
     _default_hrirs_exclude = ()
-    HRIR_DOWNLOAD = {}
+    HRIR_DOWNLOAD: Dict[str, str] = {}
 
 
     def __init__(self,
@@ -225,8 +226,7 @@ class HrirDataQuery(DataQuery):
         **kwargs,
     ):
         if sofa_directory_path:
-            self.allowed_keys = list(self.allowed_keys)
-            self.allowed_keys += ['hrir']
+            self.allowed_keys = list(self.allowed_keys) + ['hrir']
         self.sofa_directory_path = Path(sofa_directory_path)
         self._checksum_key = checksum_key
         super().__init__(**kwargs)
@@ -241,7 +241,7 @@ class HrirDataQuery(DataQuery):
         pass
 
 
-    def _check_integrity(self) -> bool:
+    def _check_integrity(self):
         super()._check_integrity()
         if 'hrir' in self.allowed_keys:
             self._integrity_helper(HRIR_CHECKSUMS[self.collection_id][self._checksum_key], self.sofa_directory_path)
@@ -256,7 +256,7 @@ class HrirDataQuery(DataQuery):
 class AnthropometryDataQuery(DataQuery):
 
     _default_anthropometry_exclude = ()
-    ANTHROPOMETRY_DOWNLOAD = {}
+    ANTHROPOMETRY_DOWNLOAD: Dict[str, str] = {}
 
 
     def __init__(self,
@@ -264,15 +264,14 @@ class AnthropometryDataQuery(DataQuery):
         **kwargs,
     ):
         if anthropometry_path:
-            self.allowed_keys = list(self.allowed_keys)
-            self.allowed_keys += ['anthropometry']
+            self.allowed_keys = list(self.allowed_keys) + ['anthropometry']
         self.anthropometry_path = Path(anthropometry_path)
         super().__init__(**kwargs)
         if anthropometry_path:
             self._load_anthropometry(self.anthropometry_path)
         else:
             self._anthropometric_ids = np.array([], dtype=int)
-            self._anthropometry = {}
+            self._anthropometry: Dict[str, Union[np.ndarray, Dict[str, np.ndarray]]] = {}
 
 
     def anthropometry_ids(self, side, select=None, partial=False, exclude=None):
@@ -331,7 +330,7 @@ class AnthropometryDataQuery(DataQuery):
         return np.column_stack([self._anthropometry[s][real_side] if s.startswith('pinna') else self._anthropometry[s] for s in select])
 
 
-    def _check_integrity(self) -> bool:
+    def _check_integrity(self):
         super()._check_integrity()
         if 'anthropometry' in self.allowed_keys:
             self._integrity_helper(ANTHROPOMETRY_CHECKSUMS[self.collection_id], self.anthropometry_path)
@@ -346,7 +345,7 @@ class AnthropometryDataQuery(DataQuery):
 class ImageDataQuery(DataQuery):
 
     _default_images_exclude = ()
-    IMAGE_DOWNLOAD = {}
+    IMAGE_DOWNLOAD: Dict[str, str] = {}
 
 
     def __init__(self,
@@ -354,8 +353,7 @@ class ImageDataQuery(DataQuery):
         **kwargs,
     ):
         if image_directory_path:
-            self.allowed_keys = list(self.allowed_keys)
-            self.allowed_keys += ['image']
+            self.allowed_keys = list(self.allowed_keys) + ['image']
         self.image_directory_path = Path(image_directory_path)
         super().__init__(**kwargs)
 
@@ -369,7 +367,7 @@ class ImageDataQuery(DataQuery):
         pass
 
 
-    def _check_integrity(self) -> bool:
+    def _check_integrity(self):
         super()._check_integrity()
         if 'image' in self.allowed_keys:
             self._integrity_helper(IMAGE_CHECKSUMS[self.collection_id], self.image_directory_path)
@@ -384,7 +382,7 @@ class ImageDataQuery(DataQuery):
 class MeshDataQuery(DataQuery):
 
     _default_mesh_exclude = ()
-    MESH_DOWNLOAD = {}
+    MESH_DOWNLOAD: Dict[str, str] = {}
 
 
     def __init__(self,
@@ -392,8 +390,7 @@ class MeshDataQuery(DataQuery):
         **kwargs,
     ):
         if mesh_directory_path:
-            self.allowed_keys = list(self.allowed_keys)
-            self.allowed_keys += ['3d-model']
+            self.allowed_keys = list(self.allowed_keys) + ['3d-model']
         self.mesh_directory_path = Path(mesh_directory_path)
         super().__init__(**kwargs)
 
@@ -407,7 +404,7 @@ class MeshDataQuery(DataQuery):
         pass
 
 
-    def _check_integrity(self) -> bool:
+    def _check_integrity(self):
         super()._check_integrity()
         if '3d-model' in self.allowed_keys:
             self._integrity_helper(MESH_CHECKSUMS[self.collection_id], self.mesh_directory_path)

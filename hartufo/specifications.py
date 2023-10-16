@@ -37,7 +37,7 @@ def sanitise_specs(x: Optional[Union[Spec, Iterable[Spec]]]) -> Iterable[Spec]:
     return x
 
 
-def sanitise_multiple_specs(*multi_specs: Iterable[Optional[Union[Spec, Iterable[Spec]]]]) -> Iterable[Spec]:
+def sanitise_multiple_specs(*multi_specs: Optional[Union[Spec, Iterable[Spec]]]) -> Iterable[Spec]:
     return tuple((spec for specs in multi_specs for spec in sanitise_specs(specs)))
 
 

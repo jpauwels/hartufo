@@ -6,7 +6,7 @@ from copy import deepcopy
 from itertools import chain
 from pathlib import Path
 from numbers import Integral
-from typing import Dict, Iterable, Optional, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 import numpy as np
 import numpy.typing as npt
 from scipy.fft import rfftfreq
@@ -58,13 +58,13 @@ class Dataset:
                 raise ValueError('Empty dataset. Check if its configuration and paths are correct.')
             if subject_ids:
                 raise ValueError('None of the explicitly requested subject IDs are available.')
-            self.subject_ids = tuple()
+            self.subject_ids: Tuple[Union[int, str], ...] = tuple()
             self.hrir_samplerate = None
             self.hrir_length = None
             self.fundamental_angles = np.array([])
             self.orthogonal_angles = np.array([])
             self.radii = np.array([])
-            self._selection_mask = None
+            self._selection_mask = np.array([])
             self._data = {}
             return
 
@@ -88,7 +88,7 @@ class Dataset:
                 self._plane_transform = self.PlaneTransform(hrir_spec['plane'], hrir_spec['plane_offset'], hrir_spec['positive_angles'], self.fundamental_angles, self.orthogonal_angles, self._selection_mask)
                 self.append_transform(HrirSpec, self._plane_transform)
             # Construct HRIR processing pipeline
-            hrir_pipeline = []
+            hrir_pipeline: List[BatchTransform] = []
             recorded_hrir_length = datareader.hrir_length(self.subject_ids[0])
             recorded_samplerate = datareader.hrir_samplerate(self.subject_ids[0])
             if hrir_spec.get('additive_scale_factor') is not None or hrir_spec.get('multiplicative_scale_factor') is not None:

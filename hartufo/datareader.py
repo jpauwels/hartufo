@@ -1,6 +1,7 @@
 from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, CrossModDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, Princeton3D3ADataQuery, ScutDataQuery, SonicomDataQuery, MitKemarDataQuery
 from .util import wrap_closed_open_interval, wrap_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian, quantise
 from abc import abstractmethod
+from pathlib import Path
 from typing import Optional, Union
 import numpy as np
 import netCDF4 as ncdf
@@ -385,9 +386,9 @@ class ImageDataReader(DataReader):
 class CipicDataReader(SofaInterauralDataReader, AnthropometryDataReader, ImageDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
-        image_directory_path: str = '',
-        anthropometry_matfile_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
+        image_directory_path: Union[str, Path] = '',
+        anthropometry_matfile_path: Union[str, Path] = '',
         download: bool = False,
         verify: bool = True,
     ):
@@ -411,8 +412,8 @@ class CipicDataReader(SofaInterauralDataReader, AnthropometryDataReader, ImageDa
 class AriDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
-        anthropometry_matfile_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
+        anthropometry_matfile_path: Union[str, Path] = '',
         download: bool = False,
         verify: bool = True,
     ):
@@ -430,8 +431,8 @@ class AriDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 class ListenDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
-        anthropometry_directory_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
+        anthropometry_directory_path: Union[str, Path] = '',
         hrir_variant: str = 'compensated',
         download: bool = False,
         verify: bool = True,
@@ -447,7 +448,7 @@ class ListenDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 class CrossModDataReader(SofaSphericalDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
         hrir_variant: str = 'compensated',
         download: bool = False,
         verify: bool = True,
@@ -463,7 +464,7 @@ class CrossModDataReader(SofaSphericalDataReader):
 class BiLiDataReader(SofaSphericalDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
         hrir_variant: str = 'compensated',
         hrir_samplerate: Optional[float] = None,
         download: bool = False,
@@ -480,8 +481,8 @@ class BiLiDataReader(SofaSphericalDataReader):
 class ItaDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
-        anthropometry_csvfile_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
+        anthropometry_csvfile_path: Union[str, Path] = '',
         download: bool = False,
         verify: bool = True,
     ):
@@ -496,8 +497,8 @@ class ItaDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 class HutubsDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
-        anthropometry_csvfile_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
+        anthropometry_csvfile_path: Union[str, Path] = '',
         hrir_method: Optional[str] = None,
         download: bool = False,
         verify: bool = True,
@@ -513,7 +514,7 @@ class HutubsDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 class RiecDataReader(SofaSphericalDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
         download: bool = False,
         verify: bool = True,
     ):
@@ -531,8 +532,8 @@ class ChedarDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
 
     def __init__(self,
-        sofa_directory_path: str = '',
-        anthropometry_matfile_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
+        anthropometry_matfile_path: Union[str, Path] = '',
         distance: Optional[Union[float, str]] = None,
         download: bool = False,
         verify: bool = True,
@@ -548,7 +549,7 @@ class ChedarDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 class WidespreadDataReader(SofaSphericalDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
         distance: Optional[Union[float, str]] = None,
         grid: str = 'UV',
         download: bool = False,
@@ -568,8 +569,8 @@ class WidespreadDataReader(SofaSphericalDataReader):
 class Sadie2DataReader(SofaSphericalDataReader, ImageDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
-        image_directory_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
+        image_directory_path: Union[str, Path] = '',
         hrir_samplerate: Optional[float] = None,
         download: bool = False,
         verify: bool = True,
@@ -602,8 +603,8 @@ class Sadie2DataReader(SofaSphericalDataReader, ImageDataReader):
 class Princeton3D3ADataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
-        anthropometry_directory_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
+        anthropometry_directory_path: Union[str, Path] = '',
         hrir_method: Optional[str] = None,
         hrir_variant: str = 'compensated',
         download: bool = False,
@@ -621,8 +622,8 @@ class Princeton3D3ADataReader(SofaSphericalDataReader, AnthropometryDataReader):
 class ScutDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
-        anthropometry_csvfile_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
+        anthropometry_csvfile_path: Union[str, Path] = '',
         download: bool = False,
         verify: bool = True,
     ):
@@ -637,7 +638,7 @@ class ScutDataReader(SofaSphericalDataReader, AnthropometryDataReader):
 class SonicomDataReader(SofaSphericalDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
         hrir_variant: str = 'compensated',
         hrir_samplerate: Optional[float] = None,
         download: bool = False,
@@ -654,7 +655,7 @@ class SonicomDataReader(SofaSphericalDataReader):
 class MitKemarDataReader(SofaSphericalDataReader):
 
     def __init__(self,
-        sofa_directory_path: str = '',
+        sofa_directory_path: Union[str, Path] = '',
         download: bool = False,
         verify: bool = True,
     ):

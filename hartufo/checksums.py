@@ -1,4 +1,7 @@
-HRIR_CHECKSUMS = {
+from typing import Dict, List, Tuple
+
+
+HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
     'cipic': {
         '': [
             ('subject_003.sofa', '2330ab8f3beea3d43ab962a089f38588'),
@@ -17527,7 +17530,7 @@ HRIR_CHECKSUMS = {
 }
 
 
-ANTHROPOMETRY_CHECKSUMS = {
+ANTHROPOMETRY_CHECKSUMS: Dict[str, List[Tuple[str, str]]] = {
     'cipic': [('anthro.mat', '5357c32934d8273f42c236a675ae2434')],
     'ari': [('anthro.mat', 'd4c45de083a88881b1555e926a6907ea')],
     'listen': [
@@ -17624,7 +17627,7 @@ ANTHROPOMETRY_CHECKSUMS = {
 }
 
 
-IMAGE_CHECKSUMS = {
+IMAGE_CHECKSUMS: Dict[str, List[Tuple[str, str]]] = {
     'cipic': [
         ('Subject_001/001_right_rear.jpg', '5c5b34ed51b97b98e3ffd182d8e3ace9'),
         ('Subject_001/001_right_side.jpg', '96bf0bdc4ff0b41c84f62d0534a80091'),
@@ -17758,5 +17761,5 @@ IMAGE_CHECKSUMS = {
     ],
 }
 
-MESH_CHECKSUMS = {
+MESH_CHECKSUMS: Dict[str, List[Tuple[str, str]]] = {
 }
