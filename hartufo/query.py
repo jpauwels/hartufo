@@ -10,6 +10,7 @@ from xml.etree.ElementTree import parse
 import tempfile
 import os.path
 from urllib.parse import quote
+from urllib.error import HTTPError
 import numpy as np
 from openpyxl import load_workbook
 from pymatreader import read_mat
@@ -893,13 +894,17 @@ class Princeton3D3ADataQuery(HrirDataQuery, AnthropometryDataQuery):
                 self._method_str = 'BEM/Head-Ears-and-Torso/Reference-Grade'
             else:
                 raise ValueError(f'Unknown HRIR method "{hrir_method}"')
-        if download:
-            raise NotImplementedError(
-                f'Downloading of the 3D3A collection is not yet supported. Manually download the files linked from {self.HRIR_DOWNLOAD["base_url"]} and extract'
-                f' them to {sofa_directory_path} and {anthropometry_directory_path}. Then pass "verify=True" to the constructor to check the expected'
-                ' location and content of the files.'
-            )
-        super().__init__(collection_id='3d3a', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, checksum_key=f'{hrir_method}-{hrir_variant}', download=download, verify=verify)
+        try:
+            super().__init__(collection_id='3d3a', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, checksum_key=f'{hrir_method}-{hrir_variant}', download=download, verify=verify)
+        except ValueError as err:
+            if download:
+                raise NotImplementedError(
+                    f'Downloading of the 3D3A collection is not yet supported. Manually download the files linked from {self.HRIR_DOWNLOAD["base_url"]} and extract'
+                    f' them to {sofa_directory_path} and {anthropometry_directory_path}. Then pass "verify=True" to the constructor to check the expected'
+                    ' location and content of the files.'
+                ) from None
+            else:
+                raise err
         self._default_hrirs_exclude = (37, 44) # Neumann KU100 and Brüel & Kjaer HATS 4128C dummy
         self._default_anthropometry_exclude = (37, 44) # Neumann KU100 and Brüel & Kjaer HATS 4128C dummy
 
@@ -998,12 +1003,16 @@ class SonicomDataQuery(HrirDataQuery):
             self._hrir_variant_str = 'FreeFieldCompMinPhase_NoITD'
         else:
             raise ValueError(f'Unknown HRIR variant "{hrir_variant}"')
-        if download:
-            raise NotImplementedError(
-                f'Downloading of the SONICOM collection is not yet supported. Manually download the zip files from {self.HRIR_DOWNLOAD["base_url"]} and extract'
-                f' them to {sofa_directory_path}. Then pass "verify=True" to the constructor to check the expected location and content of the files.'
-            )
-        super().__init__(collection_id='sonicom', sofa_directory_path=sofa_directory_path, checksum_key=f'{hrir_variant}-{samplerate}', download=download, verify=verify)
+        try:
+            super().__init__(collection_id='sonicom', sofa_directory_path=sofa_directory_path, checksum_key=f'{hrir_variant}-{samplerate}', download=download, verify=verify)
+        except HTTPError as err:
+            if download:
+                raise NotImplementedError(
+                    f'Downloading of the SONICOM collection is not yet supported. Manually download the zip files from {self.HRIR_DOWNLOAD["base_url"]} and extract'
+                    f' them to {sofa_directory_path}. Then pass "verify=True" to the constructor to check the expected location and content of the files.'
+                ) from None
+            else:
+                raise err
         self._default_hrirs_exclude = ('KEMAR_SmallEars', 'KEMAR_LargeEars')
 
 
