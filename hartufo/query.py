@@ -178,7 +178,9 @@ class DataQuery:
             exclude = specification['hrir'].get('exclude', exclude_subjects)
             separate_ids.append(set(self.hrir_ids(side, exclude)))
 
-        ids = sorted(set.intersection(*separate_ids))
+        selected_ids = set.intersection(*separate_ids)
+        ids = (sorted([str_id for str_id in selected_ids if isinstance(str_id[0], str)])
+             + sorted([int_id for int_id in selected_ids if isinstance(int_id[0], int)]))
         if include_subjects is None:
             return ids
         if len(ids) > 0 and include_subjects == 'first':
@@ -202,10 +204,13 @@ class DataQuery:
             else:
                 sides = ('left', 'right')
             if side.startswith('both'):
-                both_ids = sorted(set(left_ids).intersection(right_ids))
-                ids = [(i, s) for i in both_ids for s in sides]
+                both_ids = [(i, s) for i in set(left_ids).intersection(right_ids) for s in sides]
+                ids = (sorted([str_id for str_id in both_ids if isinstance(str_id[0], str)])
+                     + sorted([int_id for int_id in both_ids if isinstance(int_id[0], int)]))
             else:
-                ids = sorted([(i, sides[0]) for i in left_ids] + [(i, sides[1]) for i in right_ids])
+                any_ids = [(i, sides[0]) for i in left_ids] + [(i, sides[1]) for i in right_ids]
+                ids = (sorted([str_id for str_id in any_ids if isinstance(str_id[0], str)])
+                     + sorted([int_id for int_id in any_ids if isinstance(int_id[0], int)]))
         elif side in ['left', 'right']:
             ids = [(i, side) for i in id_fn(side)]
         else:
@@ -1023,7 +1028,7 @@ class SonicomDataQuery(HrirDataQuery):
                 all_ids.append('KEMAR_'+x.stem.split('_')[1])
             else:
                 all_ids.append(int(x.stem.split('_')[0].lstrip('P')))
-        return sorted(all_ids)
+        return sorted([str_id for str_id in all_ids if isinstance(str_id, str)]) + sorted([int_id for int_id in all_ids if isinstance(int_id, int)])
 
 
 class MitKemarDataQuery(HrirDataQuery):
