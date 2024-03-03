@@ -96,7 +96,7 @@ class FrequencyRegion(BaseEstimator, TransformerMixin):
 
     @property
     def frequencies_(self):
-        return self.frequencies[self.self._transform._selection]
+        return self.frequencies[self._transform._selection]
 
 
 class DomainTransformer(BaseEstimator, TransformerMixin):
