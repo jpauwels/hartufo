@@ -1,8 +1,8 @@
-from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, CrossModDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, Princeton3D3ADataQuery, ScutDataQuery, SonicomDataQuery, MitKemarDataQuery
+from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, CrossModDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, Princeton3D3ADataQuery, ScutDataQuery, SonicomDataQuery, MitKemarDataQuery, CustomDataQuery
 from .util import wrap_closed_open_interval, wrap_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian, quantise
 from abc import abstractmethod
 from pathlib import Path
-from typing import Optional, Union
+from typing import Iterable, Optional, Union
 import numpy as np
 import netCDF4 as ncdf
 from PIL import Image
@@ -669,3 +669,17 @@ class MitKemarDataReader(SofaSphericalDataReader):
 
     def _sofa_path(self, subject_id):
         return str(self.query.sofa_directory_path / f'mit_kemar_{subject_id}_pinna.sofa')
+
+
+class CustomSphericalDataReader(SofaSphericalDataReader):
+
+    def __init__(self,
+        collection_id: str,
+        file_paths: Iterable[Union[str, Path]],
+    ):
+        query = CustomDataQuery(collection_id, file_paths)
+        super().__init__(query)
+
+
+    def _sofa_path(self, subject_id):
+        return str(self.query.file_paths[subject_id])

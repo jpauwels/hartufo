@@ -1056,3 +1056,14 @@ class MitKemarDataQuery(HrirDataQuery):
 
     def _all_hrir_ids(self, side):
         return sorted([x.stem.split('_')[2] for x in self.sofa_directory_path.glob('mit_kemar_*_pinna.sofa')])
+
+
+class CustomDataQuery(HrirDataQuery):
+
+    def __init__(self, collection_id, file_paths):
+        self.file_paths = file_paths
+        super().__init__(collection_id=collection_id, sofa_directory_path='.', download=False, verify=False)
+
+
+    def _all_hrir_ids(self, side):
+        return list(range(len(self.file_paths)))

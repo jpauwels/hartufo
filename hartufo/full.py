@@ -1,4 +1,4 @@
-from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, CrossModDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader, MitKemarDataReader
+from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, CrossModDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader, MitKemarDataReader, CustomSphericalDataReader
 from .specifications import Spec, HrirSpec, sanitise_specs, sanitise_multiple_specs
 from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform, InterauralPlaneTransform, SphericalPlaneTransform
 from collections import defaultdict
@@ -722,4 +722,28 @@ class MitKemar(Dataset):
             download=download,
             verify=verify,
         )
+        super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
+
+
+class CustomSphericalDataset(Dataset):
+    """Custom HRTF Dataset
+    """
+    PlaneTransform = SphericalPlaneTransform
+
+
+    def __init__(
+        self,
+        collection_id: str,
+        file_paths: Iterable[Union[str, Path]],
+        features_spec: Union[Spec, Iterable[Spec]],
+        target_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        group_spec: Optional[Union[Spec, Iterable[Spec]]] = None,
+        subject_ids: Optional[Iterable[int]] = None,
+        subject_requirements: Optional[Dict] = None,
+        exclude_ids: Optional[Iterable[int]] = None,
+        dtype: type = np.float32,
+        download: bool = False,
+        verify: bool = False,
+    ) -> None:
+        datareader = CustomSphericalDataReader(collection_id, file_paths)
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)

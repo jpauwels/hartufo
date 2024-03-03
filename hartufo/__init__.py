@@ -19,6 +19,7 @@ from .full import (
     Scut,
     Sonicom,
     MitKemar,
+    CustomSphericalDataset,
 )
 
 from .planar import (
