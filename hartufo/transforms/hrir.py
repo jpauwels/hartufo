@@ -16,6 +16,13 @@ def _to_dense2d(multidim_array: np.ndarray) -> np.ndarray:
     return dense_array.reshape(-1, multidim_array.shape[-1])
 
 
+def _to_dense3d(multidim_array: np.ndarray) -> np.ndarray:
+    ''' Converts an N-D np.ndarray to a 3-D dense array which flattens the middle dimensions while keeping the first and last 
+        dimension intact.'''
+    dense_array = multidim_array.compressed() if np.ma.isMaskedArray(multidim_array) else multidim_array
+    return dense_array.reshape(len(multidim_array), -1, multidim_array.shape[-1])
+
+
 def _to_multidim(dense2d_array: np.ndarray, prototype: np.ndarray) -> np.ndarray:
     ''' Converts a 2-D dense np.ndarray into a N-D np.ndarray whose dimensions and sparsity mask is taken from the given prototypical 
         sparse array, except for the final dimension which is taken from the dense array itself.'''
@@ -37,6 +44,21 @@ class Hrir2dTransform(BatchTransform):
         if self._prototype is None:
             self._prototype = hrirs
         return _to_dense2d(hrirs)
+
+
+    def inverse(self, hrirs_list: np.ndarray) -> np.ndarray:
+        return _to_multidim(hrirs_list, self._prototype)
+
+
+class Hrir3dTransform(BatchTransform):
+    def __init__(self, prototype: Optional[np.ndarray] = None):
+        self._prototype = prototype
+
+
+    def __call__(self, hrirs: np.ndarray) -> np.ndarray:
+        if self._prototype is None:
+            self._prototype = hrirs
+        return _to_dense3d(hrirs)
 
 
     def inverse(self, hrirs_list: np.ndarray) -> np.ndarray:
