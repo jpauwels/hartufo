@@ -717,7 +717,7 @@ class HutubsDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[0].split('pp')[1]) for x in self.sofa_directory_path.glob(f'pp??_HRIRs_{self._method_str}.sofa')])
+        return sorted([int(x.stem.split('_')[0].split('pp')[1]) for x in self.sofa_directory_path.glob(f'pp*_HRIRs_{self._method_str}.sofa')])
 
 
     def _load_anthropometry(self, anthropometry_path):
