@@ -1,6 +1,6 @@
 """A Python toolkit for data-driven HRTF research"""
 
-__version__ = '0.6.4'
+__version__ = '0.6.5'
 
 from .full import (
     Dataset,
