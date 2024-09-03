@@ -79,13 +79,19 @@ class DataQuery:
         download: bool,
         verify: bool,
     ):
-        self.collection_id = collection_id
+        self._collection_id = collection_id
 
         if download:
             self._download()
 
         if verify:
             self._check_integrity()
+
+
+    def collection_id(self, suffix=None):
+        if suffix is None:
+            return self._collection_id
+        return f'{self._collection_id}-{suffix}'
 
 
     @staticmethod
@@ -264,13 +270,13 @@ class HrirDataQuery(DataQuery):
     def _check_integrity(self):
         super()._check_integrity()
         if 'hrir' in self.allowed_keys:
-            self._integrity_helper(HRIR_CHECKSUMS[self.collection_id][self._checksum_key], self.sofa_directory_path)
+            self._integrity_helper(HRIR_CHECKSUMS[self._collection_id][self._checksum_key], self.sofa_directory_path)
 
 
     def _download(self) -> None:
         super()._download()
         if 'hrir' in self.allowed_keys:
-            self._download_helper(self.HRIR_DOWNLOAD, HRIR_CHECKSUMS[self.collection_id][self._checksum_key], self.sofa_directory_path)
+            self._download_helper(self.HRIR_DOWNLOAD, HRIR_CHECKSUMS[self._collection_id][self._checksum_key], self.sofa_directory_path)
 
 
 class AnthropometryDataQuery(DataQuery):
@@ -353,13 +359,13 @@ class AnthropometryDataQuery(DataQuery):
     def _check_integrity(self):
         super()._check_integrity()
         if 'anthropometry' in self.allowed_keys:
-            self._integrity_helper(ANTHROPOMETRY_CHECKSUMS[self.collection_id], self.anthropometry_path)
+            self._integrity_helper(ANTHROPOMETRY_CHECKSUMS[self._collection_id], self.anthropometry_path)
 
 
     def _download(self) -> None:
         super()._download()
         if 'anthropometry' in self.allowed_keys:
-            self._download_helper(self.ANTHROPOMETRY_DOWNLOAD, ANTHROPOMETRY_CHECKSUMS[self.collection_id], self.anthropometry_path)
+            self._download_helper(self.ANTHROPOMETRY_DOWNLOAD, ANTHROPOMETRY_CHECKSUMS[self._collection_id], self.anthropometry_path)
 
 
 class ImageDataQuery(DataQuery):
@@ -390,13 +396,13 @@ class ImageDataQuery(DataQuery):
     def _check_integrity(self):
         super()._check_integrity()
         if 'image' in self.allowed_keys:
-            self._integrity_helper(IMAGE_CHECKSUMS[self.collection_id], self.image_directory_path)
+            self._integrity_helper(IMAGE_CHECKSUMS[self._collection_id], self.image_directory_path)
 
 
     def _download(self) -> None:
         super()._download()
         if 'image' in self.allowed_keys:
-            self._download_helper(self.IMAGE_DOWNLOAD, IMAGE_CHECKSUMS[self.collection_id], self.image_directory_path)
+            self._download_helper(self.IMAGE_DOWNLOAD, IMAGE_CHECKSUMS[self._collection_id], self.image_directory_path)
 
 
 class MeshDataQuery(DataQuery):
@@ -427,13 +433,13 @@ class MeshDataQuery(DataQuery):
     def _check_integrity(self):
         super()._check_integrity()
         if '3d-model' in self.allowed_keys:
-            self._integrity_helper(MESH_CHECKSUMS[self.collection_id], self.mesh_directory_path)
+            self._integrity_helper(MESH_CHECKSUMS[self._collection_id], self.mesh_directory_path)
 
 
     def _download(self) -> None:
         super()._download()
         if '3d-model' in self.allowed_keys:
-            self._download_helper(self.MESH_DOWNLOAD, MESH_CHECKSUMS[self.collection_id], self.mesh_directory_path)
+            self._download_helper(self.MESH_DOWNLOAD, MESH_CHECKSUMS[self._collection_id], self.mesh_directory_path)
 
 
 class CipicDataQuery(HrirDataQuery, AnthropometryDataQuery, ImageDataQuery):

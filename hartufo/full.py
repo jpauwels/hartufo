@@ -51,6 +51,7 @@ class Dataset:
 
         if subject_requirements is not None:
             self._specification = {**self._specification, **subject_requirements}
+        self.collection_id = self.query.collection_id(self._specification.get('hrir', {}).get('method'))
         ear_ids = self.query.specification_based_ids(self._specification, include_subjects=subject_ids, exclude_subjects=exclude_ids)
 
         if len(ear_ids) == 0:
@@ -132,7 +133,7 @@ class Dataset:
             if 'side' in self._specification.keys():
                 self._data['side'].append(side)
             if 'collection' in self._specification.keys():
-                self._data['collection'].append(datareader.collection(self._specification.get('hrir', {}).get('method')))
+                self._data['collection'].append(self.collection_id)
 
         for k in self._specification.keys():
             if k in ('hrir', 'anthropometry'):
