@@ -85,6 +85,7 @@ class HrirSpec(Spec):
     def __init__(self,
         domain: str = 'time',
         side: Optional[str] = None,
+        flat_positions: bool = True,
         fundamental_angles: Optional[Iterable[float]] = None,
         orthogonal_angles: Optional[Iterable[float]] = None,
         distance: Optional[Union[float, str]] = None,
@@ -104,6 +105,7 @@ class HrirSpec(Spec):
         super().__init__(preprocess, transform)
         self.add('domain', domain)
         self.add('side', side)
+        self.add('flat_positions', flat_positions)
         self.add('fundamental_angles', fundamental_angles)
         self.add('orthogonal_angles', orthogonal_angles)
         self.add('distance', distance)
@@ -144,7 +146,7 @@ class HrirPlaneSpec(HrirSpec):
     ):
         if plane not in ('horizontal', 'median', 'frontal', 'vertical', 'interaural'):
             raise ValueError('Unknown plane "{}", needs to be "horizontal", "median", "frontal", "vertical" or "interaural".')
-        super().__init__(domain, side, None, None, distance, method, variant, additive_scale_factor, multiplicative_scale_factor, samplerate, length, min_phase, min_freq, max_freq, exclude, preprocess, transform)
+        super().__init__(domain, side, True, None, None, distance, method, variant, additive_scale_factor, multiplicative_scale_factor, samplerate, length, min_phase, min_freq, max_freq, exclude, preprocess, transform)
         self.add('plane', plane)
         self.add('plane_angles', plane_angles)
         self.add('plane_offset', plane_offset)

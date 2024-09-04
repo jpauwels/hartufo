@@ -1,6 +1,6 @@
 from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, CrossModDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader, MitKemarDataReader, CustomSphericalDataReader
 from .specifications import Spec, HrirSpec, sanitise_specs, sanitise_multiple_specs
-from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform
+from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform, FlattenPositionsTransform
 from collections import defaultdict
 from copy import deepcopy
 from itertools import chain
@@ -31,6 +31,7 @@ class Dataset:
         self.query = datareader.query
         self.fundamental_angle_name = datareader.fundamental_angle_name
         self.orthogonal_angle_name = datareader.orthogonal_angle_name
+        self._coordinate_transform = datareader._coordinate_transform
         # Allow specifying ids that are excluded by default without explicitly overriding `exclude_ids``
         if subject_ids is not None and not isinstance(subject_ids, str) and exclude_ids is None:
             exclude_ids = ()
@@ -66,7 +67,6 @@ class Dataset:
             self.orthogonal_angles = np.array([])
             self.radii = np.array([])
             self._selection_mask = np.array([])
-            self._directions = np.array([])
             self._data = {}
             return
 
@@ -83,16 +83,14 @@ class Dataset:
             self.fundamental_angles, self.orthogonal_angles, self.radii, self._selection_mask, *_ = datareader._map_sofa_position_order_to_matrix(
                 self.subject_ids[0], requested_fundamental_angles, requested_orthogonal_angles, hrir_spec.get('distance'),
             )
-            self._directions = np.ma.masked_where(
-                np.tile(self._selection_mask[..., np.newaxis], (1, 1, 1, 3)),
-                np.stack(np.meshgrid(self.fundamental_angles, self.orthogonal_angles, self.radii, indexing='ij'), axis=-1),
-            )
             if hrir_spec.get('side', '').startswith('both-'):
                 datareader._verify_angle_symmetry(self.fundamental_angles, self.orthogonal_angles)
             # Create plane transform from file angles and mask
             if 'plane' in hrir_spec:
                 self._plane_transform = datareader.PlaneTransform(hrir_spec['plane'], hrir_spec['plane_offset'], hrir_spec['positive_angles'], self.fundamental_angles, self.orthogonal_angles, self._selection_mask)
                 self.append_transform(HrirSpec, self._plane_transform)
+            elif hrir_spec['flat_positions']:
+                self.append_transform(HrirSpec, FlattenPositionsTransform())
             # Construct HRIR processing pipeline
             hrir_pipeline: List[BatchTransform] = []
             recorded_hrir_length = datareader.hrir_length(self.subject_ids[0])
@@ -263,12 +261,16 @@ class Dataset:
         return self._hrtf_frequencies[region_selector[0]._selection]
 
 
-    @property
-    def directions(self):
-        plane_transforms = [t for t in self.full_chain if isinstance(t, PlaneTransform)]
-        if plane_transforms:
-            return plane_transforms[0](self._directions)
-        return self._directions
+    def positions(self, coordinate_system=None):
+        req_coordinates = self._coordinate_transform(coordinate_system, *np.meshgrid(self.fundamental_angles, self.orthogonal_angles, self.radii, indexing='ij'))
+        coordinates_grid = np.ma.masked_where(
+            np.tile(self._selection_mask[..., np.newaxis], (1, 1, 1, 3)),
+            np.stack(req_coordinates, axis=-1),
+        )
+        coord_transforms = [t for t in self.full_chain if isinstance(t, (PlaneTransform, FlattenPositionsTransform))]
+        for transform in coord_transforms:
+            coordinates_grid = transform(coordinates_grid)
+        return coordinates_grid
 
 
 def split_by_angles(dataset: Dataset):
