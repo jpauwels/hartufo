@@ -214,25 +214,11 @@ class SofaDataReader(DataReader):
         return unique_fundamental_angles, unique_orthogonal_angles, unique_radii, selection_mask, selected_file_indices, selection_mask_indices
 
 
-    def hrir_positions(self, subject_id, coordinate_system, fundamental_angles=None, orthogonal_angles=None, distance=None):
-        selected_fundamental_angles, selected_orthogonal_angles, selected_radii, selection_mask, *_ = self._map_sofa_position_order_to_matrix(subject_id, fundamental_angles, orthogonal_angles, distance)
-
-        coordinates = self._coordinate_transform(coordinate_system, selected_fundamental_angles, selected_orthogonal_angles, selected_radii)
-
-        position_grid = np.stack(np.meshgrid(*coordinates, indexing='ij'), axis=-1)
-        if selection_mask.any(): # sparse grid
-            tiled_position_mask = np.tile(selection_mask[:, :, :, np.newaxis], (1, 1, 1, 3))
-            return np.ma.masked_where(tiled_position_mask, position_grid)
-        # dense grid
-        return position_grid
-
-
     def hrir(self, subject_id, side, fundamental_angles=None, orthogonal_angles=None, distance=None):
         sofa_path = self._sofa_path(subject_id)
         hrir_file = ncdf.Dataset(sofa_path)
         try:
             hrirs = np.ma.getdata(hrir_file.variables['Data.IR'][:, 0 if side.endswith('left') else 1, :])
-            samplerate = hrir_file.variables['Data.SamplingRate'][:].item()
         except Exception as exc:
             raise ValueError(f'Error reading file "{sofa_path}"') from exc
         finally:
@@ -274,7 +260,7 @@ class SofaSphericalDataReader(SofaDataReader):
 
     @staticmethod
     def _coordinate_transform(coordinate_system, selected_fundamental_angles, selected_orthogonal_angles, selected_radii):
-        if coordinate_system == 'spherical':
+        if coordinate_system == 'spherical' or coordinate_system is None:
             return selected_fundamental_angles, selected_orthogonal_angles, selected_radii
         if coordinate_system == 'interaural':
             return spherical2interaural(selected_fundamental_angles, selected_orthogonal_angles, selected_radii)
@@ -330,7 +316,7 @@ class SofaInterauralDataReader(SofaDataReader):
 
     @staticmethod
     def _coordinate_transform(coordinate_system, selected_fundamental_angles, selected_orthogonal_angles, selected_radii):
-        if coordinate_system == 'interaural':
+        if coordinate_system == 'interaural' or coordinate_system is None:
             coordinates = selected_fundamental_angles, selected_orthogonal_angles, selected_radii
         elif coordinate_system == 'spherical':
             coordinates = interaural2spherical(selected_orthogonal_angles, selected_fundamental_angles, selected_radii)
