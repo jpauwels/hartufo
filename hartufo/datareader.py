@@ -1,4 +1,5 @@
 from .query import DataQuery, CipicDataQuery, AriDataQuery, ListenDataQuery, BiLiDataQuery, CrossModDataQuery, ItaDataQuery, HutubsDataQuery, RiecDataQuery, ChedarDataQuery, WidespreadDataQuery, Sadie2DataQuery, Princeton3D3ADataQuery, ScutDataQuery, SonicomDataQuery, MitKemarDataQuery, CustomDataQuery
+from .transforms.hrir import InterauralPlaneTransform, SphericalPlaneTransform
 from .util import wrap_closed_open_interval, wrap_closed_interval, spherical2cartesian, spherical2interaural, cartesian2spherical, cartesian2interaural, interaural2spherical, interaural2cartesian, quantise
 from abc import abstractmethod
 from pathlib import Path
@@ -247,6 +248,8 @@ class SofaDataReader(DataReader):
 
 
 class SofaSphericalDataReader(SofaDataReader):
+    PlaneTransform = SphericalPlaneTransform
+
 
     @property
     def fundamental_angle_name(self):
@@ -298,6 +301,8 @@ class SofaSphericalDataReader(SofaDataReader):
 
 
 class SofaInterauralDataReader(SofaDataReader):
+    PlaneTransform = InterauralPlaneTransform
+
 
     @property
     def fundamental_angle_name(self):

@@ -18,7 +18,7 @@ from scipy import io
 from torchvision.datasets.utils import download_url, download_and_extract_archive, check_integrity
 
 
-_SUBJECT_RE = re.compile('(first|last|random)(\d*)')
+_SUBJECT_RE = re.compile(r'(first|last|random)(\d*)')
 
 
 _CIPIC_ANTHROPOMETRY_NAMES = {
