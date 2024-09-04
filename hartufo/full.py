@@ -1,6 +1,6 @@
 from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, CrossModDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader, MitKemarDataReader, CustomSphericalDataReader
 from .specifications import Spec, HrirSpec, sanitise_specs, sanitise_multiple_specs
-from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform, InterauralPlaneTransform, SphericalPlaneTransform
+from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform
 from collections import defaultdict
 from copy import deepcopy
 from itertools import chain
@@ -76,7 +76,7 @@ class Dataset:
             hrir_spec = self._specification['hrir']
             # Handle planar specification
             if 'plane' in hrir_spec:
-                requested_fundamental_angles, requested_orthogonal_angles = self.PlaneTransform.convert_plane_angles(hrir_spec['plane'], hrir_spec.get('plane_angles'), hrir_spec['plane_offset'])
+                requested_fundamental_angles, requested_orthogonal_angles = datareader.PlaneTransform.convert_plane_angles(hrir_spec['plane'], hrir_spec.get('plane_angles'), hrir_spec['plane_offset'])
             else:
                 requested_fundamental_angles, requested_orthogonal_angles = hrir_spec.get('fundamental_angles'), hrir_spec.get('orthogonal_angles')
             # Verify angle symmetry before reading complete dataset
@@ -91,7 +91,7 @@ class Dataset:
                 datareader._verify_angle_symmetry(self.fundamental_angles, self.orthogonal_angles)
             # Create plane transform from file angles and mask
             if 'plane' in hrir_spec:
-                self._plane_transform = self.PlaneTransform(hrir_spec['plane'], hrir_spec['plane_offset'], hrir_spec['positive_angles'], self.fundamental_angles, self.orthogonal_angles, self._selection_mask)
+                self._plane_transform = datareader.PlaneTransform(hrir_spec['plane'], hrir_spec['plane_offset'], hrir_spec['positive_angles'], self.fundamental_angles, self.orthogonal_angles, self._selection_mask)
                 self.append_transform(HrirSpec, self._plane_transform)
             # Construct HRIR processing pipeline
             hrir_pipeline: List[BatchTransform] = []
@@ -300,9 +300,6 @@ def _get_value_from_hrir_spec(key, *specs):
 class Cipic(Dataset):
     """CIPIC HRTF Dataset
     """
-    PlaneTransform = InterauralPlaneTransform
-
-
     def __init__(
         self,
         root: str,
@@ -329,9 +326,6 @@ class Cipic(Dataset):
 class Ari(Dataset):
     """ARI HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -357,9 +351,6 @@ class Ari(Dataset):
 class Listen(Dataset):
     """Listen HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -386,9 +377,6 @@ class Listen(Dataset):
 class CrossMod(Dataset):
     """CrossMod HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -414,9 +402,6 @@ class CrossMod(Dataset):
 class BiLi(Dataset):
     """BiLi HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -443,9 +428,6 @@ class BiLi(Dataset):
 class Ita(Dataset):
     """ITA HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -471,9 +453,6 @@ class Ita(Dataset):
 class Hutubs(Dataset):
     """HUTUBS HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -500,9 +479,6 @@ class Hutubs(Dataset):
 class Riec(Dataset):
     """RIEC HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -527,9 +503,6 @@ class Riec(Dataset):
 class Chedar(Dataset):
     """CHEDAR HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -556,9 +529,6 @@ class Chedar(Dataset):
 class Widespread(Dataset):
     """Widespread HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -586,9 +556,6 @@ class Widespread(Dataset):
 class Sadie2(Dataset):
     """SADIE II HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -615,9 +582,6 @@ class Sadie2(Dataset):
 class Princeton3D3A(Dataset):
     """3D3A HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -645,9 +609,6 @@ class Princeton3D3A(Dataset):
 class Scut(Dataset):
     """SCUT HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -673,9 +634,6 @@ class Scut(Dataset):
 class Sonicom(Dataset):
     """SONICOM HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -702,9 +660,6 @@ class Sonicom(Dataset):
 class MitKemar(Dataset):
     """MIT KEMAR HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-    
     def __init__(
         self,
         root: str,
@@ -729,9 +684,6 @@ class MitKemar(Dataset):
 class CustomSphericalDataset(Dataset):
     """Custom HRTF Dataset
     """
-    PlaneTransform = SphericalPlaneTransform
-
-
     def __init__(
         self,
         collection_id: str,
