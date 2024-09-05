@@ -2,6 +2,7 @@ from .checksums import HRIR_CHECKSUMS, ANTHROPOMETRY_CHECKSUMS, IMAGE_CHECKSUMS,
 import csv
 from pathlib import Path
 import warnings
+import random
 import re
 from abc import abstractmethod
 from numbers import Number
@@ -206,7 +207,7 @@ class DataQuery:
             elif position == 'last':
                 return ids[-num_ears:]
             elif position == 'random':
-                return np.random.choice(ids, num_ears)
+                return random.sample(ids, num_ears)
             else:
                 raise ValueError(f'Unknown subject selector "{include_subjects}".')
         return [(i, s) for i, s in ids if i in include_subjects]
