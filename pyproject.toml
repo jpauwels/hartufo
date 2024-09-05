@@ -13,8 +13,8 @@ dependencies = [
     "openpyxl >=3.1",
     "Pillow >=9",
     "pymatreader >=0.0.32",
-    "samplerate >=0.1.0",
     "scipy >=1.7",
+    "sox >=0.4",
     "torchvision >=0.11",
     "tqdm",
 ]
