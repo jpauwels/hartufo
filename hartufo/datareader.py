@@ -273,7 +273,7 @@ class SofaSphericalDataReader(SofaDataReader):
     def _mirror_hrirs(hrirs, selected_fundamental_angles):
         # flip azimuths (in rows)
         if np.isclose(selected_fundamental_angles[0], -180):
-            return np.ma.row_stack((hrirs[0:1], np.flipud(hrirs[1:])))
+            return np.ma.vstack((hrirs[0:1], np.flipud(hrirs[1:])))
         else:
             return np.flipud(hrirs)
 

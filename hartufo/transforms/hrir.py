@@ -133,7 +133,7 @@ class ResampleTransform(BatchTransform):
             return hrirs
         dense_hrirs = _to_dense2d(hrirs)
         # process in chunks of 65536 HRIRs (channels) because that's the maximum supported by soxr
-        resampled_hrirs = np.row_stack([soxr.resample(dense_hrirs[ch_idx:ch_idx+soxr._CH_LIMIT].T, self.original_rate, self.target_rate).T for ch_idx in range(0, len(dense_hrirs), soxr._CH_LIMIT)])
+        resampled_hrirs = np.vstack([soxr.resample(dense_hrirs[ch_idx:ch_idx+soxr._CH_LIMIT].T, self.original_rate, self.target_rate).T for ch_idx in range(0, len(dense_hrirs), soxr._CH_LIMIT)])
         return _to_multidim(resampled_hrirs, hrirs)
 
 
