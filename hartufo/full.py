@@ -105,7 +105,7 @@ class Dataset:
                 self.hrir_samplerate = hrir_spec['samplerate']
                 hrir_pipeline.append(ResampleTransform(recorded_samplerate, self.hrir_samplerate))
             if hrir_spec.get('length') is None:
-                self.hrir_length = recorded_hrir_length
+                self.hrir_length = round(recorded_hrir_length * self.hrir_samplerate / recorded_samplerate)
             else:
                 self.hrir_length = hrir_spec['length']
                 hrir_pipeline.append(TruncateTransform(self.hrir_length))
