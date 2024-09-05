@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.fft import rfft, fft, ifft
 from scipy.signal import hilbert
-from samplerate import resample
+import soxr
 
 
 def _to_dense2d(multidim_array: np.ndarray) -> np.ndarray:
@@ -123,16 +123,17 @@ class MinPhaseTransform(BatchTransform):
 
 
 class ResampleTransform(BatchTransform):
-    def __init__(self, resample_factor: float):
-        self.resample_factor = resample_factor
+    def __init__(self, original_rate:float, target_rate: float):
+        self.original_rate = original_rate
+        self.target_rate = target_rate
 
 
     def __call__(self, hrirs: np.ndarray) -> np.ndarray:
-        if self.resample_factor == 1:
+        if self.original_rate == self.target_rate:
             return hrirs
         dense_hrirs = _to_dense2d(hrirs)
-        # process in chunks of 128 HRIRs (channels) because that's the maximum supported by resample
-        resampled_hrirs = np.row_stack([resample(dense_hrirs[ch_idx:ch_idx+128].T, self.resample_factor).T for ch_idx in range(0, len(dense_hrirs), 128)])
+        # process in chunks of 65536 HRIRs (channels) because that's the maximum supported by soxr
+        resampled_hrirs = np.row_stack([soxr.resample(dense_hrirs[ch_idx:ch_idx+soxr._CH_LIMIT].T, self.original_rate, self.target_rate).T for ch_idx in range(0, len(dense_hrirs), soxr._CH_LIMIT)])
         return _to_multidim(resampled_hrirs, hrirs)
 
 
