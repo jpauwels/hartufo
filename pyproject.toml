@@ -7,15 +7,15 @@ classifiers = ["License :: OSI Approved :: Apache Software License"]
 dynamic = ["version", "description"]
 requires-python = ">=3.8"
 dependencies = [
-    "matplotlib >=3.5",
-    "netCDF4 >=1.5",
+    "matplotlib >=3.8.4",
+    "netCDF4 >=1.7.0",
     "numpy >=1.22",
     "openpyxl >=3.1",
     "Pillow >=9",
     "pymatreader >=0.0.32",
-    "scipy >=1.7",
+    "scipy >=1.13.0",
     "sox >=0.4",
-    "torchvision >=0.11",
+    "torchvision >=0.19.1",
     "tqdm",
 ]
 
@@ -43,5 +43,5 @@ exclude = [
     ".git",
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
