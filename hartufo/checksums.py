@@ -17580,7 +17580,7 @@ HRIR_CHECKSUMS: Dict[str, Dict[str, List[Tuple[str, str]]]] = {
 
 ANTHROPOMETRY_CHECKSUMS: Dict[str, List[Tuple[str, str]]] = {
     'cipic': [('anthro.mat', '5357c32934d8273f42c236a675ae2434')],
-    'ari': [('anthro.mat', 'd4c45de083a88881b1555e926a6907ea')],
+    'ari': [('anthro.mat', '91f5a2176771c92453b7685e71ebd429')],
     'listen': [
         ('IRC_1002.xml', '6c8f86bd78252503262bcca7996d5e5e'),
         ('IRC_1003.xml', 'fe3664cdba9cceb3e713003be0e508c3'),
