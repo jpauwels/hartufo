@@ -33,6 +33,8 @@ jobs:
         python -m pip install -e .
     - name: Lint with ruff
       run: |
+        ruff --version
+        ruff check --help
         # stop the build if there are Python syntax errors or undefined names
         ruff check --output-format=github --select=E9,F63,F7,F82 .
         # default set of ruff rules with GitHub Annotations
