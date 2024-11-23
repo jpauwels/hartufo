@@ -1,4 +1,5 @@
 from .checksums import HRIR_CHECKSUMS, ANTHROPOMETRY_CHECKSUMS, IMAGE_CHECKSUMS, MESH_CHECKSUMS
+from .torchvision_datasets_utils import download_url, download_and_extract_archive, check_integrity
 import csv
 from pathlib import Path
 import warnings
@@ -16,7 +17,6 @@ import numpy as np
 from openpyxl import load_workbook
 from pymatreader import read_mat
 from scipy import io
-from torchvision.datasets.utils import download_url, download_and_extract_archive, check_integrity
 
 
 _SUBJECT_RE = re.compile(r'(first|last|random)(\d*)')
