@@ -15,9 +15,12 @@ dependencies = [
     "pymatreader >=0.0.32",
     "scipy >=1.13.0",
     "sox >=0.4",
-    "torchvision >=0.19.1",
     "tqdm",
 ]
+
+[project.optional-dependencies]
+torch = ["torch", "torchvision", "torchaudio"]
+scikit-learn = ["scikit-learn"]
 
 [project.urls]
 Home = "https://github.com/jpauwels/hartufo"
