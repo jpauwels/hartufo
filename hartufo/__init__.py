@@ -22,24 +22,6 @@ from .full import (
     CustomSphericalDataset,
 )
 
-from .planar import (
-    CipicPlane,
-    AriPlane,
-    ListenPlane,
-    CrossModPlane,
-    BiLiPlane,
-    ItaPlane,
-    HutubsPlane,
-    RiecPlane,
-    Sadie2Plane,
-    Princeton3D3APlane,
-    ChedarPlane,
-    WidespreadPlane,
-    ScutPlane,
-    SonicomPlane,
-    MitKemarPlane,
-)
-
 from .specifications import (
     CollectionSpec,
     SideSpec,
