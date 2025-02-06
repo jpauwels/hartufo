@@ -1,4 +1,5 @@
 from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, CrossModDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader, MitKemarDataReader, CustomSphericalDataReader
+from .display import plot_hrir_plane, plot_hrtf_plane, plot_plane_positions, plot_3d_positions, plot_hrir_lines, plot_hrtf_lines
 from .specifications import Spec, HrirSpec, sanitise_specs, sanitise_multiple_specs
 from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform, FlattenPositionsTransform
 from collections import defaultdict
@@ -216,7 +217,7 @@ class Dataset:
     def available_subject_ids(self):
         ear_ids = self.query.specification_based_ids(self._specification, exclude_subjects=self._exclude_ids)
         subject_ids, _ = zip(*ear_ids)
-        return tuple(np.unique(subject_ids))
+        return tuple(set(subject_ids))
 
 
     @property
@@ -272,6 +273,133 @@ class Dataset:
         for transform in coord_transforms:
             coordinates_grid = transform(coordinates_grid)
         return coordinates_grid
+
+
+    @property
+    def plane_angle_name(self):
+        try:
+            return self._plane_transform.plane_angle_name
+        except AttributeError:
+            return
+
+
+    @property
+    def plane_angles(self):
+        try:
+            return self._plane_transform.plane_angles
+        except AttributeError:
+            return
+
+
+    @property
+    def positive_angles(self):
+        try:
+            return self._plane_transform.positive_angles
+        except AttributeError:
+            return
+
+
+    @positive_angles.setter
+    def positive_angles(self, value):
+        try:
+            self._plane_transform.positive_angles = value
+        except AttributeError:
+            return
+
+
+    @property
+    def min_angle(self):
+        try:
+            return self._plane_transform.min_angle
+        except AttributeError:
+            return
+
+
+    @property
+    def max_angle(self):
+        try:
+            return self._plane_transform.max_angle
+        except AttributeError:
+            return
+
+
+    def plot_plane(self, idx, ax=None, vmin=None, vmax=None, title=None, lineplot=False, cmap='viridis', continuous=False, colorbar=True, log_freq=False, plane=None, offset=None):
+        if self._specification.get('hrir') is None:
+            raise ValueError('No HRIR data in this Dataset.')
+        loaded_plane = self._specification['hrir'].get('plane')
+        if loaded_plane is not None:
+            # Planar dataset
+            if plane is not None and plane != loaded_plane:
+                raise ValueError(f'This Dataset only contains a {loaded_plane} plane, so requesting a {plane} is invalid.')
+            loaded_offset = self._specification['hrir']['plane_offset']
+            if offset is not None and offset != loaded_offset :
+                raise ValueError(f'This Dataset only contains a {loaded_plane} plane with offset {loaded_offset}, so requesting an offset of {offset} is invalid.')
+        else:
+            # Non-planar dataset
+            if plane is None:
+                raise ValueError('A plane to plot needs to be specified for non-planar Datasets.')
+            if offset is None:
+                offset = 0
+            fundamental_angles, orthogonal_angles = self._plane_transform.convert_plane_angles(plane, None, offset)
+            raise NotImplementedError('Plotting a plane from a non-planar Dataset is not yet supported.')
+
+        hrir_role = 'features' if 'hrir' in self._features_keys else 'target' if 'hrir' in self._target_keys else 'group'
+        if vmin is None or vmax is None:
+            all_hrirs = self[:][hrir_role]
+            if vmin is None:
+                vmin = all_hrirs.min()
+            if vmax is None:
+                vmax = all_hrirs.max()
+        data = self[idx][hrir_role]
+
+        if self._specification['hrir']['domain'] == 'time':
+            if lineplot:
+                ax = plot_hrir_lines(data, self.plane_angles, self.plane_angle_name, self.hrir_samplerate, ax=ax, vmin=vmin, vmax=vmax)
+            else:
+                ax = plot_hrir_plane(data, self.plane_angles, self.plane_angle_name, self.hrir_samplerate, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, continuous=continuous, colorbar=colorbar)
+        else:
+            if lineplot:
+                ax = plot_hrtf_lines(data, self.plane_angles, self.plane_angle_name, self.hrtf_frequencies, log_freq=log_freq, ax=ax, vmin=vmin, vmax=vmax)
+            else:
+                ax = plot_hrtf_plane(data, self.plane_angles, self.plane_angle_name, self.hrtf_frequencies, log_freq=log_freq, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, continuous=continuous, colorbar=colorbar)
+
+        if title is None:
+            plane = self._specification['hrir']['plane']
+            plane_offset = self._specification['hrir']['plane_offset']
+            title = "{} Plane{} of Subject {}'s {} Ear".format(plane.title(),
+                ' With Offset {}°'.format(plane_offset) if plane_offset != 0 or plane in ('vertical', 'interaural') else '',
+                self.subject_ids[idx],
+                self.sides[idx].replace('-', ' ').title(),
+            )
+        ax.set_title(title)
+        return ax
+
+
+    def plot_positions(self, ax=None, title=None, limit=None, **kwargs):
+        if self._specification.get('hrir') is None:
+            raise ValueError('No HRIR data in this Dataset.')
+        plane = self._specification['hrir'].get('plane')
+        if plane is not None:
+            # Planar Dataset
+            if plane in ('horizontal', 'interaural', 'frontal'):
+                zero_location = 'N'
+                direction = 'counterclockwise'
+            else: # median or vertical
+                zero_location = 'W'
+                direction = 'clockwise'
+            ax = plot_plane_positions(self.plane_angles, self.min_angle, self.max_angle, True, self.radii, zero_location, direction, ax, limit, **kwargs)
+            if title is None:
+                plane_offset = self._specification['hrir']['plane_offset']
+                title = "Source Positions in {}'s {} Plane{}".format(self.query.collection_id().title(), plane.title(),
+                    ' With Offset {}°'.format(plane_offset) if plane_offset != 0 or plane in ('vertical', 'interaural') else ''
+                )
+        else:
+            # Non-planar Dataset
+            ax = plot_3d_positions(self.positions(coordinate_system='cartesian'), ax=ax, ax_limit=limit, **kwargs)
+            if title is None:
+                title = f'Source Positions in {self.query.collection_id().title()}'
+        ax.set_title(title)
+        return ax
 
 
 def split_by_angles(dataset: Dataset):

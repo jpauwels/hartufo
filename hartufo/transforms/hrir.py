@@ -215,6 +215,12 @@ class PlaneTransform(ABC):
         self.orthogonal_angles = orthogonal_angles
         self.selection_mask = selection_mask
         self.positive_angles = positive_angles # triggers calculation of min_angle, max_angle & plane_angles
+        if plane in ('horizontal', 'interaural'):
+            self.plane_angle_name = 'yaw [°]'
+        elif plane in ('median', 'vertical'):
+            self.plane_angle_name = 'pitch [°]'
+        else: # frontal plane
+            self.plane_angle_name = 'roll [°]'
 
 
     @property

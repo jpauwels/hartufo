@@ -32,11 +32,15 @@ def plot_hrir_plane(hrir, angles, angles_label, sample_rate, ax=None, vmin=None,
     return ax
 
 
-def plot_plane_angles(angles, min_angle, max_angle, closed_open_angles, radius, zero_location, direction, ax=None):
+def plot_plane_positions(angles, min_angle, max_angle, closed_open_angles, radii, zero_location, direction, ax=None, radius_limit=None, **plot_kwargs):
     if ax is None:
         _, ax = plt.subplots(subplot_kw={'projection': 'polar'})
-    ax.plot(np.deg2rad(angles), np.full(len(angles), radius), 'ko')
-    ax.set_rmax(radius * 1.2)
+    plot_kwargs = dict(color='k', marker='o', linestyle='') | plot_kwargs
+    for radius in radii:
+        ax.plot(np.deg2rad(angles), np.full(len(angles), radius), **plot_kwargs)
+    if radius_limit is None:
+        radius_limit = radii.max() * 1.2
+    ax.set_rmax(radius_limit)
     ax.set_rticks([]) # no radial ticks
     ax.grid(False)
     if closed_open_angles:
@@ -48,6 +52,26 @@ def plot_plane_angles(angles, min_angle, max_angle, closed_open_angles, radius, 
     ax.set_thetamax(max_angle)
     ax.set_theta_direction(direction)
     ax.set_theta_zero_location(zero_location)
+    return ax
+
+
+def plot_3d_positions(cartesian_positions, ax=None, ax_limit=None, **scatter_kwargs):
+    cartesian_positions = np.asanyarray(cartesian_positions)
+    if ax is None:
+        _, ax = plt.subplots(subplot_kw={'projection': '3d'}, layout='constrained')
+    elif 'Axes3D' not in str(ax):
+        raise ValueError('Three-dimensional axes are required for plotting positions.')
+    scatter_kwargs = dict(marker='.') | scatter_kwargs
+    ax.scatter(*cartesian_positions.T, **scatter_kwargs)
+    ax.azim = -45
+    ax.set_xlabel('X [m]')
+    ax.set_ylabel('Y [m]')
+    ax.set_zlabel('Z [m]')
+    if ax_limit is None:
+        ax_limit = np.abs(cartesian_positions).max()
+    ax.set_xlim(-ax_limit, ax_limit)
+    ax.set_ylim(-ax_limit, ax_limit)
+    ax.set_zlim(-ax_limit, ax_limit)
     return ax
 
 
