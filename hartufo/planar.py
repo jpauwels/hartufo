@@ -1,6 +1,5 @@
 from typing import Dict, Iterable, Optional, Union
 import numpy as np
-from .display import plot_hrir_plane, plot_hrtf_plane, plot_plane_angles, plot_hrir_lines, plot_hrtf_lines
 from .full import Cipic, Ari, Listen, BiLi, CrossMod, Ita, Hutubs, Riec, Chedar, Widespread, Sadie2, Princeton3D3A, Scut, Sonicom, MitKemar
 from .specifications import HrirPlaneSpec
 
@@ -33,88 +32,6 @@ class PlaneDatasetMixin:
                 raise ValueError(f'No {spec_name} should be given since that role is already taken by the HRIRs')
         specs = {hrir_role+'_spec': hrirs_spec, **other_specs}
         super().__init__(**specs, **kwargs)
-        if plane in ('horizontal', 'interaural'):
-            self.plane_angle_name = 'yaw [°]'
-        elif plane in ('median', 'vertical'):
-            self.plane_angle_name = 'pitch [°]'
-        else: # frontal plane
-            self.plane_angle_name = 'roll [°]'
-
-
-    @property
-    def plane_angles(self):
-        return self._plane_transform.plane_angles
-    
-
-    @property
-    def positive_angles(self):
-        return self._plane_transform.positive_angles
-
-
-    @positive_angles.setter
-    def positive_angles(self, value):
-        self._plane_transform.positive_angles = value
-
-
-    @property
-    def min_angle(self):
-        return self._plane_transform.min_angle
-
-
-    @property
-    def max_angle(self):
-        return self._plane_transform.max_angle
-
-
-    def plot_plane(self, idx, ax=None, vmin=None, vmax=None, title=None, lineplot=False, cmap='viridis', continuous=False, colorbar=True, log_freq=False):
-        hrir_role = 'features' if 'hrir' in self._features_keys else 'target' if 'hrir' in self._target_keys else 'group'
-        if vmin is None or vmax is None:
-            all_hrirs = self[:][hrir_role]
-            if vmin is None:
-                vmin = all_hrirs.min()
-            if vmax is None:
-                vmax = all_hrirs.max()
-        data = self[idx][hrir_role]
-
-        if self._specification['hrir']['domain'] == 'time':
-            if lineplot:
-                ax = plot_hrir_lines(data, self.plane_angles, self.plane_angle_name, self.hrir_samplerate, ax=ax, vmin=vmin, vmax=vmax)
-            else:
-                ax = plot_hrir_plane(data, self.plane_angles, self.plane_angle_name, self.hrir_samplerate, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, continuous=continuous, colorbar=colorbar)
-        else:
-            if lineplot:
-                ax = plot_hrtf_lines(data, self.plane_angles, self.plane_angle_name, self.hrtf_frequencies, log_freq=log_freq, ax=ax, vmin=vmin, vmax=vmax)
-            else:
-                ax = plot_hrtf_plane(data, self.plane_angles, self.plane_angle_name, self.hrtf_frequencies, log_freq=log_freq, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, continuous=continuous, colorbar=colorbar)
-
-        if title is None:
-            plane = self._specification['hrir']['plane']
-            plane_offset = self._specification['hrir']['plane_offset']
-            title = "{} Plane{} of Subject {}'s {} Ear".format(plane.title(),
-                ' With Offset {}°'.format(plane_offset) if plane_offset != 0 or plane in ('vertical', 'interaural') else '',
-                self.subject_ids[idx],
-                self.sides[idx].replace('-', ' ').title(),
-            )
-        ax.set_title(title)
-        return ax
-
-
-    def plot_angles(self, ax=None, title=None):
-        plane = self._specification['hrir']['plane']
-        if plane in ('horizontal', 'interaural', 'frontal'):
-            zero_location = 'N'
-            direction = 'counterclockwise'
-        else: # median or vertical
-            zero_location = 'W'
-            direction = 'clockwise'
-        ax = plot_plane_angles(self.plane_angles, self.min_angle, self.max_angle, True, 1, zero_location, direction, ax) # TODO use actual radius
-        if title is None:
-            plane_offset = self._specification['hrir']['plane_offset']
-            title = 'Angles in the {} Plane{}'.format(plane.title(),
-                ' With Offset {}°'.format(plane_offset) if plane_offset != 0 or plane in ('vertical', 'interaural') else ''
-            )
-        ax.set_title(title)
-        return ax
 
 
 class CipicPlane(PlaneDatasetMixin, Cipic):
