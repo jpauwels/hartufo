@@ -635,9 +635,15 @@ class SonicomDataReader(SofaSphericalDataReader):
     def _sofa_path(self, subject_id):
         if isinstance(subject_id, int):
             base_dir = f'P{subject_id:04d}'
+            return str(self.query.sofa_directory_path / base_dir / 'HRTF' / 'HRTF' / self.query._samplerate_str / f'{base_dir}_{self.query._hrir_variant_str}_{self.query._samplerate_str}.sofa')
         else:
-            base_dir = subject_id
-        return str(self.query.sofa_directory_path / base_dir / 'HRTF' / 'HRTF' / self.query._samplerate_str / f'{base_dir}_{self.query._hrir_variant_str}_{self.query._samplerate_str}.sofa')
+            if subject_id == 'KEMAR_GRAS_NoEarSim_SmallEar':
+                base_dir = 'KEMAR_GRAS_NoEarSim_SmallEars'
+            elif subject_id == 'KEMAR_VIVE':
+                base_dir = 'KEMAR_Knowl_LargeEars_VIVEFocusVision'
+            else:
+                base_dir = subject_id
+            return str(self.query.sofa_directory_path / 'KEMAR' / base_dir / 'HRTF' / 'HRTF' / self.query._samplerate_str / f'{subject_id}_{self.query._hrir_variant_str}_{self.query._samplerate_str}.sofa')
 
 
 class MitKemarDataReader(SofaSphericalDataReader):
