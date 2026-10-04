@@ -47,14 +47,14 @@ import urllib.request
 import zipfile
 from typing import Any, Callable, Dict, IO, Optional, Tuple, Union
 from urllib.parse import urlparse
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 USER_AGENT = "hartufo"
 
 
 def _urlretrieve(url: str, filename: Union[str, pathlib.Path], chunk_size: int = 1024 * 32) -> None:
     with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": USER_AGENT})) as response:
-        with open(filename, "wb") as fh, tqdm(total=response.length, unit="B", unit_scale=True) as pbar:
+        with open(filename, "wb") as fh, tqdm(total=response.length, unit="B", unit_scale=True, desc=filename, leave=False) as pbar:
             while chunk := response.read(chunk_size):
                 fh.write(chunk)
                 pbar.update(len(chunk))
@@ -64,10 +64,7 @@ def calculate_md5(fpath: Union[str, pathlib.Path], chunk_size: int = 1024 * 1024
     # Setting the `usedforsecurity` flag does not change anything about the functionality, but indicates that we are
     # not using the MD5 checksum for cryptography. This enables its usage in restricted environments like FIPS. Without
     # it torchvision.datasets is unusable in these environments since we perform a MD5 check everywhere.
-    if sys.version_info >= (3, 9):
-        md5 = hashlib.md5(usedforsecurity=False)
-    else:
-        md5 = hashlib.md5()
+    md5 = hashlib.md5(usedforsecurity=False)
     with open(fpath, "rb") as f:
         while chunk := f.read(chunk_size):
             md5.update(chunk)
@@ -81,7 +78,7 @@ def check_md5(fpath: Union[str, pathlib.Path], md5: str, **kwargs: Any) -> bool:
 def check_integrity(fpath: Union[str, pathlib.Path], md5: Optional[str] = None) -> bool:
     if not os.path.isfile(fpath):
         return False
-    if md5 is None:
+    if md5 is None or not md5:
         return True
     return check_md5(fpath, md5)
 
@@ -117,7 +114,7 @@ def _get_google_drive_file_id(url: str) -> Optional[str]:
 
 def download_url(
     url: str,
-    root: Union[str, pathlib.Path],
+    root: pathlib.Path,
     filename: Optional[Union[str, pathlib.Path]] = None,
     md5: Optional[str] = None,
     max_redirect_hops: int = 3,
@@ -126,15 +123,15 @@ def download_url(
 
     Args:
         url (str): URL to download file from
-        root (str): Directory to place downloaded file in
+        root (pathlib.Path): Directory to place downloaded file in
         filename (str, optional): Name to save the file under. If None, use the basename of the URL
         md5 (str, optional): MD5 checksum of the download. If None, do not check
         max_redirect_hops (int, optional): Maximum number of redirect hops allowed
     """
-    root = os.path.expanduser(root)
+    root = root.expanduser()
     if not filename:
         filename = os.path.basename(url)
-    fpath = os.fspath(os.path.join(root, filename))
+    fpath = root / filename
 
     os.makedirs(root, exist_ok=True)
 
@@ -162,7 +159,7 @@ def download_url(
 
     # check integrity of downloaded file
     if not check_integrity(fpath, md5):
-        raise RuntimeError("File not found or corrupted.")
+        raise RuntimeError(f'File {fpath} not found or corrupted.')
 
 
 def download_file_from_google_drive(
@@ -199,7 +196,7 @@ def download_file_from_google_drive(
     gdown.download(id=file_id, output=fpath, quiet=False, user_agent=USER_AGENT)
 
     if not check_integrity(fpath, md5):
-        raise RuntimeError("File not found or corrupted.")
+        raise RuntimeError(f'File {fpath} not found or corrupted.')
 
 
 def _extract_tar(
@@ -369,13 +366,13 @@ def extract_archive(
 
 def download_and_extract_archive(
     url: str,
-    download_root: Union[str, pathlib.Path],
-    extract_root: Optional[Union[str, pathlib.Path]] = None,
-    filename: Optional[Union[str, pathlib.Path]] = None,
+    download_root: pathlib.Path,
+    extract_root: Optional[pathlib.Path] = None,
+    filename: Optional[pathlib.Path] = None,
     md5: Optional[str] = None,
     remove_finished: bool = False,
 ) -> None:
-    download_root = os.path.expanduser(download_root)
+    download_root = download_root.expanduser()
     if extract_root is None:
         extract_root = download_root
     if not filename:
@@ -383,5 +380,5 @@ def download_and_extract_archive(
 
     download_url(url, download_root, filename, md5)
 
-    archive = os.path.join(download_root, filename)
+    archive = download_root / filename
     extract_archive(archive, extract_root, remove_finished)
