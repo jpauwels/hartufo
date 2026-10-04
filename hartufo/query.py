@@ -1,5 +1,6 @@
 from .checksums import HRIR_CHECKSUMS, ANTHROPOMETRY_CHECKSUMS, IMAGE_CHECKSUMS, MESH_CHECKSUMS
-from .torchvision_datasets_utils import download_url, download_and_extract_archive, check_integrity
+from .outdated_checksums import OUTDATED_HRIR_CHECKSUMS, OUTDATED_ANTHROPOMETRY_CHECKSUMS, OUTDATED_IMAGE_CHECKSUMS, OUTDATED_MESH_CHECKSUMS
+from .torchvision_datasets_utils import download_url, download_and_extract_archive, calculate_md5
 import csv
 from pathlib import Path
 import warnings
@@ -98,20 +99,45 @@ class DataQuery:
 
 
     @staticmethod
-    def _integrity_helper(checksum_info, target_path):
-        if target_path.is_dir():
-            all_checks = np.array([check_integrity(target_path / filename, md5) for filename, md5 in checksum_info])
-            if not all(all_checks):
-                error_files = [str(target_path / x[0]) for x in np.array(checksum_info)[~all_checks]]
-                raise OSError('The files \n\t{}\nare missing or corrupt. Delete them if they exist and use download=True to download them again.'.format('\n\t'.join(error_files)))
-        elif target_path.is_file():
-            if not check_integrity(target_path, checksum_info[0][1]):
-                raise OSError(f'The file "{target_path}" is missing or corrupt. Delete it if it exists and use download=True to download it again.')
+    def _verify_checksum(file_path: Path, md5: str | list[str]) -> bool:
+        if not md5:
+            return True
+        if not file_path.exists():
+            return False
+        file_md5 = calculate_md5(file_path)
+        if isinstance(md5, str):
+            return file_md5 == md5
         else:
+            return file_md5 in md5
+
+
+    @staticmethod
+    def _integrity_helper(checksum_info, outdated_checksum_info, target_path, content_type):
+        if target_path.is_dir():
+            checksum_info = np.asarray(checksum_info)
+            all_checks = np.array([DataQuery._verify_checksum(target_path / filename, md5) for filename, md5 in tqdm(checksum_info, desc=f'Verifying {content_type}')])
+            if not all(all_checks):
+                failed_files = checksum_info[~all_checks][:, 0]
+                missing_checks = np.array([not (target_path / filename).exists() for filename in tqdm(failed_files, desc='Checking for missing {content_type} files', leave=False)])
+                if any(missing_checks):
+                    missing_paths = [str(target_path / f) for f in checksum_info[~all_checks][missing_checks][:, 0]]
+                    raise OSError('The files \n\t{}\nare missing. Set `download=True` in the dataset constructor to download them.'.format('\n\t'.join(missing_paths)))
+                outdated_checks = np.array([DataQuery._verify_checksum(target_path / filename, md5list) for filename, md5list in tqdm(outdated_checksum_info, desc='Checking for outdated {content_type} files', leave=False) if filename in failed_files])
+                if any(outdated_checks):
+                    outdated_paths = [str(target_path / f) for f in checksum_info[~all_checks][outdated_checks][:, 0]]
+                    raise OSError('The files \n\t{}\nare outdated. Delete them and use `download=True` in the dataset constructor to download the updated versions.'.format('\n\t'.join(outdated_paths)))
+                error_paths = [str(target_path / x[0]) for x in checksum_info[~all_checks]]
+                raise OSError('The files \n\t{}\nare corrupt. Delete them and set `download=True` in the dataset constructor to download them again.'.format('\n\t'.join(error_paths)))
+        elif target_path.is_file():
+            if not DataQuery._verify_checksum(target_path, checksum_info[0][1]):
+                if DataQuery._verify_checksum(target_path, outdated_checksum_info[0][1]):
+                    raise OSError(f'The file "{target_path}" is outdated. Delete it and set `download=True` in the dataset constructor to download the updated version.')
+                raise OSError(f'The file "{target_path}" is corrupt. Delete it and set `download=True` in the dataset constructor to download it again.')
+        else: # target_path does not exist
             if len(checksum_info) > 1:
-                raise FileNotFoundError('The files \n\t{}\nare missing.  Use download=True to download them.'.format('\n\t'.join([str(target_path / x[0]) for x in checksum_info])))
+                raise FileNotFoundError('The files \n\t{}\nare missing.  Set `download=True` in the dataset constructor to download them.'.format('\n\t'.join([str(target_path / x[0]) for x in checksum_info])))
             else:
-                raise FileNotFoundError(f'The file "{target_path}" is missing. Use download=True to download it.')
+                raise FileNotFoundError(f'The file "{target_path}" is missing. Set `download=True` in the dataset constructor to download it.')
 
 
     def _check_integrity(self):
@@ -286,7 +312,12 @@ class HrirDataQuery(DataQuery):
     def _check_integrity(self):
         super()._check_integrity()
         if 'hrir' in self.allowed_keys:
-            self._integrity_helper(HRIR_CHECKSUMS[self._collection_id][self._checksum_key], self.sofa_directory_path)
+            self._integrity_helper(
+                HRIR_CHECKSUMS[self._collection_id][self._checksum_key],
+                OUTDATED_HRIR_CHECKSUMS.get(self._collection_id, {}).get(self._checksum_key, []),
+                self.sofa_directory_path,
+                'HRIRs',
+            )
 
 
     def _download(self) -> None:
@@ -375,7 +406,12 @@ class AnthropometryDataQuery(DataQuery):
     def _check_integrity(self):
         super()._check_integrity()
         if 'anthropometry' in self.allowed_keys:
-            self._integrity_helper(ANTHROPOMETRY_CHECKSUMS[self._collection_id], self.anthropometry_path)
+            self._integrity_helper(
+                ANTHROPOMETRY_CHECKSUMS[self._collection_id],
+                OUTDATED_ANTHROPOMETRY_CHECKSUMS.get(self._collection_id, []),
+                self.anthropometry_path,
+                'anthropometry',
+            )
 
 
     def _download(self) -> None:
@@ -412,7 +448,12 @@ class ImageDataQuery(DataQuery):
     def _check_integrity(self):
         super()._check_integrity()
         if 'image' in self.allowed_keys:
-            self._integrity_helper(IMAGE_CHECKSUMS[self._collection_id], self.image_directory_path)
+            self._integrity_helper(
+                IMAGE_CHECKSUMS[self._collection_id],
+                OUTDATED_IMAGE_CHECKSUMS.get(self._collection_id, []),
+                self.image_directory_path,
+                'images',
+            )
 
 
     def _download(self) -> None:
@@ -449,7 +490,12 @@ class MeshDataQuery(DataQuery):
     def _check_integrity(self):
         super()._check_integrity()
         if '3d-model' in self.allowed_keys:
-            self._integrity_helper(MESH_CHECKSUMS[self._collection_id], self.mesh_directory_path)
+            self._integrity_helper(
+                MESH_CHECKSUMS[self._collection_id],
+                OUTDATED_MESH_CHECKSUMS.get(self._collection_id, []),
+                self.mesh_directory_path,
+                '3D models',
+            )
 
 
     def _download(self) -> None:
