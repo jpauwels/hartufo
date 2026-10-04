@@ -538,7 +538,7 @@ class ListenDataQuery(HrirDataQuery, AnthropometryDataQuery):
     HRIR_DOWNLOAD_TEMPLATE = {'archive_url': 'http://bili2.ircam.fr/Archives/SimpleFreeFieldHRIR/LISTEN/{}/44100/archive.zip',
                               'path_in_archive': '.'}
     HRIR_ARCHIVE_CHECKSUMS = {'raw': 'b796edd37be92eb5262b9032c59d72c7', 'compensated': '174282e95526eb27c20a0a8ccb23e1d1'}
-    ANTHROPOMETRY_DOWNLOAD = {'base_url': 'http://eecs.qmul.ac.uk/~johan/hartufo/MORPHO/'} #'ftp://ftp.ircam.fr/pub/IRCAM/equipes/salles/listen/archive/MORPHO/'}
+    ANTHROPOMETRY_DOWNLOAD = {'base_url': 'https://jpauwels.github.io/hartufo/listen/anthropometry/'} #'ftp://ftp.ircam.fr/pub/IRCAM/equipes/salles/listen/archive/MORPHO/'}
 
 
     def __init__(self, sofa_directory_path='', anthropometry_directory_path='', hrir_variant='compensated', download=False, verify=False):
@@ -664,7 +664,7 @@ class BiLiDataQuery(HrirDataQuery):
 class ItaDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
     HRIR_DOWNLOAD = {'base_url': 'https://sofacoustics.org/data/database/aachen/'}
-    ANTHROPOMETRY_DOWNLOAD = {'file_url': 'http://eecs.qmul.ac.uk/~johan/hartufo/Dimensions.xlsx'} # 'https://sofacoustics.org/data/database/aachen/Dimensions.xlsx'
+    ANTHROPOMETRY_DOWNLOAD = {'file_url': 'https://jpauwels.github.io/hartufo/ita/Dimensions.xlsx'} # 'https://sofacoustics.org/data/database/aachen/Dimensions.xlsx'
 
 
     def __init__(self, sofa_directory_path='', anthropometry_csvfile_path='', download=False, verify=False):
