@@ -18,6 +18,7 @@ from openpyxl import load_workbook
 from pymatreader import read_mat
 from scipy import io
 from tqdm.auto import tqdm
+from webdav import FileSystem
 
 
 _SUBJECT_RE = re.compile(r'(first|last|random)(\d*)')
@@ -126,6 +127,19 @@ class DataQuery:
                     continue
                 url = quote(os.path.join(download_info['base_url'], file_path.name), safe='/:()')
                 download_url(url, root=file_path.parent, filename=file_path.name, md5=md5)
+        elif 'webdav_url' in download_info:
+            with FileSystem(download_info['webdav_url']) as fs:
+                for filename, md5 in tqdm(checksum_info, desc=f'Downloading {content_type}'):
+                    file_path = (target_path / filename)
+                    if file_path.exists():
+                        continue
+                    file_path.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        size = fs.info(filename).size
+                    except Exception:
+                        size = None
+                    with tqdm(total=size, unit="B", unit_scale=True, unit_divisor=1024, desc=filename, leave=False) as bar:
+                        fs.download_file(filename, str(file_path), chunk_size=1 << 20, callback=bar.update)
         else:
             parent_dir = target_path.parent
             parent_dir.mkdir(parents=True, exist_ok=True)
@@ -992,7 +1006,7 @@ class ScutDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 class SonicomDataQuery(HrirDataQuery):
 
-    HRIR_DOWNLOAD = {'base_url': 'https://www.axdesign.co.uk/tools-and-devices/sonicom-hrtf-dataset'}
+    HRIR_DOWNLOAD = {'webdav_url': 'https://transfer.ic.ac.uk:9090/2022_SONICOM-HRTF-DATASET/'}
 
 
     def __init__(self, sofa_directory_path='', samplerate=96000, hrir_variant='compensated', download=False, verify=False):
@@ -1017,17 +1031,18 @@ class SonicomDataQuery(HrirDataQuery):
             self._hrir_variant_str = 'FreeFieldCompMinPhase_NoITD'
         else:
             raise ValueError(f'Unknown HRIR variant "{hrir_variant}"')
-        try:
-            super().__init__(collection_id='sonicom', sofa_directory_path=sofa_directory_path, checksum_key=f'{hrir_variant}-{samplerate}', download=download, verify=verify)
-        except HTTPError as err:
-            if download:
-                raise NotImplementedError(
-                    f'Downloading of the SONICOM collection is not yet supported. Manually download the zip files from {self.HRIR_DOWNLOAD["base_url"]} and extract'
-                    f' them to {sofa_directory_path}. Then pass "verify=True" to the constructor to check the expected location and content of the files.'
-                ) from None
-            else:
-                raise err
-        self._default_hrirs_exclude = ('KEMAR_SmallEars', 'KEMAR_LargeEars')
+        super().__init__(collection_id='sonicom', sofa_directory_path=sofa_directory_path, checksum_key=f'{hrir_variant}-{samplerate}', download=download, verify=verify)
+        self._default_hrirs_exclude = (
+            'KEMAR_GRAS_EarSim_LargeEars',
+            'KEMAR_GRAS_EarSim_SmallEars',
+            'KEMAR_GRAS_NoEarSim_LargeEars',
+            'KEMAR_GRAS_NoEarSim_SmallEar',
+            'KEMAR_Knowl_EarSim_LargeEars',
+            'KEMAR_Knowl_EarSim_LargeEars_HeadOri_45',
+            'KEMAR_Knowl_EarSim_LargeEars_HeadOri_90',
+            'KEMAR_Knowl_EarSim_SmallEars',
+            'KEMAR_VIVE',
+        )
 
 
     def _all_hrir_ids(self, side):

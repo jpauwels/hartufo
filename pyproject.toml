@@ -16,6 +16,7 @@ dependencies = [
     "scipy >=1.13.0",
     "sox >=0.4",
     "tqdm",
+    "webdav-rfc4918 >=1",
 ]
 
 [project.optional-dependencies]
