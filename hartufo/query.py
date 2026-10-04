@@ -17,6 +17,7 @@ import numpy as np
 from openpyxl import load_workbook
 from pymatreader import read_mat
 from scipy import io
+from tqdm.auto import tqdm
 
 
 _SUBJECT_RE = re.compile(r'(first|last|random)(\d*)')
@@ -117,9 +118,9 @@ class DataQuery:
 
 
     @staticmethod
-    def _download_helper(download_info, checksum_info, target_path):
+    def _download_helper(download_info, checksum_info, target_path, content_type):
         if 'base_url' in download_info:
-            for filename, md5 in checksum_info:
+            for filename, md5 in tqdm(checksum_info, desc=f'Downloading {content_type}'):
                 file_path = (target_path / filename)
                 if file_path.exists():
                     continue
@@ -277,7 +278,7 @@ class HrirDataQuery(DataQuery):
     def _download(self) -> None:
         super()._download()
         if 'hrir' in self.allowed_keys:
-            self._download_helper(self.HRIR_DOWNLOAD, HRIR_CHECKSUMS[self._collection_id][self._checksum_key], self.sofa_directory_path)
+            self._download_helper(self.HRIR_DOWNLOAD, HRIR_CHECKSUMS[self._collection_id][self._checksum_key], self.sofa_directory_path, 'HRIRs')
 
 
 class AnthropometryDataQuery(DataQuery):
@@ -366,7 +367,7 @@ class AnthropometryDataQuery(DataQuery):
     def _download(self) -> None:
         super()._download()
         if 'anthropometry' in self.allowed_keys:
-            self._download_helper(self.ANTHROPOMETRY_DOWNLOAD, ANTHROPOMETRY_CHECKSUMS[self._collection_id], self.anthropometry_path)
+            self._download_helper(self.ANTHROPOMETRY_DOWNLOAD, ANTHROPOMETRY_CHECKSUMS[self._collection_id], self.anthropometry_path, 'anthropometry')
 
 
 class ImageDataQuery(DataQuery):
@@ -403,7 +404,7 @@ class ImageDataQuery(DataQuery):
     def _download(self) -> None:
         super()._download()
         if 'image' in self.allowed_keys:
-            self._download_helper(self.IMAGE_DOWNLOAD, IMAGE_CHECKSUMS[self._collection_id], self.image_directory_path)
+            self._download_helper(self.IMAGE_DOWNLOAD, IMAGE_CHECKSUMS[self._collection_id], self.image_directory_path, 'images')
 
 
 class MeshDataQuery(DataQuery):
@@ -440,7 +441,7 @@ class MeshDataQuery(DataQuery):
     def _download(self) -> None:
         super()._download()
         if '3d-model' in self.allowed_keys:
-            self._download_helper(self.MESH_DOWNLOAD, MESH_CHECKSUMS[self._collection_id], self.mesh_directory_path)
+            self._download_helper(self.MESH_DOWNLOAD, MESH_CHECKSUMS[self._collection_id], self.mesh_directory_path, '3D models')
 
 
 class CipicDataQuery(HrirDataQuery, AnthropometryDataQuery, ImageDataQuery):

@@ -11,7 +11,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import numpy as np
 import numpy.typing as npt
 from scipy.fft import rfftfreq
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 class Dataset:
