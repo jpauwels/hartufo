@@ -886,8 +886,8 @@ class Sadie2DataQuery(HrirDataQuery, ImageDataQuery):
 
 class Princeton3D3ADataQuery(HrirDataQuery, AnthropometryDataQuery):
 
-    HRIR_DOWNLOAD = {'base_url': 'https://3d3a.princeton.edu/3d3a-lab-head-related-transfer-function-database'}
-    ANTHROPOMETRY_DOWNLOAD = {'base_url': ''}
+    HRIR_DOWNLOAD = {'base_url': 'https://sofacoustics.org/data/database/3d3a/'}
+    ANTHROPOMETRY_DOWNLOAD = {'base_url': 'https://jpauwels.github.io/hartufo/3d3a/'}
 
 
     def __init__(self, sofa_directory_path='', anthropometry_directory_path='', hrir_method='acoustic', hrir_variant='compensated', download=False, verify=False):
@@ -917,17 +917,7 @@ class Princeton3D3ADataQuery(HrirDataQuery, AnthropometryDataQuery):
                 self._method_str = 'BEM/Head-Ears-and-Torso/Reference-Grade'
             else:
                 raise ValueError(f'Unknown HRIR method "{hrir_method}"')
-        try:
-            super().__init__(collection_id='3d3a', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, checksum_key=f'{hrir_method}-{hrir_variant}', download=download, verify=verify)
-        except ValueError as err:
-            if download:
-                raise NotImplementedError(
-                    f'Downloading of the 3D3A collection is not yet supported. Manually download the files linked from {self.HRIR_DOWNLOAD["base_url"]} and extract'
-                    f' them to {sofa_directory_path} and {anthropometry_directory_path}. Then pass "verify=True" to the constructor to check the expected'
-                    ' location and content of the files.'
-                ) from None
-            else:
-                raise err
+        super().__init__(collection_id='3d3a', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, checksum_key=f'{hrir_method}-{hrir_variant}', download=download, verify=verify)
         self._default_hrirs_exclude = (37, 44) # Neumann KU100 and Brüel & Kjaer HATS 4128C dummy
         self._default_anthropometry_exclude = (37, 44) # Neumann KU100 and Brüel & Kjaer HATS 4128C dummy
 
