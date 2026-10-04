@@ -137,7 +137,7 @@ class DataQuery:
                     return
                 url = download_info['archive_url']
                 checksum = download_info['archive_checksum']
-                with tempfile.TemporaryDirectory(dir=parent_dir) as temp_dir:
+                with tempfile.TemporaryDirectory(prefix='hartufo_') as temp_dir:
                     download_and_extract_archive(quote(url, safe='/:()'), download_root=parent_dir, extract_root=temp_dir, md5=checksum, remove_finished=True)
                     if 'target_suffix' in download_info:
                         extract_path = target_path / download_info['target_suffix']
@@ -535,10 +535,8 @@ class AriDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 class ListenDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
-    HRIR_DOWNLOAD = {'archive_url': 'http://bili2.ircam.fr/Archives/SimpleFreeFieldHRIR/LISTEN/{}/44100/archive.zip',
-                     'archive_checksum': '',
-                     'path_in_archive': '.',
-                     'target_suffix': ''}
+    HRIR_DOWNLOAD_TEMPLATE = {'archive_url': 'http://bili2.ircam.fr/Archives/SimpleFreeFieldHRIR/LISTEN/{}/44100/archive.zip',
+                              'path_in_archive': '.'}
     HRIR_ARCHIVE_CHECKSUMS = {'raw': 'b796edd37be92eb5262b9032c59d72c7', 'compensated': '174282e95526eb27c20a0a8ccb23e1d1'}
     ANTHROPOMETRY_DOWNLOAD = {'base_url': 'http://eecs.qmul.ac.uk/~johan/hartufo/MORPHO/'} #'ftp://ftp.ircam.fr/pub/IRCAM/equipes/salles/listen/archive/MORPHO/'}
 
@@ -550,7 +548,8 @@ class ListenDataQuery(HrirDataQuery, AnthropometryDataQuery):
             self._hrir_variant_char = 'C'
         else:
             raise ValueError(f'Unknown HRIR variant "{hrir_variant}"')
-        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD['archive_url'].format(hrir_variant.upper())
+        self.HRIR_DOWNLOAD = dict(self.HRIR_DOWNLOAD_TEMPLATE) # create instance copy of the class-level string template such that format() calls do not affect the template itself
+        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD_TEMPLATE['archive_url'].format(hrir_variant.upper())
         self.HRIR_DOWNLOAD['archive_checksum'] = self.HRIR_ARCHIVE_CHECKSUMS[hrir_variant]
         self.HRIR_DOWNLOAD['target_suffix'] = f'{hrir_variant}/44100'
         super().__init__(collection_id='listen', sofa_directory_path=sofa_directory_path, anthropometry_path=anthropometry_directory_path, checksum_key=hrir_variant, download=download, verify=verify)
@@ -598,10 +597,8 @@ class ListenDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 class CrossModDataQuery(HrirDataQuery):
 
-    HRIR_DOWNLOAD = {'archive_url': 'http://bili2.ircam.fr/Archives/SimpleFreeFieldHRIR/CROSSMOD/{}/44100/archive.zip',
-                     'archive_checksum': '',
-                     'path_in_archive': '.',
-                     'target_suffix': ''}
+    HRIR_DOWNLOAD_TEMPLATE = {'archive_url': 'http://bili2.ircam.fr/Archives/SimpleFreeFieldHRIR/CROSSMOD/{}/44100/archive.zip',
+                              'path_in_archive': '.'}
     HRIR_ARCHIVE_CHECKSUMS = {'raw': 'c1f7b2d034731c6cb2f8132c569a9063', 'compensated': 'b5e70b6b9795ce794bbd28fb48291e1a'}
 
 
@@ -613,7 +610,8 @@ class CrossModDataQuery(HrirDataQuery):
         else:
             raise ValueError(f'Unknown HRIR variant "{hrir_variant}"')
         self._hrir_variant = hrir_variant
-        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD['archive_url'].format(hrir_variant.upper())
+        self.HRIR_DOWNLOAD = dict(self.HRIR_DOWNLOAD_TEMPLATE) # create instance copy of the class-level string template such that format() calls do not affect the template itself
+        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD_TEMPLATE['archive_url'].format(hrir_variant.upper())
         self.HRIR_DOWNLOAD['archive_checksum'] = self.HRIR_ARCHIVE_CHECKSUMS[hrir_variant]
         self.HRIR_DOWNLOAD['target_suffix'] = f'{hrir_variant}/44100'
         super().__init__(collection_id='crossmod', sofa_directory_path=sofa_directory_path, checksum_key=hrir_variant, download=download, verify=verify)
@@ -626,10 +624,8 @@ class CrossModDataQuery(HrirDataQuery):
 
 class BiLiDataQuery(HrirDataQuery):
 
-    HRIR_DOWNLOAD = {'archive_url': 'http://bili2.ircam.fr/Archives/SimpleFreeFieldHRIR/BILI/{}/{}/archive.zip',
-                     'archive_checksum': '',
-                     'path_in_archive': '.',
-                     'target_suffix': ''}
+    HRIR_DOWNLOAD_TEMPLATE = {'archive_url': 'http://bili2.ircam.fr/Archives/SimpleFreeFieldHRIR/BILI/{}/{}/archive.zip',
+                              'path_in_archive': '.'}
     HRIR_ARCHIVE_CHECKSUMS = {
         'raw-96000': 'fc4306bb66c62a89d6ea1f243565592d',
         'compensated-96000': 'c9dbb7a7310aac9679777f454371c9ca',
@@ -652,7 +648,8 @@ class BiLiDataQuery(HrirDataQuery):
             samplerate = 96000
         self._samplerate = samplerate
         self._hrir_variant = hrir_variant
-        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD['archive_url'].format(hrir_variant.upper().replace('-', '_'), samplerate)
+        self.HRIR_DOWNLOAD = dict(self.HRIR_DOWNLOAD_TEMPLATE) # create instance copy of the class-level string template such that format() calls do not affect the template itself
+        self.HRIR_DOWNLOAD['archive_url'] = self.HRIR_DOWNLOAD_TEMPLATE['archive_url'].format(hrir_variant.upper().replace('-', '_'), samplerate)
         checksum_key = f'{hrir_variant}-{samplerate}'
         self.HRIR_DOWNLOAD['archive_checksum'] = self.HRIR_ARCHIVE_CHECKSUMS[checksum_key]
         self.HRIR_DOWNLOAD['target_suffix'] = f'{hrir_variant}/{samplerate}'
@@ -855,7 +852,7 @@ class Sadie2DataQuery(HrirDataQuery, ImageDataQuery):
                      'path_in_archive': 'Database-Master_V1-4',}
     IMAGE_DOWNLOAD = {'archive_url': 'https://www.york.ac.uk/sadie-project/Resources/SADIEIIDatabase/Database-Master_V1-4.zip',
                       'archive_checksum': '13be7c386cbd05c5a2bcd7d9a9da3a23',
-                     'path_in_archive': 'Database-Master_V1-4',}
+                      'path_in_archive': 'Database-Master_V1-4',}
 
 
     def __init__(self, sofa_directory_path='', image_directory_path='', samplerate=96000, download=False, verify=False):
