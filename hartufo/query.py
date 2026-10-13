@@ -92,10 +92,12 @@ class DataQuery:
             self._check_integrity()
 
 
-    def collection_id(self, suffix=None):
-        if suffix is None:
-            return self._collection_id
-        return f'{self._collection_id}-{suffix}'
+    def collection_id(self, *suffices):
+        collection_id = self._collection_id
+        for suffix in suffices:
+            if suffix is not None:
+                collection_id += f'-{suffix}'
+        return collection_id
 
 
     @staticmethod
