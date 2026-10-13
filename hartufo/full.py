@@ -53,7 +53,7 @@ class Dataset:
 
         if subject_requirements is not None:
             self._specification = {**self._specification, **subject_requirements}
-        self.collection_id = self.query.collection_id(self._specification.get('hrir', {}).get('method'))
+        self.collection_id = self.query.collection_id(self._specification.get('hrir', {}).get('method'), self._specification.get('hrir', {}).get('variant'))
         ear_ids = self.query.specification_based_ids(self._specification, include_subjects=subject_ids, exclude_subjects=exclude_ids)
 
         if len(ear_ids) == 0:
