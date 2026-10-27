@@ -105,11 +105,20 @@ class Dataset:
             else:
                 self.hrir_samplerate = hrir_spec['samplerate']
                 hrir_pipeline.append(ResampleTransform(recorded_samplerate, self.hrir_samplerate))
+            resampled_hrir_length = round(recorded_hrir_length * self.hrir_samplerate / recorded_samplerate)
             if hrir_spec.get('length') is None:
-                self.hrir_length = round(recorded_hrir_length * self.hrir_samplerate / recorded_samplerate)
+                self.hrir_length = resampled_hrir_length
             else:
-                self.hrir_length = hrir_spec['length']
-                hrir_pipeline.append(TruncateTransform(self.hrir_length))
+                if isinstance(hrir_spec['length'], dict):
+                    self.hrir_length = hrir_spec['length'].get('truncated_length')
+                    if self.hrir_length is None:
+                        self.hrir_length = resampled_hrir_length
+                    hrir_pipeline.append(TruncateTransform(**hrir_spec['length']))
+                else:
+                    self.hrir_length = hrir_spec['length']
+                    hrir_pipeline.append(TruncateTransform(self.hrir_length))
+            if self.hrir_length > resampled_hrir_length:
+                raise ValueError(f'Requested HRIR length ({self.hrir_length}) exceeds available length ({resampled_hrir_length}) at sample rate {self.hrir_samplerate} Hz.')
             self._hrtf_frequencies = rfftfreq(self.hrir_length, 1/self.hrir_samplerate)
             if hrir_spec['domain'] is not None or self.dtype is not None:
                 hrir_pipeline.append(DomainTransform(hrir_spec['domain'], self.dtype))
