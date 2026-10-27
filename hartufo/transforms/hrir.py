@@ -5,7 +5,7 @@ from typing import Iterable, Optional
 import numpy as np
 import numpy.typing as npt
 from scipy.fft import rfft, fft, ifft
-from scipy.signal import hilbert
+from scipy.signal import get_window, hilbert
 import soxr
 
 
@@ -148,8 +148,22 @@ class SelectIndicesTransform(BatchTransform):
 
 
 class TruncateTransform(SelectIndicesTransform):
-    def __init__(self, truncate_length: int):
-        super().__init__(slice(None, truncate_length))
+    def __init__(self, truncated_length: int | None = None, fadeout_length: int = 0, fadein_length: int = 0, start: int = 0, window_type: str = 'hann'):
+        super().__init__(slice(start, None if truncated_length is None else start + truncated_length))
+        self._fadeout_length = fadeout_length
+        self._fadein_length = fadein_length
+        self._window_type = window_type
+
+
+    def __call__(self, values: np.ndarray) -> np.ndarray:
+        truncated_values = super().__call__(values)
+        if self._fadein_length > 0:
+            fadein_window = get_window(self._window_type, self._fadein_length * 2 + 1, False)[:self._fadein_length]
+            truncated_values[..., :self._fadein_length] *= fadein_window
+        if self._fadeout_length > 0:
+            fadeout_window = get_window(self._window_type, self._fadeout_length * 2 + 1, False)[-self._fadeout_length:]
+            truncated_values[..., -self._fadeout_length:] *= fadeout_window
+        return truncated_values
 
 
 class DecibelTransform(BatchTransform):

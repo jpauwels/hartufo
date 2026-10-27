@@ -94,7 +94,7 @@ class HrirSpec(Spec):
         additive_scale_factor: Optional[float] = None,
         multiplicative_scale_factor: Optional[float] = None,
         samplerate: Optional[float] = None,
-        length: Optional[float] = None,
+        length: Optional[Union[int, dict]] = None,
         min_phase: bool = False,
         min_freq: Optional[float] = None,
         max_freq: Optional[float] = None,
