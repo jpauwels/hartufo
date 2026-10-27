@@ -452,6 +452,8 @@ class Cipic(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
+        if _get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec) is not None:
+            raise ValueError('Only the default hrir_variant (`None`) is available.')
         datareader = CipicDataReader(
             anthropometry_matfile_path=Path(root)/'anthropometry/anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
@@ -478,6 +480,8 @@ class Ari(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
+        if _get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec) is not None:
+            raise ValueError('Only the default hrir_variant (`None`) is available.')
         datareader = AriDataReader(
             anthropometry_matfile_path=Path(root)/'anthro.mat',
             sofa_directory_path=Path(root)/'sofa',
@@ -580,6 +584,8 @@ class Ita(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
+        if _get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec) is not None:
+            raise ValueError('Only the default hrir_variant (`None`) is available.')
         datareader = ItaDataReader(
             sofa_directory_path=Path(root)/'sofa',
             anthropometry_csvfile_path=Path(root)/'Dimensions.xlsx',
@@ -605,6 +611,8 @@ class Hutubs(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
+        if _get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec) is not None:
+            raise ValueError('Only the default hrir_variant (`None`) is available.')
         datareader = HutubsDataReader(
             sofa_directory_path=Path(root)/'sofa',
             anthropometry_csvfile_path=Path(root)/'AntrhopometricMeasures.csv',
@@ -631,6 +639,8 @@ class Riec(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
+        if _get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec) is not None:
+            raise ValueError('Only the default hrir_variant (`None`) is available.')
         datareader = RiecDataReader(
             sofa_directory_path=Path(root)/'sofa',
             download=download,
@@ -655,6 +665,8 @@ class Chedar(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
+        if _get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec) is not None:
+            raise ValueError('Only the default hrir_variant (`None`) is available.')
         datareader = ChedarDataReader(
             sofa_directory_path=Path(root)/'sofa',
             anthropometry_matfile_path=Path(root)/'measurements.mat',
@@ -682,6 +694,8 @@ class Widespread(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
+        if _get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec) is not None:
+            raise ValueError('Only the default hrir_variant (`None`) is available.')
         datareader = WidespreadDataReader(
             sofa_directory_path=Path(root)/'sofa',
             distance=_get_value_from_hrir_spec('distance', features_spec, target_spec, group_spec),
@@ -708,6 +722,8 @@ class Sadie2(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
+        if _get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec) is not None:
+            raise ValueError('Only the default hrir_variant (`None`) is available.')
         datareader = Sadie2DataReader(
             sofa_directory_path=Path(root)/'Database-Master_V1-4',
             image_directory_path=Path(root)/'Database-Master_V1-4',
@@ -761,6 +777,8 @@ class Scut(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
+        if _get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec) is not None:
+            raise ValueError('Only the default hrir_variant (`None`) is available.')
         datareader = ScutDataReader(
             sofa_directory_path=Path(root)/'sofa',
             anthropometry_csvfile_path=Path(root)/'AnthropometricParameters.csv',
@@ -812,6 +830,8 @@ class MitKemar(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
+        if _get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec) is not None:
+            raise ValueError('Only the default hrir_variant (`None`) is available.')
         datareader = MitKemarDataReader(
             sofa_directory_path=Path(root)/'sofa',
             download=download,
@@ -837,5 +857,7 @@ class CustomSphericalDataset(Dataset):
         download: bool = False,
         verify: bool = False,
     ) -> None:
+        if _get_value_from_hrir_spec('variant', features_spec, target_spec, group_spec) is not None:
+            raise ValueError('Only the default hrir_variant (`None`) is available.')
         datareader = CustomSphericalDataReader(collection_id, file_paths)
         super().__init__(datareader, features_spec, target_spec, group_spec, subject_ids, subject_requirements, exclude_ids, dtype)
