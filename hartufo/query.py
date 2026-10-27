@@ -605,7 +605,10 @@ class ListenDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 
     def __init__(self, sofa_directory_path='', anthropometry_directory_path='', hrir_variant='compensated', download=False, verify=False):
-        if hrir_variant == 'raw':
+        if hrir_variant is None:
+            hrir_variant = 'compensated'
+            self._hrir_variant_char = 'C'
+        elif hrir_variant == 'raw':
             self._hrir_variant_char = 'R'
         elif hrir_variant == 'compensated':
             self._hrir_variant_char = 'C'
@@ -666,7 +669,10 @@ class CrossModDataQuery(HrirDataQuery):
 
 
     def __init__(self, sofa_directory_path='', hrir_variant='compensated', download=False, verify=False):
-        if hrir_variant == 'raw':
+        if hrir_variant is None:
+            hrir_variant = 'compensated'
+            self._hrir_variant_char = 'C'
+        elif hrir_variant == 'raw':
             self._hrir_variant_char = 'R'
         elif hrir_variant == 'compensated':
             self._hrir_variant_char = 'C'
@@ -699,7 +705,10 @@ class BiLiDataQuery(HrirDataQuery):
 
 
     def __init__(self, sofa_directory_path='', samplerate=96000, hrir_variant='compensated', download=False, verify=False):
-        if hrir_variant == 'raw':
+        if hrir_variant is None:
+            hrir_variant = 'compensated'
+            self._hrir_variant_char = 'C'
+        elif hrir_variant == 'raw':
             self._hrir_variant_char = 'R'
         elif hrir_variant == 'compensated':
             self._hrir_variant_char = 'C'
@@ -954,7 +963,10 @@ class Princeton3D3ADataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 
     def __init__(self, sofa_directory_path='', anthropometry_directory_path='', hrir_method='acoustic', hrir_variant='compensated', download=False, verify=False):
-        if hrir_variant == 'raw':
+        if hrir_variant is None:
+            hrir_variant = 'compensated'
+            self._hrir_variant_str = 'HRIRs'
+        elif hrir_variant == 'raw':
             self._hrir_variant_str = 'BIRs'
         elif hrir_variant == 'compensated':
             self._hrir_variant_str = 'HRIRs'
@@ -1061,7 +1073,10 @@ class SonicomDataQuery(HrirDataQuery):
         if samplerate not in (44100, 48000, 96000):
             samplerate = 96000
         self._samplerate_str = f'{round(samplerate/1000)}kHz'
-        if hrir_variant == 'raw':
+        if hrir_variant is None:
+            hrir_variant = 'compensated'
+            self._hrir_variant_str = 'FreeFieldComp'
+        elif hrir_variant == 'raw':
             self._hrir_variant_str = 'Raw'
         elif hrir_variant == 'raw-itd_removed':
             self._hrir_variant_str = 'Raw_NoITD'
