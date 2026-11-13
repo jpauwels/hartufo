@@ -150,6 +150,7 @@ class SelectIndicesTransform(BatchTransform):
 class TruncateTransform(SelectIndicesTransform):
     def __init__(self, truncated_length: int | None = None, fadeout_length: int = 0, fadein_length: int = 0, start: int = 0, window_type: str = 'hann'):
         super().__init__(slice(start, None if truncated_length is None else start + truncated_length))
+        self._truncated_length = truncated_length
         self._fadeout_length = fadeout_length
         self._fadein_length = fadein_length
         self._window_type = window_type
@@ -164,6 +165,16 @@ class TruncateTransform(SelectIndicesTransform):
             fadeout_window = get_window(self._window_type, self._fadeout_length * 2 + 1, False)[-self._fadeout_length:]
             truncated_values[..., -self._fadeout_length:] *= fadeout_window
         return truncated_values
+
+
+class PadTransform(BatchTransform):
+    def __init__(self, append_samples: int = 0, prepend_samples: int = 0, mode: str = 'constant', **pad_kwargs):
+        self._pad_width = (prepend_samples, append_samples)
+        self._mode = mode
+        self._pad_kwargs = pad_kwargs
+
+    def __call__(self, values: np.ndarray) -> np.ndarray:
+        return np.pad(values, {-1: self._pad_width}, self._mode, **self._pad_kwargs)
 
 
 class DecibelTransform(BatchTransform):

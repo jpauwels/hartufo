@@ -1,18 +1,22 @@
 from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, CrossModDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader, MitKemarDataReader, CustomSphericalDataReader
 from .display import plot_hrir_plane, plot_hrtf_plane, plot_plane_positions, plot_3d_positions, plot_hrir_lines, plot_hrtf_lines
 from .specifications import Spec, HrirSpec, sanitise_specs, sanitise_multiple_specs
-from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform, FlattenPositionsTransform
+from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform, FlattenPositionsTransform, PadTransform
 from collections import defaultdict
 from collections.abc import Callable
 from copy import deepcopy
 from itertools import chain
 from pathlib import Path
 from numbers import Integral
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, Optional, Tuple, Union
 import numpy as np
 import numpy.typing as npt
 from scipy.fft import rfftfreq
 from tqdm.auto import tqdm
+
+
+def _insert(transforms: list[BatchTransform], orig_len: int, transform: BatchTransform):
+    return transforms.insert(len(transforms) - orig_len, transform)
 
 
 class Dataset:
@@ -64,7 +68,7 @@ class Dataset:
                 raise ValueError('None of the explicitly requested subject IDs are available.')
             self.subject_ids: Tuple[Union[int, str], ...] = tuple()
             self.hrir_samplerate = None
-            self.hrir_length = None
+            self._hrir_length = None
             self.fundamental_angles = np.array([])
             self.orthogonal_angles = np.array([])
             self.radii = np.array([])
@@ -94,40 +98,40 @@ class Dataset:
             elif hrir_spec['flat_positions']:
                 self.append_transform(HrirSpec, FlattenPositionsTransform())
             # Construct HRIR processing pipeline
-            hrir_pipeline: List[BatchTransform] = []
+            num_preprocess = len(hrir_spec['preprocess'])
             recorded_hrir_length = datareader.hrir_length(self.subject_ids[0])
             recorded_samplerate = datareader.hrir_samplerate(self.subject_ids[0])
             if hrir_spec.get('additive_scale_factor') is not None or hrir_spec.get('multiplicative_scale_factor') is not None:
-                hrir_pipeline.append(ScaleTransform(hrir_spec.get('additive_scale_factor', 0), hrir_spec.get('multiplicative_scale_factor', 1)))
+                _insert(hrir_spec['preprocess'], num_preprocess, ScaleTransform(hrir_spec.get('additive_scale_factor', 0), hrir_spec.get('multiplicative_scale_factor', 1)))
             if hrir_spec['min_phase']:
-                hrir_pipeline.append(MinPhaseTransform())
+                _insert(hrir_spec['preprocess'], num_preprocess, MinPhaseTransform())
             if hrir_spec.get('samplerate') is None:
                 self.hrir_samplerate = recorded_samplerate
             else:
                 self.hrir_samplerate = hrir_spec['samplerate']
-                hrir_pipeline.append(ResampleTransform(recorded_samplerate, self.hrir_samplerate))
-            resampled_hrir_length = round(recorded_hrir_length * self.hrir_samplerate / recorded_samplerate)
-            if hrir_spec.get('length') is None:
-                self.hrir_length = resampled_hrir_length
-            else:
+                _insert(hrir_spec['preprocess'], num_preprocess, ResampleTransform(recorded_samplerate, self.hrir_samplerate))
+            if hrir_spec.get('length') is not None:
                 if isinstance(hrir_spec['length'], dict):
-                    self.hrir_length = hrir_spec['length'].get('truncated_length')
-                    if self.hrir_length is None:
-                        self.hrir_length = resampled_hrir_length
-                    hrir_pipeline.append(TruncateTransform(**hrir_spec['length']))
+                    truncate_keys = {'truncated_length', 'fadeout_length', 'fadein_length', 'start', 'window_type'}
+                    truncate_kwargs, pad_kwargs = {}, {}
+                    for k, v in hrir_spec['length'].items():
+                        (truncate_kwargs if k in truncate_keys else pad_kwargs)[k] = v
+                    if truncate_kwargs:
+                        _insert(hrir_spec['preprocess'], num_preprocess, TruncateTransform(**truncate_kwargs))
+                    if pad_kwargs:
+                        _insert(hrir_spec['preprocess'], num_preprocess, PadTransform(**pad_kwargs))
                 else:
-                    self.hrir_length = hrir_spec['length']
-                    hrir_pipeline.append(TruncateTransform(self.hrir_length))
-            if self.hrir_length > resampled_hrir_length:
-                raise ValueError(f'Requested HRIR length ({self.hrir_length}) exceeds available length ({resampled_hrir_length}) at sample rate {self.hrir_samplerate} Hz.')
+                    _insert(hrir_spec['preprocess'], num_preprocess, TruncateTransform(hrir_spec['length']))
+            self._hrir_length = round(recorded_hrir_length * self.hrir_samplerate / recorded_samplerate)
+            if self.hrir_length > self._hrir_length:
+                raise ValueError(f'Requested HRIR length ({self.hrir_length}) exceeds available length ({self._hrir_length}) at sample rate {self.hrir_samplerate} Hz.')
             self._hrtf_frequencies = rfftfreq(self.hrir_length, 1/self.hrir_samplerate)
             if hrir_spec['domain'] is not None or self.dtype is not None:
-                hrir_pipeline.append(DomainTransform(hrir_spec['domain'], self.dtype))
+                _insert(hrir_spec['preprocess'], num_preprocess, DomainTransform(hrir_spec['domain'], self.dtype))
             if (hrir_spec['domain'] is not None or hrir_spec['domain'] != 'time') and hrir_spec.get('min_freq') is not None or hrir_spec.get('max_freq') is not None:
                 min_freq = hrir_spec['min_freq'] if hrir_spec.get('min_freq') is not None else 0
                 max_freq = hrir_spec['max_freq'] if hrir_spec.get('max_freq') is not None else np.inf
-                hrir_pipeline.append(SelectValueRangeTransform(self._hrtf_frequencies, min_freq, max_freq))
-            hrir_spec['preprocess'] = hrir_pipeline + hrir_spec['preprocess']
+                _insert(hrir_spec['preprocess'], num_preprocess, SelectValueRangeTransform(self._hrtf_frequencies, min_freq, max_freq))
 
         self._data = defaultdict(list)
         for subject, side in tqdm(ear_ids, desc='Loading data from disk', leave=None):
@@ -260,6 +264,19 @@ class Dataset:
 
     def delete_transform(self, spec_type: type[Spec], index: int):
         self._specification[spec_type.name]['transform'].pop(index)
+
+
+    @property
+    def hrir_length(self):
+        length = self._hrir_length
+        for t in self.full_chain:
+            if isinstance(t, ResampleTransform):
+                length = round(length * t.target_rate / t.original_rate)
+            elif isinstance(t, TruncateTransform) and t._truncated_length is not None:
+                length = t._truncated_length
+            elif isinstance(t, PadTransform):
+                length += sum(t._pad_width)
+        return length
 
 
     @property
