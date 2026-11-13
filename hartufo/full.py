@@ -3,6 +3,7 @@ from .display import plot_hrir_plane, plot_hrtf_plane, plot_plane_positions, plo
 from .specifications import Spec, HrirSpec, sanitise_specs, sanitise_multiple_specs
 from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform, FlattenPositionsTransform
 from collections import defaultdict
+from collections.abc import Callable
 from copy import deepcopy
 from itertools import chain
 from pathlib import Path
@@ -243,21 +244,21 @@ class Dataset:
         return self._specification['hrir']['preprocess'] + self._specification['hrir']['transform']
 
 
-    def insert_transform(self, spec_type, transform_callable, index):
+    def insert_transform(self, spec_type: type[Spec], transform_callable: Callable, index: int):
         if spec_type.name not in self._specification.keys():
             raise ValueError(f'No {spec_type.name.title()}Spec in this Dataset.')
         self._specification[spec_type.name]['transform'].insert(index, transform_callable)
 
 
-    def prepend_transform(self, spec_type, transform_callable):
+    def prepend_transform(self, spec_type: type[Spec], transform_callable: Callable):
         self.insert_transform(spec_type, transform_callable, 0)
 
 
-    def append_transform(self, spec_type, transform_callable):
+    def append_transform(self, spec_type: type[Spec], transform_callable: Callable):
         self.insert_transform(spec_type, transform_callable, len(self._specification[spec_type.name]['transform']))
 
 
-    def delete_transform(self, spec_type, index):
+    def delete_transform(self, spec_type: type[Spec], index: int):
         self._specification[spec_type.name]['transform'].pop(index)
 
 
