@@ -126,12 +126,13 @@ class Dataset:
             if self.hrir_length > self._hrir_length:
                 raise ValueError(f'Requested HRIR length ({self.hrir_length}) exceeds available length ({self._hrir_length}) at sample rate {self.hrir_samplerate} Hz.')
             self._hrtf_frequencies = rfftfreq(self.hrir_length, 1/self.hrir_samplerate)
-            if hrir_spec['domain'] is not None or self.dtype is not None:
+            if (hrir_spec['domain'] is not None and hrir_spec['domain'] != 'time') or self.dtype is not None:
                 _insert(hrir_spec['preprocess'], num_preprocess, DomainTransform(hrir_spec['domain'], self.dtype))
             if (hrir_spec['domain'] is not None or hrir_spec['domain'] != 'time') and hrir_spec.get('min_freq') is not None or hrir_spec.get('max_freq') is not None:
                 min_freq = hrir_spec['min_freq'] if hrir_spec.get('min_freq') is not None else 0
                 max_freq = hrir_spec['max_freq'] if hrir_spec.get('max_freq') is not None else np.inf
                 _insert(hrir_spec['preprocess'], num_preprocess, SelectValueRangeTransform(self._hrtf_frequencies, min_freq, max_freq))
+        self.verify_chain()
 
         self._data = defaultdict(list)
         for subject, side in tqdm(ear_ids, desc='Loading data from disk', leave=None):
@@ -248,10 +249,33 @@ class Dataset:
         return self._specification['hrir']['preprocess'] + self._specification['hrir']['transform']
 
 
+    def verify_chain(self):
+        chain_length = len(self.full_chain)
+        plane_positions = [i for i, t in enumerate(self.full_chain) if isinstance(t, PlaneTransform)]
+        flatten_positions = [i for i, t in enumerate(self.full_chain) if isinstance(t, FlattenPositionsTransform)]
+        domain_positions = [i for i, t in enumerate(self.full_chain) if isinstance(t, DomainTransform) and t.domain != 'time']
+        freefield_positions = [i for i, t in enumerate(self.full_chain) if isinstance(t, CompensateFreefieldTransform)]
+        # Only one (non-time) domain transformation can take place
+        if len(domain_positions) > 1:
+            raise RuntimeError('At most one domain transformation is allowed per processing chain.')
+        # Only one freefield compensation can take place
+        if len(freefield_positions) > 1:
+            raise RuntimeError('At most one freefield compensation is allowed per processing chain.')
+        # Plane selection or flattening needs to be done last
+        if len(plane_positions) != 0 and plane_positions[0] < chain_length - 1:
+            raise RuntimeError('A PlaneTransform can only be the last transform in a processing chain.')
+        if len(flatten_positions) != 0 and flatten_positions[0] < chain_length - 1:
+            raise RuntimeError('A FlattenPositionsTransform can only be the last transform in a processing chain.')
+        # Freefield compensation can only be done in time domain
+        if len(freefield_positions) != 0 and len(domain_positions) != 0 and freefield_positions[0] > domain_positions[-1]:
+            raise RuntimeError('Freefield compensation needs to be done in the time domain, so move this transform before the domain transform.')
+
+
     def insert_transform(self, spec_type: type[Spec], transform_callable: Callable, index: int):
         if spec_type.name not in self._specification.keys():
             raise ValueError(f'No {spec_type.name.title()}Spec in this Dataset.')
         self._specification[spec_type.name]['transform'].insert(index, transform_callable)
+        self.verify_chain()
 
 
     def prepend_transform(self, spec_type: type[Spec], transform_callable: Callable):
