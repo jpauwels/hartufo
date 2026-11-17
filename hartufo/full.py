@@ -1,7 +1,7 @@
 from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, CrossModDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader, MitKemarDataReader, CustomSphericalDataReader
 from .display import plot_hrir_plane, plot_hrtf_plane, plot_plane_positions, plot_3d_positions, plot_hrir_lines, plot_hrtf_lines
 from .specifications import Spec, HrirSpec, sanitise_specs, sanitise_multiple_specs
-from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform, FlattenPositionsTransform, PadTransform
+from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform, FlattenPositionsTransform, PadTransform, CompensateFreefieldTransform
 from collections import defaultdict
 from collections.abc import Callable
 from copy import deepcopy
@@ -276,6 +276,12 @@ class Dataset:
                 length = t._truncated_length
             elif isinstance(t, PadTransform):
                 length += sum(t._pad_width)
+            elif isinstance(t, CompensateFreefieldTransform):
+                if t.truncated_samples is not None:
+                    length = t.truncated_samples
+                else:
+                    length += t.freefield_length - 1
+                length += t.append_samples
         return length
 
 

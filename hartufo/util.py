@@ -148,3 +148,15 @@ def quantise(values, precision):
         return (values / precision).round(decimals=0) * precision
     else:
         return values.round(decimals=-precision)
+
+
+def nextpow2(number: int):
+    return 1<<(number-1).bit_length()
+
+
+def vectormap(query, keys):
+    map = np.searchsorted(keys, query)
+    if not np.array_equal(keys[np.minimum(map, len(keys) - 1)], query):
+        missing = np.setdiff1d(query, keys)
+        raise KeyError(f'The keys "{missing}" cannot be found')
+    return map
