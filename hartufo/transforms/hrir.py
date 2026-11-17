@@ -1,5 +1,5 @@
 from ..transforms import BatchTransform
-from ..util import wrap_closed_open_interval, lateral_vertical_from_yaw, lateral_vertical_from_pitch, lateral_vertical_from_roll, azimuth_elevation_from_yaw, azimuth_elevation_from_pitch, azimuth_elevation_from_roll
+from ..util import wrap_closed_open_interval, wrap_closed_interval, lateral_vertical_from_yaw, lateral_vertical_from_pitch, lateral_vertical_from_roll, azimuth_elevation_from_yaw, azimuth_elevation_from_pitch, azimuth_elevation_from_roll, nextpow2, vectormap
 from abc import ABC, abstractmethod
 from typing import Iterable, Optional
 import numpy as np
@@ -640,3 +640,58 @@ class SphericalPlaneTransform(PlaneTransform):
                 single_plane = np.squeeze(single_plane, axis=1)
 
         return super().__call__(single_plane)
+
+
+class CompensateFreefieldTransform(BatchTransform):
+    def __init__(self, freefield_median_plane: np.ndarray, freefield_elevations: np.ndarray, ds_azimuths: np.ndarray, ds_elevations: np.ndarray, delay_samples: int,
+                 *, truncated_samples: int | None = None, fadein_samples: int = 0, fadeout_samples: int = 0, append_samples: int = 0):
+        self._freefield_hrirs = self.assemble_freefield_tensor(freefield_median_plane, freefield_elevations, ds_azimuths, ds_elevations)
+        self._delay = delay_samples
+        self._truncate = TruncateTransform(truncated_length=truncated_samples, fadein_length=fadein_samples, fadeout_length=fadeout_samples)
+        self._pad = PadTransform(append_samples=append_samples)
+        self.freefield_length = self._freefield_hrirs.shape[-1]
+        self.truncated_samples = truncated_samples
+        self.append_samples = append_samples
+
+
+    def __call__(self, hrirs: np.ndarray) -> np.ndarray:
+        num_tiles = len(hrirs) // len(self._freefield_hrirs)
+        if len(self._freefield_hrirs) * num_tiles != len(hrirs):
+            raise ValueError(f'The number of measured ears ({len(hrirs)})is not a multiple of the number of freefield ears ({len(self._freefield_hrirs)}) ')
+        tiled_freefield_hrirs = np.tile(self._freefield_hrirs, (num_tiles,)+(1,)*(self._freefield_hrirs.ndim-1))
+
+        conv_len = hrirs.shape[-1] + self._freefield_hrirs.shape[-1] - 1
+        fft_len = nextpow2(conv_len)
+        circ_conv = np.fft.irfft(np.fft.rfft(hrirs, n=fft_len) * np.fft.rfft(tiled_freefield_hrirs, n=fft_len))
+        shifted_conv = np.roll(circ_conv, shift=(-self._delay), axis=-1)[..., :conv_len]
+        sparse_mask = np.tile(np.ma.getmaskarray(hrirs)[..., :1], conv_len)
+        masked_conv = np.ma.array(shifted_conv, dtype=hrirs.dtype, mask=sparse_mask)
+
+        truncated_hrirs = self._truncate(masked_conv)
+        padded_hrirs = self._pad(truncated_hrirs)
+        return padded_hrirs
+
+
+    @staticmethod
+    def assemble_freefield_tensor(freefield_median_plane, freefield_elevations, ds_azimuths, ds_elevations):
+        freefield_elevations = wrap_closed_open_interval(freefield_elevations, -90, 270)
+        ds_azimuths = wrap_closed_open_interval(ds_azimuths, -180, 180)
+        ds_elevations = wrap_closed_interval(ds_elevations, -90, 90)
+        if freefield_median_plane.ndim == 2:
+            freefield_median_plane = np.expand_dims(freefield_median_plane, 0)
+        front_elevation_map = vectormap(ds_elevations, freefield_elevations)
+        front_halfplane = np.expand_dims(freefield_median_plane[:, front_elevation_map], axis=1)
+        if any(freefield_elevations > 90):
+            # Front and back freefield measurements
+            back_elevation_map = vectormap(180-ds_elevations, freefield_elevations)
+            back_halfplane = np.expand_dims(freefield_median_plane[:, back_elevation_map], axis=1)
+            halfplanes = []
+            if -180 in ds_azimuths:
+                halfplanes.append(back_halfplane)
+            halfplanes.extend([front_halfplane] * sum((ds_azimuths > -180) & (ds_azimuths <= 0)))
+            halfplanes.extend([back_halfplane] * sum(ds_azimuths > 0))
+            freefield_hrirs = np.concatenate(halfplanes, axis=1)
+        else:
+            # Front freefield measurement only
+            freefield_hrirs = np.tile(front_halfplane, (len(ds_azimuths)//2, 1, 1))
+        return np.expand_dims(freefield_hrirs, axis=3) # add distance dimension
