@@ -366,7 +366,7 @@ class InterauralPlaneTransform(PlaneTransform):
         if self.selection_mask is None:
             return np.array([])
         vertical_angles = self.fundamental_angles
-        lateral_angles = np.ma.array(self.orthogonal_angles, mask=self.selection_mask[0])
+        lateral_angles = np.ma.array(self.orthogonal_angles, mask=~self.selection_mask[0])
 
         if self.plane == 'median':
             input_angles = vertical_angles
@@ -379,7 +379,7 @@ class InterauralPlaneTransform(PlaneTransform):
             if len(vertical_angles) > 1:
                 # both half planes present
                 back_yaw_angles = 180-lateral_angles
-                front_yaw_angles = np.ma.array(self.orthogonal_angles, mask=self.selection_mask[1])
+                front_yaw_angles = np.ma.array(self.orthogonal_angles, mask=~self.selection_mask[1])
                 input_angles = [back_yaw_angles, front_yaw_angles]
                 self._left_pole_overlap = np.isclose(front_yaw_angles, 90).any() and np.isclose(back_yaw_angles, 90).any()
                 self._right_pole_overlap = np.isclose(front_yaw_angles, -90).any() and np.isclose(back_yaw_angles, 270).any()
@@ -535,7 +535,7 @@ class SphericalPlaneTransform(PlaneTransform):
         if self.selection_mask is None:
             return np.array([])
         azimuth_angles = self.fundamental_angles
-        elevation_angles = np.ma.array(self.orthogonal_angles, mask=self.selection_mask[0])
+        elevation_angles = np.ma.array(self.orthogonal_angles, mask=~self.selection_mask[0])
 
         if self.plane == 'horizontal':
             input_angles = azimuth_angles
@@ -545,7 +545,7 @@ class SphericalPlaneTransform(PlaneTransform):
             if len(azimuth_angles) > 1:
                 # both half planes present
                 back_pitch_angles = 180-elevation_angles
-                front_pitch_angles = np.ma.array(self.orthogonal_angles, mask=self.selection_mask[1])
+                front_pitch_angles = np.ma.array(self.orthogonal_angles, mask=~self.selection_mask[1])
                 input_angles = [back_pitch_angles, front_pitch_angles]
                 self._up_pole_overlap = np.isclose(front_pitch_angles, 90).any() and np.isclose(back_pitch_angles, 90).any()
                 self._down_pole_overlap = np.isclose(front_pitch_angles, -90).any() and np.isclose(back_pitch_angles, 270).any()

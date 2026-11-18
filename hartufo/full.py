@@ -72,7 +72,7 @@ class Dataset:
             self.fundamental_angles = np.array([])
             self.orthogonal_angles = np.array([])
             self.radii = np.array([])
-            self._selection_mask = np.array([])
+            self.grid_mask = np.array([])
             self._data = {}
             return
 
@@ -86,14 +86,14 @@ class Dataset:
             else:
                 requested_fundamental_angles, requested_orthogonal_angles = hrir_spec.get('fundamental_angles'), hrir_spec.get('orthogonal_angles')
             # Verify angle symmetry before reading complete dataset
-            self.fundamental_angles, self.orthogonal_angles, self.radii, self._selection_mask, *_ = datareader._map_sofa_position_order_to_matrix(
+            self.fundamental_angles, self.orthogonal_angles, self.radii, self.grid_mask, *_ = datareader._map_sofa_position_order_to_matrix(
                 self.subject_ids[0], requested_fundamental_angles, requested_orthogonal_angles, hrir_spec.get('distance'),
             )
             if hrir_spec.get('side', '').startswith('both-'):
                 datareader._verify_angle_symmetry(self.fundamental_angles, self.orthogonal_angles)
             # Create plane transform from file angles and mask
             if 'plane' in hrir_spec:
-                self._plane_transform = datareader.PlaneTransform(hrir_spec['plane'], hrir_spec['plane_offset'], hrir_spec['positive_angles'], self.fundamental_angles, self.orthogonal_angles, self._selection_mask)
+                self._plane_transform = datareader.PlaneTransform(hrir_spec['plane'], hrir_spec['plane_offset'], hrir_spec['positive_angles'], self.fundamental_angles, self.orthogonal_angles, self.grid_mask)
                 self.append_transform(HrirSpec, self._plane_transform)
             elif hrir_spec['flat_positions']:
                 self.append_transform(HrirSpec, FlattenPositionsTransform())
@@ -322,7 +322,7 @@ class Dataset:
     def positions(self, coordinate_system=None):
         req_coordinates = self._coordinate_transform(coordinate_system, *np.meshgrid(self.fundamental_angles, self.orthogonal_angles, self.radii, indexing='ij'))
         coordinates_grid = np.ma.masked_where(
-            np.tile(self._selection_mask[..., np.newaxis], (1, 1, 1, 3)),
+            np.tile(~self.grid_mask[..., np.newaxis], 3),
             np.stack(req_coordinates, axis=-1),
         )
         coord_transforms = [t for t in self.full_chain if isinstance(t, (PlaneTransform, FlattenPositionsTransform))]
@@ -463,12 +463,12 @@ def split_by_angles(dataset: Dataset):
     for row_idx, fundamental_angle in enumerate(dataset.fundamental_angles):
         for column_idx, orthogonal_angle in enumerate(dataset.orthogonal_angles):
             for radius_idx, radius in enumerate(dataset.radii):
-                if not dataset._selection_mask[row_idx, column_idx, radius_idx].item():
+                if dataset.grid_mask[row_idx, column_idx, radius_idx].item():
                     angle_dataset = deepcopy(dataset)
                     angle_dataset.fundamental_angles = np.array([fundamental_angle])
                     angle_dataset.orthogonal_angles = np.array([orthogonal_angle])
                     angle_dataset.radii = np.array([radius])
-                    angle_dataset._selection_mask = np.array([False])
+                    angle_dataset.grid_mask = np.array([True])
                     try:
                         # Trigger recalculation of plane angles in planar datasets
                         angle_dataset.positive_angles = dataset.positive_angles

@@ -208,8 +208,8 @@ class SofaDataReader(DataReader):
             raise ValueError('None of the specified HRIR measurement positions are available in this dataset')
 
         selection_mask_indices = tuple(np.array(selection_mask_indices).T)
-        selection_mask = np.full((len(unique_fundamental_angles), len(unique_orthogonal_angles), len(unique_radii)), True)
-        selection_mask[selection_mask_indices] = False
+        selection_mask = np.full((len(unique_fundamental_angles), len(unique_orthogonal_angles), len(unique_radii)), False)
+        selection_mask[selection_mask_indices] = True
 
         return unique_fundamental_angles, unique_orthogonal_angles, unique_radii, selection_mask, selected_file_indices, selection_mask_indices
 
@@ -218,19 +218,19 @@ class SofaDataReader(DataReader):
         sofa_path = self._sofa_path(subject_id)
         hrir_file = ncdf.Dataset(sofa_path)
         try:
-            hrirs = np.ma.getdata(hrir_file.variables['Data.IR'][:, 0 if side.endswith('left') else 1, :])
+            all_hrirs = np.ma.getdata(hrir_file.variables['Data.IR'][:, 0 if side.endswith('left') else 1, :])
         except Exception as exc:
             raise ValueError(f'Error reading file "{sofa_path}"') from exc
         finally:
             hrir_file.close()
         selected_fundamental_angles, _, _, selection_mask, selected_file_indices, selection_mask_indices = self._map_sofa_position_order_to_matrix(subject_id, fundamental_angles, orthogonal_angles, distance)
-        hrir_matrix = np.empty(selection_mask.shape + (hrirs.shape[1],))
-        hrir_matrix[selection_mask_indices] = hrirs[selected_file_indices]
-        tiled_selection_mask = np.tile(selection_mask[:, :, :, np.newaxis], (1, 1, 1, hrir_matrix.shape[-1]))
-        hrir = np.ma.masked_where(tiled_selection_mask, hrir_matrix, copy=False)
+        hrir_matrix = np.empty(selection_mask.shape + (all_hrirs.shape[-1],))
+        hrir_matrix[selection_mask_indices] = all_hrirs[selected_file_indices]
+        tiled_selection_mask = np.broadcast_to(~selection_mask[..., np.newaxis], (*selection_mask.shape, all_hrirs.shape[-1]))
+        selected_hrirs = np.ma.masked_where(tiled_selection_mask, hrir_matrix, copy=False)
         if side.startswith('mirrored'):
-            return self._mirror_hrirs(hrir, selected_fundamental_angles)
-        return hrir
+            return self._mirror_hrirs(selected_hrirs, selected_fundamental_angles)
+        return selected_hrirs
 
 
 class SofaSphericalDataReader(SofaDataReader):
