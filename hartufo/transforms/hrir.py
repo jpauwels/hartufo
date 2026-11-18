@@ -47,16 +47,6 @@ class FlattenPositionsTransform(BatchTransform):
         return dense_hrirs.reshape(*hrirs.shape[:-4], -1, hrirs.shape[-1])
 
 
-    def inverse(self, dense_hrirs: np.ndarray) -> np.ndarray:
-        if self._mask.any():
-            sparse_mask = np.tile(self._mask[..., np.newaxis], (*np.ones(self._mask.ndim, dtype=int), dense_hrirs.shape[-1]))
-            sparse_array = np.ma.array(np.empty((*self._mask.shape, dense_hrirs.shape[-1])), dtype=dense_hrirs.dtype, mask=sparse_mask)
-            sparse_array[~sparse_mask] = dense_hrirs.ravel()
-            return sparse_array
-        else:
-            return dense_hrirs.reshape(*self._mask.shape, -1)
-
-
 class Hrir2dTransform(BatchTransform):
     def __init__(self, prototype: Optional[np.ndarray] = None):
         self._prototype = prototype
@@ -68,10 +58,6 @@ class Hrir2dTransform(BatchTransform):
         return _to_dense2d(hrirs)
 
 
-    def inverse(self, hrirs_list: np.ndarray) -> np.ndarray:
-        return _to_multidim(hrirs_list, self._prototype)
-
-
 class Hrir3dTransform(BatchTransform):
     def __init__(self, prototype: Optional[np.ndarray] = None):
         self._prototype = prototype
@@ -81,10 +67,6 @@ class Hrir3dTransform(BatchTransform):
         if self._prototype is None:
             self._prototype = hrirs
         return _to_dense3d(hrirs)
-
-
-    def inverse(self, hrirs_list: np.ndarray) -> np.ndarray:
-        return _to_multidim(hrirs_list, self._prototype)
 
 
 class ScaleTransform(BatchTransform):
@@ -100,15 +82,6 @@ class ScaleTransform(BatchTransform):
         if isinstance(self.multiplicative_factor, np.ndarray) or self.multiplicative_factor != 1:
             scaled_values = scaled_values * self.multiplicative_factor
         return scaled_values
-
-
-    def inverse(self, scaled_values: np.ndarray) -> np.ndarray:
-        values = scaled_values
-        if isinstance(self.additive_factor, np.ndarray) or self.additive_factor != 0:
-            values = values - self.additive_factor
-        if isinstance(self.multiplicative_factor, np.ndarray) or self.multiplicative_factor != 1:
-            values = values / self.multiplicative_factor
-        return values
 
 
 class MinPhaseTransform(BatchTransform):
@@ -182,10 +155,6 @@ class DecibelTransform(BatchTransform):
         # limit dB range to what is representable by data type
         min_value = np.max(hrtf) * np.finfo(hrtf.dtype).resolution
         return 20 * np.log10(np.maximum(hrtf, min_value))
-
-
-    def inverse(self, hrtf: np.ndarray) -> np.ndarray:
-        return 10 ** (hrtf / 20)
 
 
 class DomainTransform(BatchTransform):
@@ -279,7 +248,12 @@ class PlaneTransform(ABC):
 
 
     @abstractmethod
+    def process(self, hrirs: np.ndarray):
+        pass
+
+
     def __call__(self, single_plane: np.ma.MaskedArray):
+        single_plane = self.process(single_plane)
         try:
             if single_plane.mask.any():
                 if single_plane.ndim > 1:
@@ -369,7 +343,7 @@ class InterauralPlaneTransform(PlaneTransform):
         lateral_angles = np.ma.array(self.orthogonal_angles, mask=~self.selection_mask[0])
 
         if self.plane == 'median':
-            input_angles = vertical_angles
+            input_angles = vertical_angles.tolist()
             if self.positive_angles:
                 self._split_idx = self._idx_first_not_smaller_than(vertical_angles)
             else:
@@ -411,7 +385,7 @@ class InterauralPlaneTransform(PlaneTransform):
         return super()._stitch_plane(input_angles)
 
 
-    def __call__(self, hrirs: np.ndarray):
+    def process(self, hrirs: np.ndarray):
         if self.plane == 'median':
             if self.positive_angles:
                 down, up = np.split(hrirs, [self._split_idx])
@@ -425,13 +399,13 @@ class InterauralPlaneTransform(PlaneTransform):
             if self._pos_sphere_present and self._neg_sphere_present:
                 half1, half2 = hrirs
                 if self._left_pole_overlap:
-                    left_pole_mask = np.full_like(hrirs[1], False, dtype=bool)
+                    left_pole_mask = np.full(half2.shape, False)
                     left_pole_mask[-1] = True
-                    half2 = np.ma.masked_where(left_pole_mask, hrirs[1], False)
+                    half2 = np.ma.MaskedArray(half2, left_pole_mask)
                 if self._right_pole_overlap:
-                    right_pole_mask = np.full_like(hrirs[0], False, dtype=bool)
+                    right_pole_mask = np.full(half1.shape, False)
                     right_pole_mask[0] = True
-                    half1 = np.ma.masked_where(right_pole_mask, hrirs[0], False)
+                    half1 = np.ma.MaskedArray(half1, right_pole_mask)
             if self.plane == 'frontal':
                 if self._pos_sphere_present and self._neg_sphere_present:
                     # both half planes present
@@ -489,7 +463,7 @@ class InterauralPlaneTransform(PlaneTransform):
             if single_plane.ndim > 1:
                 single_plane = np.squeeze(single_plane, axis=1)
 
-        return super().__call__(single_plane)
+        return single_plane
 
 
 class SphericalPlaneTransform(PlaneTransform):
@@ -538,7 +512,7 @@ class SphericalPlaneTransform(PlaneTransform):
         elevation_angles = np.ma.array(self.orthogonal_angles, mask=~self.selection_mask[0])
 
         if self.plane == 'horizontal':
-            input_angles = azimuth_angles
+            input_angles = azimuth_angles.tolist()
             self._split_idx = self._idx_first_not_smaller_than(azimuth_angles)
         else:
             self._split_idx = self._idx_first_not_smaller_than(self.orthogonal_angles)
@@ -577,26 +551,26 @@ class SphericalPlaneTransform(PlaneTransform):
         return super()._stitch_plane(input_angles)
 
 
-    def __call__(self, hrirs: np.ndarray):
+    def process(self, hrirs: np.ndarray):
         if self.plane == 'horizontal':
             if self.positive_angles:
                 right, left = np.split(hrirs, [self._split_idx])
                 single_plane = np.ma.concatenate((left, right))
             else:
-                single_plane = hrirs
+                single_plane = np.asanyarray(hrirs)
             if single_plane.ndim > 1:
                 single_plane = np.squeeze(single_plane, axis=(1, 2))
         else:
             if self._pos_sphere_present and self._neg_sphere_present:
                 half1, half2 = hrirs
                 if self._up_pole_overlap:
-                    up_pole_mask = np.full_like(hrirs[1], False, dtype=bool)
+                    up_pole_mask = np.full(half2.shape, False)
                     up_pole_mask[-1] = True
-                    half2 = np.ma.masked_where(up_pole_mask, hrirs[1], False)
+                    half2 = np.ma.MaskedArray(half2, up_pole_mask)
                 if self._down_pole_overlap:
-                    down_pole_mask = np.full_like(hrirs[0], False, dtype=bool)
+                    down_pole_mask = np.full(half1.shape, False)
                     down_pole_mask[0] = True
-                    half1 = np.ma.masked_where(down_pole_mask, hrirs[0], False)
+                    half1 = np.ma.MaskedArray(half1, down_pole_mask)
             if self.plane == 'frontal':
                 if self._pos_sphere_present and self._neg_sphere_present:
                     # both right and left half planes present
@@ -639,7 +613,7 @@ class SphericalPlaneTransform(PlaneTransform):
             if single_plane.ndim > 1:
                 single_plane = np.squeeze(single_plane, axis=1)
 
-        return super().__call__(single_plane)
+        return single_plane
 
 
 class CompensateFreefieldTransform(BatchTransform):
