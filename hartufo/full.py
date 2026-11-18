@@ -1,7 +1,7 @@
 from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataReader, BiLiDataReader, CrossModDataReader, ItaDataReader, HutubsDataReader, RiecDataReader, ChedarDataReader, WidespreadDataReader, Sadie2DataReader, Princeton3D3ADataReader, ScutDataReader, SonicomDataReader, MitKemarDataReader, CustomSphericalDataReader
 from .display import plot_hrir_plane, plot_hrtf_plane, plot_plane_positions, plot_3d_positions, plot_hrir_lines, plot_hrtf_lines
 from .specifications import Spec, HrirSpec, sanitise_specs, sanitise_multiple_specs
-from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform, FlattenPositionsTransform, PadTransform, CompensateFreefieldTransform
+from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform, GriddedPositionsTransform, PadTransform, CompensateFreefieldTransform
 from collections import defaultdict
 from collections.abc import Callable
 from copy import deepcopy
@@ -95,8 +95,8 @@ class Dataset:
             if 'plane' in hrir_spec:
                 self._plane_transform = datareader.PlaneTransform(hrir_spec['plane'], hrir_spec['plane_offset'], hrir_spec['positive_angles'], self.fundamental_angles, self.orthogonal_angles, self.grid_mask)
                 self.append_transform(HrirSpec, self._plane_transform)
-            elif hrir_spec['flat_positions']:
-                self.append_transform(HrirSpec, FlattenPositionsTransform())
+            elif not hrir_spec['flat_positions']:
+                self.append_transform(HrirSpec, GriddedPositionsTransform(self.grid_mask))
             # Construct HRIR processing pipeline
             num_preprocess = len(hrir_spec['preprocess'])
             recorded_hrir_length = datareader.hrir_length(self.subject_ids[0])
@@ -253,7 +253,7 @@ class Dataset:
     def verify_chain(self):
         chain_length = len(self.full_chain)
         plane_positions = [i for i, t in enumerate(self.full_chain) if isinstance(t, PlaneTransform)]
-        flatten_positions = [i for i, t in enumerate(self.full_chain) if isinstance(t, FlattenPositionsTransform)]
+        grid_positions = [i for i, t in enumerate(self.full_chain) if isinstance(t, GriddedPositionsTransform)]
         domain_positions = [i for i, t in enumerate(self.full_chain) if isinstance(t, DomainTransform) and t.domain != 'time']
         freefield_positions = [i for i, t in enumerate(self.full_chain) if isinstance(t, CompensateFreefieldTransform)]
         # Only one (non-time) domain transformation can take place
@@ -265,8 +265,8 @@ class Dataset:
         # Plane selection or flattening needs to be done last
         if len(plane_positions) != 0 and plane_positions[0] < chain_length - 1:
             raise RuntimeError('A PlaneTransform can only be the last transform in a processing chain.')
-        if len(flatten_positions) != 0 and flatten_positions[0] < chain_length - 1:
-            raise RuntimeError('A FlattenPositionsTransform can only be the last transform in a processing chain.')
+        if len(grid_positions) != 0 and grid_positions[0] < chain_length - 1:
+            raise RuntimeError('A GriddedPositionsTransform can only be the last transform in a processing chain.')
         # Freefield compensation can only be done in time domain
         if len(freefield_positions) != 0 and len(domain_positions) != 0 and freefield_positions[0] > domain_positions[-1]:
             raise RuntimeError('Freefield compensation needs to be done in the time domain, so move this transform before the domain transform.')
@@ -324,14 +324,16 @@ class Dataset:
         if not self.grid_mask.size:
             return np.array([])
         req_coordinates = self._coordinate_transform(coordinate_system, *np.meshgrid(self.fundamental_angles, self.orthogonal_angles, self.radii, indexing='ij'))
-        coordinates_grid = np.ma.masked_where(
-            np.tile(~self.grid_mask[..., np.newaxis], 3),
+        coordinates_grid = np.ma.MaskedArray(
             np.stack(req_coordinates, axis=-1),
+            np.broadcast_to(~self.grid_mask[..., np.newaxis], (*self.grid_mask.shape, 3)),
         )
-        coord_transforms = [t for t in self.full_chain if isinstance(t, (PlaneTransform, FlattenPositionsTransform))]
-        for transform in coord_transforms:
-            coordinates_grid = transform(coordinates_grid)
-        return coordinates_grid
+        if self.full_chain:
+            if isinstance(self.full_chain[-1], GriddedPositionsTransform):
+                return coordinates_grid
+            elif isinstance(self.full_chain[-1], PlaneTransform):
+                return self.full_chain[-1](coordinates_grid)
+        return coordinates_grid.compressed().reshape(-1, 3)
 
 
     @property

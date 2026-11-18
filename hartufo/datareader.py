@@ -211,7 +211,12 @@ class SofaDataReader(DataReader):
         selection_mask = np.full((len(unique_fundamental_angles), len(unique_orthogonal_angles), len(unique_radii)), False)
         selection_mask[selection_mask_indices] = True
 
-        return unique_fundamental_angles, unique_orthogonal_angles, unique_radii, selection_mask, selected_file_indices, selection_mask_indices
+        # Put each file index at its grid position, then read them back in grid (C) order
+        file_index_grid = np.full(selection_mask.shape, -1, dtype=int)
+        file_index_grid[selection_mask_indices] = selected_file_indices
+        selected_file_indices = file_index_grid[selection_mask]
+
+        return unique_fundamental_angles, unique_orthogonal_angles, unique_radii, selection_mask, selected_file_indices
 
 
     def hrir(self, subject_id, side, fundamental_angles=None, orthogonal_angles=None, distance=None):
@@ -223,11 +228,8 @@ class SofaDataReader(DataReader):
             raise ValueError(f'Error reading file "{sofa_path}"') from exc
         finally:
             hrir_file.close()
-        selected_fundamental_angles, _, _, selection_mask, selected_file_indices, selection_mask_indices = self._map_sofa_position_order_to_matrix(subject_id, fundamental_angles, orthogonal_angles, distance)
-        hrir_matrix = np.empty(selection_mask.shape + (all_hrirs.shape[-1],))
-        hrir_matrix[selection_mask_indices] = all_hrirs[selected_file_indices]
-        tiled_selection_mask = np.broadcast_to(~selection_mask[..., np.newaxis], (*selection_mask.shape, all_hrirs.shape[-1]))
-        selected_hrirs = np.ma.masked_where(tiled_selection_mask, hrir_matrix, copy=False)
+        selected_fundamental_angles, _, _, _, selected_file_indices = self._map_sofa_position_order_to_matrix(subject_id, fundamental_angles, orthogonal_angles, distance)
+        selected_hrirs = all_hrirs[selected_file_indices]
         if side.startswith('mirrored'):
             return self._mirror_hrirs(selected_hrirs, selected_fundamental_angles)
         return selected_hrirs

@@ -3,10 +3,9 @@ import numpy as np
 
 
 class BatchTransform(ABC):
-    ''' Abstact base class to signify that a transform callable supports processing multiple data points in batch,
-        i.e. can handle 5D [batch, fundamental_angle, orthogonal_angle, radius, hrir_idx] arrays in addition to 
-        4D [fundamental_angle, orthogonal_angle, radius, hrir_idx] arrays.'''
+    ''' Abstract base class for transforms that do not impose any restrictions on the values they can process,
+        i.e. can dense and masked NumPy arrays of any dimensionality.'''
 
     @abstractmethod
-    def __call__(self, values: np.ma.MaskedArray):
+    def __call__(self, values: np.ndarray):
         pass

@@ -9,64 +9,89 @@ from scipy.signal import get_window, hilbert
 import soxr
 
 
-def _to_dense2d(multidim_array: np.ndarray) -> np.ndarray:
-    ''' Converts an N-D np.ndarray to a 2-D dense array which flattens all dimensions except the last into one while keeping the last 
-        dimension intact.'''
-    dense_array = multidim_array.compressed() if np.ma.isMaskedArray(multidim_array) else multidim_array
-    return dense_array.reshape(-1, multidim_array.shape[-1])
+def _to_masked_grid(flat_array: np.ndarray, grid_mask: np.ndarray[bool]) -> np.ma.MaskedArray:
+    masked_shape = (*grid_mask.shape, flat_array.shape[-1])
+    masked_array = np.ma.MaskedArray(np.zeros(masked_shape, dtype=flat_array.dtype), mask=True)
+    masked_array[grid_mask] = flat_array.reshape(-1, flat_array.shape[-1])
+    return masked_array
 
 
-def _to_dense3d(multidim_array: np.ndarray) -> np.ndarray:
-    ''' Converts an N-D np.ndarray to a 3-D dense array which flattens the middle dimensions while keeping the first and last 
-        dimension intact.'''
-    dense_array = multidim_array.compressed() if np.ma.isMaskedArray(multidim_array) else multidim_array
-    return dense_array.reshape(len(multidim_array), -1, multidim_array.shape[-1])
-
-
-def _to_multidim(dense2d_array: np.ndarray, prototype: np.ndarray) -> np.ndarray:
-    ''' Converts a 2-D dense np.ndarray into a N-D np.ndarray whose dimensions and sparsity mask is taken from the given prototypical 
-        sparse array, except for the final dimension which is taken from the dense array itself.'''
-    if np.ma.getmaskarray(prototype).any():
-        sparse_mask = np.tile(np.ma.getmaskarray(prototype)[..., :1], (*np.ones(prototype.ndim-1, dtype=int), dense2d_array.shape[-1]))
-        sparse_array = np.ma.array(np.empty((*prototype.shape[:-1], dense2d_array.shape[-1])), dtype=dense2d_array.dtype, mask=sparse_mask)
-        sparse_array[~sparse_mask] = dense2d_array.ravel()
-        return sparse_array
+def _restore_original_shape(flat_array: np.ndarray, original_mask: np.ndarray[bool]) -> np.ndarray:
+    ''' Converts a 2-D dense np.ndarray into an np.ndarray whose dimensions and sparsity is taken from the given
+        mask, except for the final dimension which is taken from the dense array itself.'''
+    if original_mask.ndim > 3:
+        # masked grid
+        return _to_masked_grid(flat_array, original_mask)
     else:
-        return dense2d_array.reshape(*prototype.shape[:-1], -1)
+        # flat array
+        return flat_array.reshape(*original_mask.shape, -1)
 
 
-class FlattenPositionsTransform(BatchTransform):
-    def __init__(self, mask: Optional[np.ndarray] = None):
-        self._mask = mask
-
-
+class BatchTransformHrirWise(BatchTransform):
     def __call__(self, hrirs: np.ndarray) -> np.ndarray:
-        if self._mask is None:
-            self._mask = np.ma.getmaskarray(hrirs)[..., :1]
         dense_hrirs = hrirs.compressed() if np.ma.isMaskedArray(hrirs) else hrirs
-        return dense_hrirs.reshape(*hrirs.shape[:-4], -1, hrirs.shape[-1])
+        hrirs_2d = dense_hrirs.reshape(-1, hrirs.shape[-1])
+        processed_2d = self.process(hrirs_2d)
+        return _restore_original_shape(processed_2d, ~np.ma.getmaskarray(hrirs)[..., 0])
 
 
-class Hrir2dTransform(BatchTransform):
-    def __init__(self, prototype: Optional[np.ndarray] = None):
-        self._prototype = prototype
+    @abstractmethod
+    def process(self, hrirs_2d: np.ndarray) -> np.ndarray:
+        pass
+
+
+class BatchTransformEarWise(BatchTransform):
+    def __call__(self, hrirs: np.ndarray) -> np.ndarray:
+        dense_hrirs = hrirs.compressed() if np.ma.isMaskedArray(hrirs) else hrirs
+        hrirs_3d = dense_hrirs.reshape(len(hrirs), -1, hrirs.shape[-1])
+        processed_3d = self.process(hrirs_3d)
+        return _restore_original_shape(processed_3d, ~np.ma.getmaskarray(hrirs)[..., 0])
+
+
+    @abstractmethod
+    def process(self, hrirs_3d: np.ndarray) -> np.ndarray:
+        pass
+
+
+class BatchTransformGridWise(BatchTransform):
+    def __init__(self, grid_mask: np.ndarray):
+        self._grid_transform = GriddedPositionsTransform(grid_mask)
 
 
     def __call__(self, hrirs: np.ndarray) -> np.ndarray:
-        if self._prototype is None:
-            self._prototype = hrirs
-        return _to_dense2d(hrirs)
+        if isinstance(hrirs, np.ma.MaskedArray):
+            return self.process(hrirs)
+        else:
+            hrirs_grid = self._grid_transform(hrirs)
+            processed_grid = self.process(hrirs_grid)
+            dense_processed = processed_grid.compressed()
+            if hrirs.ndim == 3:
+                return dense_processed.reshape(len(hrirs), -1, processed_grid.shape[-1])
+            else:
+                return dense_processed.reshape(-1, processed_grid.shape[-1])
 
 
-class Hrir3dTransform(BatchTransform):
-    def __init__(self, prototype: Optional[np.ndarray] = None):
-        self._prototype = prototype
+    @abstractmethod
+    def process(self, hrirs_grid: np.ma.MaskedArray) -> np.ma.MaskedArray:
+        pass
 
 
-    def __call__(self, hrirs: np.ndarray) -> np.ndarray:
-        if self._prototype is None:
-            self._prototype = hrirs
-        return _to_dense3d(hrirs)
+class GriddedPositionsTransform(BatchTransform):
+    def __init__(self, grid_mask: np.ndarray):
+        self._grid_mask = grid_mask
+
+
+    def __call__(self, flat_hrirs: np.ndarray) -> np.ma.MaskedArray:
+        if flat_hrirs.ndim == 3:
+            return _to_masked_grid(flat_hrirs, np.broadcast_to(self._grid_mask[np.newaxis], (len(flat_hrirs), *self._grid_mask.shape)))
+        elif flat_hrirs.ndim == 2:
+            return _to_masked_grid(flat_hrirs, self._grid_mask)
+
+
+class FlatPositionsTransform(BatchTransform):
+    def __call__(self, hrirs_grid: np.ma.MaskedArray) -> np.ndarray:
+        dense_hrirs = hrirs_grid.compressed()
+        return dense_hrirs.reshape(*hrirs_grid.shape[:-4], -1, hrirs_grid.shape[-1])
 
 
 class ScaleTransform(BatchTransform):
@@ -84,30 +109,28 @@ class ScaleTransform(BatchTransform):
         return scaled_values
 
 
-class MinPhaseTransform(BatchTransform):
-    def __call__(self, hrirs: np.ndarray) -> np.ndarray:
-        dense_hrirs = _to_dense2d(hrirs)
-        hrtf = fft(dense_hrirs)
+class MinPhaseTransform(BatchTransformHrirWise):
+    def process(self, flat_hrirs: np.ndarray) -> np.ndarray:
+        hrtf = fft(flat_hrirs)
         magnitudes = np.abs(hrtf)
         min_phases = -np.imag(hilbert(np.log(np.maximum(magnitudes, np.finfo(magnitudes.dtype).smallest_subnormal))))
         min_phase_hrtf = magnitudes * np.exp(1j * min_phases)
-        min_phase_hrirs = np.real(ifft(min_phase_hrtf)[..., :hrirs.shape[-1]])
-        return _to_multidim(min_phase_hrirs, hrirs)
+        min_phase_hrirs = np.real(ifft(min_phase_hrtf)[..., :flat_hrirs.shape[-1]])
+        return min_phase_hrirs
 
 
-class ResampleTransform(BatchTransform):
+class ResampleTransform(BatchTransformHrirWise):
     def __init__(self, original_rate:float, target_rate: float):
         self.original_rate = original_rate
         self.target_rate = target_rate
 
 
-    def __call__(self, hrirs: np.ndarray) -> np.ndarray:
+    def process(self, flat_hrirs: np.ndarray) -> np.ndarray:
         if self.original_rate == self.target_rate:
-            return hrirs
-        dense_hrirs = _to_dense2d(hrirs)
+            return flat_hrirs
         # process in chunks of 65536 HRIRs (channels) because that's the maximum supported by soxr
-        resampled_hrirs = np.vstack([soxr.resample(dense_hrirs[ch_idx:ch_idx+soxr._CH_LIMIT].T, self.original_rate, self.target_rate).T for ch_idx in range(0, len(dense_hrirs), soxr._CH_LIMIT)])
-        return _to_multidim(resampled_hrirs, hrirs)
+        resampled_hrirs = np.vstack([soxr.resample(flat_hrirs[ch_idx:ch_idx+soxr._CH_LIMIT].T, self.original_rate, self.target_rate).T for ch_idx in range(0, len(flat_hrirs), soxr._CH_LIMIT)])
+        return resampled_hrirs
 
 
 class SelectIndicesTransform(BatchTransform):
@@ -147,7 +170,12 @@ class PadTransform(BatchTransform):
         self._pad_kwargs = pad_kwargs
 
     def __call__(self, values: np.ndarray) -> np.ndarray:
-        return np.pad(values, {-1: self._pad_width}, self._mode, **self._pad_kwargs)
+        padded_values = np.pad(values, {-1: self._pad_width}, self._mode, **self._pad_kwargs)
+        if isinstance(values, np.ma.MaskedArray):
+            padded_mask = np.pad(np.ma.getmaskarray(values), {-1: self._pad_width}, self._mode, **self._pad_kwargs)
+            return np.ma.MaskedArray(padded_values, padded_mask)
+        else:
+            return padded_values
 
 
 class DecibelTransform(BatchTransform):
@@ -157,7 +185,7 @@ class DecibelTransform(BatchTransform):
         return 20 * np.log10(np.maximum(hrtf, min_value))
 
 
-class DomainTransform(BatchTransform):
+class DomainTransform(BatchTransformHrirWise):
     def __init__(self, domain: str, dtype: Optional[npt.DTypeLike]=None):
         if domain not in ('time', 'complex', 'magnitude', 'power_db', 'phase'):
             raise ValueError(f'Unknown domain "{domain}" for HRIRs')
@@ -169,26 +197,21 @@ class DomainTransform(BatchTransform):
         self.dtype = dtype
 
 
-    def __call__(self, hrirs: np.ndarray) -> np.ndarray:
+    def process(self, flat_hrirs: np.ndarray) -> np.ndarray:
         if self.domain == 'time':
-            transformed_hrirs = hrirs
+            transformed_hrirs = flat_hrirs
         else:
-            dense_hrirs = _to_dense2d(hrirs)
-            dense_hrtf = rfft(dense_hrirs, norm='forward')
-            hrtf = _to_multidim(dense_hrtf, hrirs)
+            flat_hrtf = rfft(flat_hrirs, norm='forward')
             if self.domain == 'complex':
-                transformed_hrirs = hrtf
+                transformed_hrirs = flat_hrtf
             elif self.domain in ('magnitude', 'power_db'):
-                if np.ma.isMaskedArray(hrtf):
-                    # workaround to avoid spurious warning triggered by np.abs in NumPy v1.23.5
-                    hrtf._fill_value = hrirs.fill_value
-                magnitudes = np.abs(hrtf)
+                magnitudes = np.abs(flat_hrtf)
                 if self.domain.endswith('_db'):
                     transformed_hrirs = self._db_transformer(magnitudes)
                 else:
                     transformed_hrirs = magnitudes
             elif self.domain == 'phase':
-                transformed_hrirs = np.angle(hrtf)
+                transformed_hrirs = np.angle(flat_hrtf)
         if self.dtype is None:
             return transformed_hrirs
         return transformed_hrirs.astype(self.dtype)
@@ -208,6 +231,7 @@ class PlaneTransform(ABC):
         self.fundamental_angles = fundamental_angles
         self.orthogonal_angles = orthogonal_angles
         self.selection_mask = selection_mask
+        self._grid_transform = GriddedPositionsTransform(selection_mask)
         self.positive_angles = positive_angles # triggers calculation of min_angle, max_angle & plane_angles
         if plane in ('horizontal', 'interaural'):
             self.plane_angle_name = 'yaw [°]'
@@ -252,8 +276,12 @@ class PlaneTransform(ABC):
         pass
 
 
-    def __call__(self, single_plane: np.ma.MaskedArray):
-        single_plane = self.process(single_plane)
+    def __call__(self, hrirs: np.ndarray | list):
+        if isinstance(hrirs, (np.ma.MaskedArray, list)):
+            single_plane = self.process(hrirs)
+        else:
+            hrirs_grid = self._grid_transform(hrirs)
+            single_plane = self.process(hrirs_grid)
         try:
             if single_plane.mask.any():
                 if single_plane.ndim > 1:
@@ -385,7 +413,7 @@ class InterauralPlaneTransform(PlaneTransform):
         return super()._stitch_plane(input_angles)
 
 
-    def process(self, hrirs: np.ndarray):
+    def process(self, hrirs: np.ma.MaskedArray | list):
         if self.plane == 'median':
             if self.positive_angles:
                 down, up = np.split(hrirs, [self._split_idx])
@@ -551,7 +579,7 @@ class SphericalPlaneTransform(PlaneTransform):
         return super()._stitch_plane(input_angles)
 
 
-    def process(self, hrirs: np.ndarray):
+    def process(self, hrirs: np.ma.MaskedArray | list):
         if self.plane == 'horizontal':
             if self.positive_angles:
                 right, left = np.split(hrirs, [self._split_idx])
@@ -616,9 +644,21 @@ class SphericalPlaneTransform(PlaneTransform):
         return single_plane
 
 
-class CompensateFreefieldTransform(BatchTransform):
-    def __init__(self, freefield_median_plane: np.ndarray, freefield_elevations: np.ndarray, ds_azimuths: np.ndarray, ds_elevations: np.ndarray, delay_samples: int,
-                 *, truncated_samples: int | None = None, fadein_samples: int = 0, fadeout_samples: int = 0, append_samples: int = 0):
+class CompensateFreefieldTransform(BatchTransformGridWise):
+    def __init__(self,
+        freefield_median_plane: np.ndarray,
+        freefield_elevations: np.ndarray,
+        delay_samples: int,
+        ds_azimuths: np.ndarray,
+        ds_elevations: np.ndarray,
+        ds_grid_mask: np.ndarray,
+        *,
+        truncated_samples: int | None = None,
+        fadein_samples: int = 0,
+        fadeout_samples: int = 0,
+        append_samples: int = 0
+    ):
+        super().__init__(ds_grid_mask)
         self._freefield_hrirs = self.assemble_freefield_tensor(freefield_median_plane, freefield_elevations, ds_azimuths, ds_elevations)
         self._delay = delay_samples
         self._truncate = TruncateTransform(truncated_length=truncated_samples, fadein_length=fadein_samples, fadeout_length=fadeout_samples)
@@ -628,7 +668,7 @@ class CompensateFreefieldTransform(BatchTransform):
         self.append_samples = append_samples
 
 
-    def __call__(self, hrirs: np.ndarray) -> np.ndarray:
+    def process(self, hrirs: np.ma.MaskedArray) -> np.ma.MaskedArray:
         num_tiles = len(hrirs) // len(self._freefield_hrirs)
         if len(self._freefield_hrirs) * num_tiles != len(hrirs):
             raise ValueError(f'The number of measured ears ({len(hrirs)})is not a multiple of the number of freefield ears ({len(self._freefield_hrirs)}) ')
@@ -637,7 +677,7 @@ class CompensateFreefieldTransform(BatchTransform):
         conv_len = hrirs.shape[-1] + self._freefield_hrirs.shape[-1] - 1
         fft_len = nextpow2(conv_len)
         circ_conv = np.fft.irfft(np.fft.rfft(hrirs, n=fft_len) * np.fft.rfft(tiled_freefield_hrirs, n=fft_len))
-        shifted_conv = np.roll(circ_conv, shift=(-self._delay), axis=-1)[..., :conv_len]
+        shifted_conv = np.roll(circ_conv, shift=-self._delay, axis=-1)[..., :conv_len]
         sparse_mask = np.tile(np.ma.getmaskarray(hrirs)[..., :1], conv_len)
         masked_conv = np.ma.array(shifted_conv, dtype=hrirs.dtype, mask=sparse_mask)
 
