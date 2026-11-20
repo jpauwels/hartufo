@@ -159,7 +159,7 @@ class DecibelTransform(BatchTransform):
 
 class DomainTransform(BatchTransform):
     def __init__(self, domain: str, dtype: Optional[npt.DTypeLike]=None):
-        if domain not in ('time', 'complex', 'magnitude', 'magnitude_db', 'phase'):
+        if domain not in ('time', 'complex', 'magnitude', 'power_db', 'phase'):
             raise ValueError(f'Unknown domain "{domain}" for HRIRs')
         if domain == 'complex' and not issubclass(dtype, np.complexfloating):
             raise ValueError(f'An HRTF in the complex domain requires the dtype to be set to a complex type (currently {dtype})')
@@ -178,7 +178,7 @@ class DomainTransform(BatchTransform):
             hrtf = _to_multidim(dense_hrtf, hrirs)
             if self.domain == 'complex':
                 transformed_hrirs = hrtf
-            elif self.domain.startswith('magnitude'):
+            elif self.domain in ('magnitude', 'power_db'):
                 if np.ma.isMaskedArray(hrtf):
                     # workaround to avoid spurious warning triggered by np.abs in NumPy v1.23.5
                     hrtf._fill_value = hrirs.fill_value
