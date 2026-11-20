@@ -7,7 +7,7 @@ def plot_hrtf_plane(hrtf, angles, angles_label, frequencies, log_freq=False, ax=
         fig, ax = plt.subplots()
     else:
         fig = ax.figure
-    mesh = ax.pcolormesh(angles, frequencies/1000, hrtf.squeeze().T, shading='gouraud' if continuous else 'nearest', cmap=cmap, vmin=vmin, vmax=vmax)
+    mesh = ax.pcolormesh(angles, frequencies/1000, hrtf.T, shading='gouraud' if continuous else 'nearest', cmap=cmap, vmin=vmin, vmax=vmax)
     if colorbar:
         fig.colorbar(mesh, ax=ax)
     ax.set_xlabel(angles_label)
@@ -63,7 +63,7 @@ def plot_3d_positions(cartesian_positions, ax=None, ax_limit=None, **scatter_kwa
         _, ax = plt.subplots(subplot_kw={'projection': '3d'}, layout='constrained')
     elif 'Axes3D' not in str(ax):
         raise ValueError('Three-dimensional axes are required for plotting positions.')
-    ax.azim = -45
+    ax.azim = 45
     ax.set_xlabel('X [m]')
     ax.set_ylabel('Y [m]')
     ax.set_zlabel('Z [m]')

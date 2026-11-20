@@ -88,7 +88,7 @@ class HrirSpec(Spec):
         flat_positions: bool = True,
         fundamental_angles: Optional[Iterable[float]] = None,
         orthogonal_angles: Optional[Iterable[float]] = None,
-        distance: Optional[Union[float, str]] = None,
+        distance: Optional[Union[Iterable[float], str]] = None,
         method: Optional[str] = None,
         variant: Optional[str] = None,
         additive_scale_factor: Optional[float] = None,

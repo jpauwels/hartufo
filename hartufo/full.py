@@ -2,12 +2,13 @@ from .datareader import DataReader, CipicDataReader, AriDataReader, ListenDataRe
 from .display import plot_hrir_plane, plot_hrtf_plane, plot_plane_positions, plot_3d_positions, plot_hrir_lines, plot_hrtf_lines
 from .specifications import Spec, HrirSpec, sanitise_specs, sanitise_multiple_specs
 from .transforms.hrir import BatchTransform, ScaleTransform, MinPhaseTransform, ResampleTransform, TruncateTransform, DomainTransform, SelectValueRangeTransform, PlaneTransform, GriddedPositionsTransform, PadTransform, CompensateFreefieldTransform
+from .util import quantise
 from collections import defaultdict
 from collections.abc import Callable
 from copy import deepcopy
 from itertools import chain
 from pathlib import Path
-from numbers import Integral
+from numbers import Integral, Real
 from typing import Dict, Iterable, Optional, Tuple, Union
 import numpy as np
 import numpy.typing as npt
@@ -34,7 +35,7 @@ class Dataset:
         dict_format = True,
     ) -> None:
         super().__init__()
-        self.query = datareader.query
+        self.datareader = datareader
         self.fundamental_angle_name = datareader.fundamental_angle_name
         self.orthogonal_angle_name = datareader.orthogonal_angle_name
         self._coordinate_transform = datareader._coordinate_transform
@@ -58,11 +59,11 @@ class Dataset:
 
         if subject_requirements is not None:
             self._specification = {**self._specification, **subject_requirements}
-        self.collection_id = self.query.collection_id(self._specification.get('hrir', {}).get('method'), self._specification.get('hrir', {}).get('variant'))
-        ear_ids = self.query.specification_based_ids(self._specification, include_subjects=subject_ids, exclude_subjects=exclude_ids)
+        self.collection_id = datareader.query.collection_id(self._specification.get('hrir', {}).get('method'), self._specification.get('hrir', {}).get('variant'))
+        ear_ids = datareader.query.specification_based_ids(self._specification, include_subjects=subject_ids, exclude_subjects=exclude_ids)
 
         if len(ear_ids) == 0:
-            if len(self.query.specification_based_ids(self._specification)) == 0:
+            if len(datareader.query.specification_based_ids(self._specification)) == 0:
                 raise ValueError('Empty dataset. Check if its configuration and paths are correct.')
             if subject_ids:
                 raise ValueError('None of the explicitly requested subject IDs are available.')
@@ -229,7 +230,7 @@ class Dataset:
 
     @property
     def available_subject_ids(self):
-        ear_ids = self.query.specification_based_ids(self._specification, exclude_subjects=self._exclude_ids)
+        ear_ids = self.datareader.query.specification_based_ids(self._specification, exclude_subjects=self._exclude_ids)
         subject_ids, _ = zip(*ear_ids)
         return tuple(sorted(set([str_id for str_id in subject_ids if isinstance(str_id, str)])) +
                      sorted(set([int_id for int_id in subject_ids if isinstance(int_id, int)])))
@@ -384,7 +385,9 @@ class Dataset:
             return
 
 
-    def plot_plane(self, idx, ax=None, vmin=None, vmax=None, title=None, lineplot=False, cmap='viridis', continuous=False, colorbar=True, log_freq=False, plane=None, offset=None):
+    def plot_plane(self, idx, ax=None, vmin=None, vmax=None, title=None, lineplot=False, cmap='viridis', continuous=False, colorbar=True, log_freq=False, plane=None, offset=None, positive_angles=None, distance: None | str | Real = None):
+        if not isinstance(distance, Real) and distance not in ('nearest', 'farthest', None):
+            raise ValueError(f'Invalid distance "{distance}". Only "nearest", "farthest" or a value in meter is allowed.')
         if self._specification.get('hrir') is None:
             raise ValueError('No HRIR data in this Dataset.')
         loaded_plane = self._specification['hrir'].get('plane')
@@ -395,42 +398,98 @@ class Dataset:
             loaded_offset = self._specification['hrir']['plane_offset']
             if offset is not None and offset != loaded_offset :
                 raise ValueError(f'This Dataset only contains a {loaded_plane} plane with offset {loaded_offset}, so requesting an offset of {offset} is invalid.')
+            if distance is not None:
+                req_distance = self._specification['hrir'].get('distance')
+                if isinstance(distance, str) and distance != req_distance:
+                    if isinstance(req_distance, str):
+                        raise ValueError(f'This Dataset only contains positions at the {req_distance} distance, so requesting the {distance} distance is invalid.')
+                    else:
+                        raise ValueError(f'This Dataset only contains positions at {req_distance}m distance, so requesting the {distance} distance is invalid.')
+                loaded_distance = self.radii[0]
+                if isinstance(distance, Real) and quantise(distance, self.datareader._distance_quantisation) != loaded_distance:
+                    raise ValueError(f'This Dataset only contains positions at {loaded_distance}m distance, so requesting a distance of {distance}m is invalid.')
+            plane = self._specification['hrir']['plane']
+            offset = self._specification['hrir']['plane_offset']
         else:
             # Non-planar dataset
             if plane is None:
                 raise ValueError('A plane to plot needs to be specified for non-planar Datasets.')
             if offset is None:
                 offset = 0
-            fundamental_angles, orthogonal_angles = self._plane_transform.convert_plane_angles(plane, None, offset)
-            raise NotImplementedError('Plotting a plane from a non-planar Dataset is not yet supported.')
+            if positive_angles is None:
+                positive_angles = False
+            grid_transform = GriddedPositionsTransform(self.grid_mask)
+            req_fundamental_angles, req_orthogonal_angles = self.datareader.PlaneTransform.convert_plane_angles(plane, None, offset)
+
+            if isinstance(distance, Real):
+                req_distance = quantise(distance, self.datareader._distance_quantisation)
+                distance_mask = np.isin(self.radii, req_distance)
+            else:
+                distance_mask = np.zeros_like(self.radii, dtype=bool)
+                if distance == 'nearest':
+                    distance_mask[0] = True
+                else:
+                    distance_mask[-1] = True
+
+            fundamental_mask = (np.ones_like(self.fundamental_angles, dtype=bool) if req_fundamental_angles is None
+                                else np.isin(self.fundamental_angles, req_fundamental_angles))
+            orthogonal_mask = (np.ones_like(self.orthogonal_angles, dtype=bool) if req_orthogonal_angles is None
+                               else np.isin(self.orthogonal_angles, req_orthogonal_angles))
+            subset_mask = self.grid_mask & fundamental_mask[:, None, None] & orthogonal_mask[None, :, None] & distance_mask[None, None, :]
+            if not subset_mask.any():
+                raise ValueError(f'There are no measurements at {distance}{'m' if isinstance(distance, Real) else ''} distance in the {plane} plane.')
+            plane_fundamental_mask = subset_mask.any(axis=(1, 2))
+            plane_orthogonal_mask = subset_mask.any(axis=(0, 2))
+            plane_distance_mask = subset_mask.any(axis=(0, 1))
+            plane_grid_mask = self.grid_mask[np.ix_(plane_fundamental_mask, plane_orthogonal_mask, plane_distance_mask)]
+
+            plane_fundamental_angles = self.fundamental_angles[plane_fundamental_mask]
+            plane_orthogonal_angles = self.orthogonal_angles[plane_orthogonal_mask]
+            plane_radius = self.radii[plane_distance_mask].item()
 
         hrir_role = 'features' if 'hrir' in self._features_keys else 'target' if 'hrir' in self._target_keys else 'group'
         if vmin is None or vmax is None:
-            all_hrirs = self[:][hrir_role]
+            all_subjects = self[:][hrir_role]
+            if loaded_plane is None:
+                all_subjects = grid_transform(all_subjects)[:, subset_mask]
             if vmin is None:
-                vmin = all_hrirs.min()
+                vmin = all_subjects.min()
             if vmax is None:
-                vmax = all_hrirs.max()
+                vmax = all_subjects.max()
         data = self[idx][hrir_role]
+        if loaded_plane is None:
+            gridded_data = grid_transform(data)
+            plane_gridded_shape = (*plane_grid_mask.shape, data.shape[-1])
+            plane_gridded_data = np.ma.masked_all(plane_gridded_shape, dtype=gridded_data.dtype)
+            plane_gridded_data[plane_grid_mask] = gridded_data[subset_mask]
+            plane_transform_subset = self.datareader.PlaneTransform(
+                plane, offset, positive_angles,
+                plane_fundamental_angles, plane_orthogonal_angles, plane_grid_mask
+            )
+            data = plane_transform_subset(plane_gridded_data)
+            plane_angles = plane_transform_subset.plane_angles
+            plane_angle_name = plane_transform_subset.plane_angle_name
+        else:
+            plane_angles = self.plane_angles
+            plane_angle_name = self.plane_angle_name
 
         if self._specification['hrir']['domain'] == 'time':
             if lineplot:
-                ax = plot_hrir_lines(data, self.plane_angles, self.plane_angle_name, self.hrir_samplerate, ax=ax, vmin=vmin, vmax=vmax)
+                ax = plot_hrir_lines(data, plane_angles, plane_angle_name, self.hrir_samplerate, ax=ax, vmin=vmin, vmax=vmax)
             else:
-                ax = plot_hrir_plane(data, self.plane_angles, self.plane_angle_name, self.hrir_samplerate, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, continuous=continuous, colorbar=colorbar)
+                ax = plot_hrir_plane(data, plane_angles, plane_angle_name, self.hrir_samplerate, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, continuous=continuous, colorbar=colorbar)
         else:
             if lineplot:
-                ax = plot_hrtf_lines(data, self.plane_angles, self.plane_angle_name, self.hrtf_frequencies, log_freq=log_freq, ax=ax, vmin=vmin, vmax=vmax)
+                ax = plot_hrtf_lines(data, plane_angles, plane_angle_name, self.hrtf_frequencies, log_freq=log_freq, ax=ax, vmin=vmin, vmax=vmax)
             else:
-                ax = plot_hrtf_plane(data, self.plane_angles, self.plane_angle_name, self.hrtf_frequencies, log_freq=log_freq, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, continuous=continuous, colorbar=colorbar)
+                ax = plot_hrtf_plane(data, plane_angles, plane_angle_name, self.hrtf_frequencies, log_freq=log_freq, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, continuous=continuous, colorbar=colorbar)
 
         if title is None:
-            plane = self._specification['hrir']['plane']
-            plane_offset = self._specification['hrir']['plane_offset']
-            title = "{} Plane{} of Subject {}'s {} Ear".format(plane.title(),
-                ' With Offset {}°'.format(plane_offset) if plane_offset != 0 or plane in ('vertical', 'interaural') else '',
+            title = "{} Plane{} of Subject {}'s {} Ear{}".format(plane.title(),
+                ' With Offset {}°'.format(offset) if offset != 0 or plane in ('vertical', 'interaural') else '',
                 self.subject_ids[idx],
                 self.sides[idx].replace('-', ' ').title(),
+                ' at {}m Distance'.format(plane_radius) if len(self.radii) > 1 else '',
             )
         ax.set_title(title)
         return ax
@@ -451,14 +510,14 @@ class Dataset:
             ax = plot_plane_positions(self.plane_angles, self.min_angle, self.max_angle, True, self.radii, zero_location, direction, ax, limit, **kwargs)
             if title is None:
                 plane_offset = self._specification['hrir']['plane_offset']
-                title = "Source Positions in {}'s {} Plane{}".format(self.query.collection_id().title(), plane.title(),
+                title = "Source Positions in {}'s {} Plane{}".format(self.datareader.query.collection_id().title(), plane.title(),
                     ' With Offset {}°'.format(plane_offset) if plane_offset != 0 or plane in ('vertical', 'interaural') else ''
                 )
         else:
             # Non-planar Dataset
             ax = plot_3d_positions(self.positions(coordinate_system='cartesian'), ax=ax, ax_limit=limit, **kwargs)
             if title is None:
-                title = f'Source Positions in {self.query.collection_id().title()}'
+                title = f'Source Positions in {self.datareader.query.collection_id().title()}'
         ax.set_title(title)
         return ax
 
