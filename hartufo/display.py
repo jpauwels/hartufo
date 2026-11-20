@@ -36,6 +36,8 @@ def plot_plane_positions(angles, min_angle, max_angle, closed_open_angles, radii
     if ax is None:
         _, ax = plt.subplots(subplot_kw={'projection': 'polar'})
     plot_kwargs = dict(color='k', marker='o', linestyle='') | plot_kwargs
+    if not angles.size:
+        return ax
     for radius in radii:
         ax.plot(np.deg2rad(angles), np.full(len(angles), radius), **plot_kwargs)
     if radius_limit is None:
@@ -61,12 +63,14 @@ def plot_3d_positions(cartesian_positions, ax=None, ax_limit=None, **scatter_kwa
         _, ax = plt.subplots(subplot_kw={'projection': '3d'}, layout='constrained')
     elif 'Axes3D' not in str(ax):
         raise ValueError('Three-dimensional axes are required for plotting positions.')
-    scatter_kwargs = dict(marker='.') | scatter_kwargs
-    ax.scatter(*cartesian_positions.T, **scatter_kwargs)
     ax.azim = -45
     ax.set_xlabel('X [m]')
     ax.set_ylabel('Y [m]')
     ax.set_zlabel('Z [m]')
+    if not cartesian_positions.size:
+        return ax
+    scatter_kwargs = dict(marker='.') | scatter_kwargs
+    ax.scatter(*cartesian_positions.T, **scatter_kwargs)
     if ax_limit is None:
         ax_limit = np.abs(cartesian_positions).max()
     ax.set_xlim(-ax_limit, ax_limit)

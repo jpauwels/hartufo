@@ -320,6 +320,8 @@ class Dataset:
 
 
     def positions(self, coordinate_system=None):
+        if not self.grid_mask.size:
+            return np.array([])
         req_coordinates = self._coordinate_transform(coordinate_system, *np.meshgrid(self.fundamental_angles, self.orthogonal_angles, self.radii, indexing='ij'))
         coordinates_grid = np.ma.masked_where(
             np.tile(~self.grid_mask[..., np.newaxis], 3),
