@@ -89,7 +89,7 @@ class Dataset:
             self.fundamental_angles, self.orthogonal_angles, self.radii, self.grid_mask, *_ = datareader._map_sofa_position_order_to_matrix(
                 self.subject_ids[0], requested_fundamental_angles, requested_orthogonal_angles, hrir_spec.get('distance'),
             )
-            if hrir_spec.get('side', '').startswith('both-'):
+            if hrir_spec.get('side', '').startswith('any-'):
                 datareader._verify_angle_symmetry(self.fundamental_angles, self.orthogonal_angles)
             # Create plane transform from file angles and mask
             if 'plane' in hrir_spec:
