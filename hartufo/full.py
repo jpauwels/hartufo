@@ -231,7 +231,8 @@ class Dataset:
     def available_subject_ids(self):
         ear_ids = self.query.specification_based_ids(self._specification, exclude_subjects=self._exclude_ids)
         subject_ids, _ = zip(*ear_ids)
-        return tuple(np.unique(subject_ids))
+        return tuple(sorted(set([str_id for str_id in subject_ids if isinstance(str_id, str)])) +
+                     sorted(set([int_id for int_id in subject_ids if isinstance(int_id, int)])))
 
 
     @property

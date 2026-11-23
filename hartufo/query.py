@@ -231,8 +231,8 @@ class DataQuery:
             separate_ids.append(set(self.hrir_ids(side, exclude)))
 
         selected_ids = set.intersection(*separate_ids)
-        ids = (sorted([str_id for str_id in selected_ids if isinstance(str_id[0], str)])
-             + sorted([int_id for int_id in selected_ids if isinstance(int_id[0], int)]))
+        ids = (sorted([str_id for str_id in selected_ids if isinstance(str_id[0], str)]) +
+               sorted([int_id for int_id in selected_ids if isinstance(int_id[0], int)]))
         if include_subjects is None:
             return ids
         if len(ids) > 0 and isinstance(include_subjects, str):
@@ -267,20 +267,18 @@ class DataQuery:
             else:
                 sides = ('left', 'right')
             if side.startswith('both'):
-                both_ids = [(i, s) for i in set(left_ids).intersection(right_ids) for s in sides]
-                ids = (sorted([str_id for str_id in both_ids if isinstance(str_id[0], str)])
-                     + sorted([int_id for int_id in both_ids if isinstance(int_id[0], int)]))
+                ids = [(i, s) for i in set(left_ids).intersection(right_ids) for s in sides]
             else:
-                any_ids = [(i, sides[0]) for i in left_ids] + [(i, sides[1]) for i in right_ids]
-                ids = (sorted([str_id for str_id in any_ids if isinstance(str_id[0], str)])
-                     + sorted([int_id for int_id in any_ids if isinstance(int_id[0], int)]))
+                ids = [(i, sides[0]) for i in left_ids] + [(i, sides[1]) for i in right_ids]
         elif side in ['left', 'right']:
             ids = [(i, side) for i in id_fn(side)]
         else:
             raise ValueError(f'Unknown side "{side}"')
+        sorted_ids = (sorted([str_id for str_id in ids if isinstance(str_id[0], str)]) +
+                      sorted([int_id for int_id in ids if isinstance(int_id[0], int)]))
         if exclude is None:
             exclude = default_exclude
-        return [(i, s) for i, s in ids if i not in exclude]
+        return [(i, s) for i, s in sorted_ids if i not in exclude]
 
 
 class HrirDataQuery(DataQuery):
@@ -524,12 +522,12 @@ class CipicDataQuery(HrirDataQuery, AnthropometryDataQuery, ImageDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob('subject_*.sofa')])
-    
+        return [int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob('subject_*.sofa')]
+
 
     def _all_image_ids(self, side, rear):
         all_globs = (self.image_directory_path.rglob('*'+suffix) for suffix in self._image_suffix(side, rear))
-        return sorted(set([int(x.stem.split('_')[0]) for glob in all_globs for x in glob]))
+        return set([int(x.stem.split('_')[0]) for glob in all_globs for x in glob])
 
 
     @staticmethod
@@ -571,7 +569,7 @@ class AriDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_nh')[1]) for x in self.sofa_directory_path.glob('hrtf [bc]_nh*.sofa')])
+        return [int(x.stem.split('_nh')[1]) for x in self.sofa_directory_path.glob('hrtf [bc]_nh*.sofa')]
 
 
     def _load_anthropometry(self, anthropometry_path):
@@ -621,7 +619,7 @@ class ListenDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._checksum_key / '44100').glob(f'IRC_????_{self._hrir_variant_char}_44100.sofa')])
+        return [int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._checksum_key / '44100').glob(f'IRC_????_{self._hrir_variant_char}_44100.sofa')]
 
 
     def _load_anthropometry(self, anthropometry_path):
@@ -687,7 +685,7 @@ class CrossModDataQuery(HrirDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._hrir_variant / '44100').glob(f'IRC_????_{self._hrir_variant_char}_44100.sofa')])
+        return [int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._hrir_variant / '44100').glob(f'IRC_????_{self._hrir_variant_char}_44100.sofa')]
 
 
 class BiLiDataQuery(HrirDataQuery):
@@ -729,7 +727,7 @@ class BiLiDataQuery(HrirDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._hrir_variant / str(self._samplerate)).glob(f'IRC_????_{self._hrir_variant_char}_HRIR_{self._samplerate}.sofa')])
+        return [int(x.stem.split('_')[1]) for x in (self.sofa_directory_path / self._hrir_variant / str(self._samplerate)).glob(f'IRC_????_{self._hrir_variant_char}_HRIR_{self._samplerate}.sofa')]
 
 
 class ItaDataQuery(HrirDataQuery, AnthropometryDataQuery):
@@ -744,7 +742,7 @@ class ItaDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('MRT')[1]) for x in self.sofa_directory_path.glob('MRT??.sofa')])
+        return [int(x.stem.split('MRT')[1]) for x in self.sofa_directory_path.glob('MRT??.sofa')]
 
 
     def _load_anthropometry(self, anthropometry_path):
@@ -792,7 +790,7 @@ class HutubsDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[0].split('pp')[1]) for x in self.sofa_directory_path.glob(f'pp*_HRIRs_{self._method_str}.sofa')])
+        return [int(x.stem.split('_')[0].split('pp')[1]) for x in self.sofa_directory_path.glob(f'pp*_HRIRs_{self._method_str}.sofa')]
 
 
     def _load_anthropometry(self, anthropometry_path):
@@ -834,7 +832,7 @@ class RiecDataQuery(HrirDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[3]) for x in self.sofa_directory_path.glob('RIEC_hrir_subject_???.sofa')])
+        return [int(x.stem.split('_')[3]) for x in self.sofa_directory_path.glob('RIEC_hrir_subject_???.sofa')]
 
 
 class ChedarDataQuery(HrirDataQuery, AnthropometryDataQuery):
@@ -858,7 +856,7 @@ class ChedarDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'{self._radius}/chedar_????_UV{self._radius}.sofa')])
+        return [int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'{self._radius}/chedar_????_UV{self._radius}.sofa')]
 
 
     def _load_anthropometry(self, anthropometry_path):
@@ -913,7 +911,7 @@ class WidespreadDataQuery(HrirDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'{self._grid}/{self._radius}/{self._grid}{self._radius}_?????.sofa')])
+        return [int(x.stem.split('_')[1]) for x in self.sofa_directory_path.glob(f'{self._grid}/{self._radius}/{self._grid}{self._radius}_?????.sofa')]
 
 
 class Sadie2DataQuery(HrirDataQuery, ImageDataQuery):
@@ -940,14 +938,14 @@ class Sadie2DataQuery(HrirDataQuery, ImageDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[0][1:]) for x in self.sofa_directory_path.glob(f'[DH]*/[DH]*_HRIR_SOFA/[DH]*_{self._samplerate_str}_FIR_SOFA.sofa')])
+        return [int(x.stem.split('_')[0][1:]) for x in self.sofa_directory_path.glob(f'[DH]*/[DH]*_HRIR_SOFA/[DH]*_{self._samplerate_str}_FIR_SOFA.sofa')]
 
 
     def _all_image_ids(self, side, rear):
         if rear:
             raise ValueError('No rear pictures available in the SADIE II dataset')
         side_str = self._image_side_str(side)
-        return sorted([int(x.stem.split('_')[0].split()[0][1:]) for x in self.image_directory_path.glob(f'[DH]*/[DH]*_Scans/[DH]*[_ ]{side_str}.png')])
+        return [int(x.stem.split('_')[0].split()[0][1:]) for x in self.image_directory_path.glob(f'[DH]*/[DH]*_Scans/[DH]*[_ ]{side_str}.png')]
 
 
     @staticmethod
@@ -997,7 +995,7 @@ class Princeton3D3ADataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[0].lstrip('Subject')) for x in self.sofa_directory_path.glob(f'{self._method_str}/Subject*/Subject*_{self._hrir_variant_str}.sofa')])
+        return [int(x.stem.split('_')[0].lstrip('Subject')) for x in self.sofa_directory_path.glob(f'{self._method_str}/Subject*/Subject*_{self._hrir_variant_str}.sofa')]
 
 
     def _load_anthropometry(self, anthropometry_path):
@@ -1033,7 +1031,7 @@ class ScutDataQuery(HrirDataQuery, AnthropometryDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([int(x.stem.split('_')[2].split('subject')[1]) for x in self.sofa_directory_path.glob('SCUT_NF_subject00??_measured.sofa')])
+        return [int(x.stem.split('_')[2].split('subject')[1]) for x in self.sofa_directory_path.glob('SCUT_NF_subject00??_measured.sofa')]
 
 
     def _load_anthropometry(self, anthropometry_path):
@@ -1115,7 +1113,7 @@ class SonicomDataQuery(HrirDataQuery):
         for x in self.sofa_directory_path.glob(f'*/HRTF/HRTF/{self._samplerate_str}/*_{self._hrir_variant_str}_{self._samplerate_str}.sofa'):
             all_ids.append(int(x.stem.split('_')[0].lstrip('P')))
 
-        return sorted([str_id for str_id in all_ids if isinstance(str_id, str)]) + sorted([int_id for int_id in all_ids if isinstance(int_id, int)])
+        return [str_id for str_id in all_ids if isinstance(str_id, str)] + [int_id for int_id in all_ids if isinstance(int_id, int)]
 
 
 class MitKemarDataQuery(HrirDataQuery):
@@ -1128,7 +1126,7 @@ class MitKemarDataQuery(HrirDataQuery):
 
 
     def _all_hrir_ids(self, side):
-        return sorted([x.stem.split('_')[2] for x in self.sofa_directory_path.glob('mit_kemar_*_pinna.sofa')])
+        return [x.stem.split('_')[2] for x in self.sofa_directory_path.glob('mit_kemar_*_pinna.sofa')]
 
 
 class CustomDataQuery(HrirDataQuery):
